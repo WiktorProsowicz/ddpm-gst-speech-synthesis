@@ -1,0 +1,10 @@
+# ----------------------------------------------------------------------
+# Contains libraries crucial for the project development, in particular:
+# - CI workflow related libs
+# - Testing tools
+# - Linting and static analysis tools to be integrated with IDE
+# ----------------------------------------------------------------------
+
+pre-commit==3.6.2
+pylint==3.1.0
+mypy==1.13.0

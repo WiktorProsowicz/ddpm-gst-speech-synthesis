@@ -1,2 +1,5 @@
 doc/pdf/
-.vscode
+.vscode/
+__pycache__/
+test_results/
+venv/

@@ -1,0 +1,89 @@
+# ----------------------------------------------------------------------------------
+# This file contains pre-commit hooks containing rules under which the project files
+# should be tested before each commit. To check whether the code conforms to the
+# specified rules, one should add files to the git staging area using
+#   git add
+# and then run (with activated virtual environment)
+#   pre-commit run
+#
+# The 'pre-commit' tool can be installed via
+#   pip install -r requirements-dev.txt
+#
+# Don't forget that this tool checks only aspects like linting, formatting etc.
+# Before committing to master, make sure all unit tests pass.
+# ----------------------------------------------------------------------------------
+
+repos:
+  # A set of pre-commit hooks checking various file's features.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-docstring-first
+      - id: check-added-large-files
+      - id: check-yaml
+      - id: debug-statements
+      - id: name-tests-test
+        args: [--pytest-test-first]
+      - id: double-quote-string-fixer
+      - id: requirements-txt-fixer
+      - id: fix-encoding-pragma
+      - id: check-executables-have-shebangs
+
+  # Checks whether the python code's syntax conforms to the conventions of newer python versions.
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.31.0
+    hooks:
+      - id: pyupgrade
+
+  # Makes sure the python code's format conforms to the PEP8 style guide.
+  - repo: https://github.com/hhatto/autopep8
+    rev: v2.0.4
+    hooks:
+      - id: autopep8
+        args: [--in-place, --aggressive, --max-line-length=100]
+
+  # Makes sure the python variables are used according to their types.
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.6.1
+    hooks:
+      - id: mypy
+        exclude: 'setup\.py'
+
+  # Checks whether the code is accepted by the pylint checker.
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args:
+          - "--ignore-paths=tests/*"
+          - "--disable=missing-function-docstring"
+          - "--disable=missing-module-docstring"
+          - "--disable=fixme"
+          - "--disable=too-few-public-methods"
+
+  # Checks whether the python import statements are properly sorted.
+  - repo: https://github.com/asottile/reorder-python-imports
+    rev: v3.12.0
+    hooks:
+      - id: reorder-python-imports
+        args:
+          - "--application-directories=.:src"
+
+
+  # Ensures yaml files are formatted
+  - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+    rev: 0.2.3
+    hooks:
+      - id: yamlfmt
+        args: [--mapping, '2', --sequence, '4', --offset, '2']
+
+  # Ensures json files are valid. Supports Json with Comments
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.0
+    hooks:
+      - id: check-json5

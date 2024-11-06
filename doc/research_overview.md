@@ -1,11 +1,11 @@
-# Human speech synthesis system based on Denoising Diffusion Probabilistic Models using Global Style Tokens for expressiveness and controllability 
+# Human speech synthesis system based on Denoising Diffusion Probabilistic Models using Global Style Tokens for expressiveness and controllability
 
 The system performs a TTS task using textual prompt and style labels as input ports.
 
 1. The basic role of the system is to generate natural human speech from input text
    - the system's output is a waveform audio converted from a mel-scale spectrogram
-   - the system shall generate a spectrogram that is the most probable i.e. the likelihood of its values is optimized in terms of the data the system has been trained on  
-   - the system's backbone are neural network-based modules  
+   - the system shall generate a spectrogram that is the most probable i.e. the likelihood of its values is optimized in terms of the data the system has been trained on
+   - the system's backbone are neural network-based modules
 2. The generation task is based on a modern approach to training parameters of a generative model
    - the Denoising Diffusion Probabilistic Models concept is applied, which consists in gradually reducing the amount of noise in a randomly generated tensor until its values resemble the probability distribution of real data
 3. The style input is provided via so called Global Style Tokens whose interpretation is to be derived after the neural model has been learned. This means the training of the model is an example of Unsupervised Machine Learning task.
@@ -81,7 +81,7 @@ The role of the postprocessing step is to decode the spectrogram generated withi
   - [Parallel WaveGAN: A fast waveform generation model based on generative adversarial networks with multi-resolution spectrogram](https://arxiv.org/abs/1910.11480)
 
 ### Expressive TTS
-  
+
 - [Deep learning-based expressive speech synthesis: a systematic review of approaches, challenges, and resources](https://asmp-eurasipjournals.springeropen.com/articles/10.1186/s13636-024-00329-7)
 
 - GST

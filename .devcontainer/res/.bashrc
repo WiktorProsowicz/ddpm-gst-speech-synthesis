@@ -1,6 +1,6 @@
 
 # --------------------------------------------------------------------------------------
-# Borrowed from the .bashrc configuration of mcr.microsoft.com/devcontainers/base:jammy 
+# Borrowed from the .bashrc configuration of mcr.microsoft.com/devcontainers/base:jammy
 # --------------------------------------------------------------------------------------
 
 __bash_prompt() {

@@ -11,10 +11,10 @@ import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import venv
 from os import environ
 from os import path
-import sys
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
 
@@ -114,6 +114,7 @@ def run_repository_checks():
 
     except subprocess.CalledProcessError as proc_error:
         logging.critical('Static checks failed: %s', proc_error)
+
 
 def setup_venv() -> None:
     """Sets up the virtual environment."""

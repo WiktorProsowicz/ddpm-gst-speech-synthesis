@@ -8,7 +8,7 @@ deactivate 2> /dev/null
 
 rm -rf venv
 
-python3.12 project_setup.py setup_venv && source venv/bin/activate
+python3.11 project_setup.py setup_venv && source venv/bin/activate
 
 pip install -r requirements.txt
 pip install -r requirements-dev.txt

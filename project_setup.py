@@ -127,7 +127,7 @@ def setup_venv() -> None:
             ' replace it with a new environment, delete it and run again.', venv_path)
         return
 
-    venv.create(venv_path, with_pip=True, upgrade_deps=True, clear=False)
+    venv.create(venv_path, with_pip=True, upgrade_deps=True, clear=False, system_site_packages=True)
 
     logging.info(
         "Successfully created a virtual environment at directory '%s'", venv_path)

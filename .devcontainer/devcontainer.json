@@ -6,6 +6,8 @@
 		"dockerfile": "Dockerfile"
 	},
 	"features": {},
+	"workspaceMount": "source=${localWorkspaceFolder}/,target=/home/devcontainer/workspace,type=bind",
+	"workspaceFolder": "/home/devcontainer/workspace",
 	"postCreateCommand": "/bin/bash .devcontainer/res/post_create_command.bash",
 	"customizations": {
 		"vscode": {
@@ -16,7 +18,8 @@
 				"ms-python.vscode-pylance",
 				"ms-python.pylint",
 				"eamodio.gitlens",
-				"streetsidesoftware.code-spell-checker"
+				"streetsidesoftware.code-spell-checker",
+				"matangover.mypy"
 			]
 		}
 	}

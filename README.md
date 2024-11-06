@@ -19,8 +19,15 @@ The project is intended to be run within a proper Docker container. There are tw
    - `project_setup.py` contains several functions for CI purposes (check `project_setup.py --help`)
 
 2. Runtime
-   - the project should be opened within a Docker container compatible with `.devcontainer/Dockerfile`
+   - the project should be opened within a Docker container compatible with the Docker image the `.devcontainer/Dockerfile` is based on
    - the project requires dependencies from `requirements.txt` to be installed
+
+It is recommended to use all project's functionalities within a virtual environment, no matter which setup option has been chosen.
+
+```
+python3.11 project_setup.py setup_venv && source venv/bin/activate
+pip install -r requirements.txt
+```
 
 ## Changelog
 

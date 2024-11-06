@@ -1,0 +1,25 @@
+# -------------------------------------------------------------
+# This file contains the default configuration for the logging
+# module used in the global project scope. It defines used loggers,
+# handlers and formatters. A concrete logger use by a module should
+# be chosen at specific place in the code.
+# -------------------------------------------------------------
+
+version: 1
+
+loggers:
+  root:
+    handlers: [console_hand]
+    level: NOTSET
+
+handlers:
+  console_hand:
+    class: logging.StreamHandler
+    formatter: console_fmt
+    stream: ext://sys.stdout
+
+formatters:
+  console_fmt:
+    format: '[%(asctime)s][%(levelname)s][%(name)s] %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+    (): _ColorFormatter # should be replaced by a correct type before loading the config

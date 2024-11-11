@@ -8,7 +8,6 @@ It is expected the tool's output is a directory containing files in
 TextGrid format. The names should match the audio files in the dataset.
 """
 
-from dataclasses import dataclass
 from typing import List, Dict
 import os
 import math
@@ -59,17 +58,25 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
     The output durations are in logarithmic scale.
     """
 
-    def __init__(self, output_length: int,
-                 sample_rate: int,
-                 window_size: int,
-                 hop_size: int):
+    def __init__(self, output_length: int, output_spectrogram_length: int,
+                 output_audio_length: float):
+        """Initializes the transform.
+
+        Args:
+            output_length: Expected length of the output sequence.
+            output_spectrogram_length: Length of the spectrogram in frames. This value should be
+                equal to the maximal sum of the durations of the phonemes.
+            output_audio_length: Duration of the audio in seconds. This value accounts for the
+                number of frames in the output spectrogram with the given sample rate.
+        """
 
         super().__init__()
 
         self._output_length = output_length
-        self._bin_size = ((sample_rate - window_size) // hop_size) + 1
+        self._output_frames_per_second = output_spectrogram_length / output_audio_length
+        self._min_log_duration = .01
 
-    def forward(self, alignments: List[textgrid.Interval]) -> List[float]:
+    def forward(self, alignments: List[textgrid.Interval]) -> torch.Tensor:
         """Transforms the forced phoneme alignments into phoneme durations.
 
         Args:
@@ -84,4 +91,16 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
 
         for alignment in alignments:
 
-            length = alignment.minTime
+            length = alignment.maxTime - alignment.minTime
+            duration = round(length * self._output_frames_per_second)
+
+            if duration > 1:
+                durations.append(math.log2(duration))
+
+            else:
+                durations.append(self._min_log_duration)
+
+        if len(durations) < self._output_length:
+            durations += ([0] * (self._output_length - len(durations)))
+
+        return torch.Tensor(durations[:self._output_length])

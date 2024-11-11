@@ -8,7 +8,7 @@ import requests
 import gdown
 
 
-GDRIVE_DOWNLOAD_URL = 'https://drive.google.com/uc?id=1WGdcR7cBiv5md0e7VXEXe3mtox5xKIE_'
+GDRIVE_DOWNLOAD_URL = 'https://drive.google.com/uc?id=1d9A6K1qgwUCR4shci_RvTe2eeDHqq6au'
 
 
 def download_phoneme_alignments(destination_path: str):

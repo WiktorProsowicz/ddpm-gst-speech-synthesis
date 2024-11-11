@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Prepares a ready-to-use dataset with desired features."""
+"""Prepares a ready-to-use dataset with desired features.
 
-from torchvision.transforms import transforms
+The script downloads the LJSpeech dataset and phoneme alignments, preprocesses the audio files, transcripts
+"""
+
 import argparse
 import yaml  # Type: ignore
 import pathlib
@@ -9,6 +11,8 @@ import sys
 import os
 import logging
 
+from matplotlib import pyplot as plt
+import torch
 
 SCRIPT_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
@@ -18,6 +22,11 @@ DEFAULT_CONFIG = {
     "raw_dataset_path": f"{SCRIPT_PATH}/.dataset/raw",
     "processed_dataset_path": f"{SCRIPT_PATH}/.dataset/processed",
     "phoneme_alignments_path": f"{SCRIPT_PATH}/.dataset/alignments",
+    # Dataset parameters
+    "sample_rate": 22050,
+    "fft_window_size": 1024,
+    "fft_hop_size": 256,
+    "audio_max_length": 6.0
 }
 
 
@@ -27,6 +36,7 @@ def main(config):
     from data import ljspeech
     from data.preprocessing import text as text_prep
     from utilities import other as other_utils
+    from utilities import inference as inference_utils
 
     logging.info("Running dataset preparation pipeline...")
     logging.info("Configuration:\n%s", yaml.dump(config))
@@ -41,18 +51,20 @@ def main(config):
         os.makedirs(config['phoneme_alignments_path'])
         other_utils.download_phoneme_alignments(config['phoneme_alignments_path'])
 
-    ds_text_transform = transforms.Compose([
-        text_prep.GraphemeToPhonemeTransform()
-    ])
-    ds_audio_transform = None
-
     logging.info("Preparing the preprocessed dataset...")
 
     ds = ljspeech.LJSpeechDataset(config['raw_dataset_path'],
                                   config['phoneme_alignments_path'],
-                                  ds_text_transform,
-                                  ds_audio_transform)
-    # ljspeech.serialize_ds(ds, config['processed_dataset_path'])
+                                  config['sample_rate'],
+                                  config['fft_window_size'],
+                                  config['fft_hop_size'],
+                                  config['audio_max_length'])
+
+    logging.info("Serializing the dataset...")
+
+    ljspeech.serialize_ds(ds, config['processed_dataset_path'])
+
+    logging.info("Dataset preparation completed.")
 
 
 def _get_cl_args() -> argparse.Namespace:

@@ -37,7 +37,7 @@ To run the scripts from the `scripts` directory one should first ensure the `PYT
 
 ```
 export PYTHONPATH=$PYTHONPATH:/home/devcontainer/workspace/src
-python scripts/train_model/main.py
+python scripts/train_model.py
 ```
 
 ## Changelog

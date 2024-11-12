@@ -7,21 +7,22 @@ The script downloads the LJSpeech dataset and phoneme alignments, preprocesses t
 import argparse
 import yaml  # Type: ignore
 import pathlib
-import sys
 import os
 import logging
 
-from matplotlib import pyplot as plt
-import torch
+from utilities import logging_utils
+from utilities import scripts_utils
+from data import ljspeech
+from utilities import other as other_utils
 
 SCRIPT_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 
 DEFAULT_CONFIG = {
     # Destination paths
-    "raw_dataset_path": f"{SCRIPT_PATH}/.dataset/raw",
-    "processed_dataset_path": f"{SCRIPT_PATH}/.dataset/processed",
-    "phoneme_alignments_path": f"{SCRIPT_PATH}/.dataset/alignments",
+    "raw_dataset_path": scripts_utils.CfgRequired(),
+    "processed_dataset_path": scripts_utils.CfgRequired(),
+    "phoneme_alignments_path": scripts_utils.CfgRequired(),
     # Dataset parameters
     "sample_rate": 22050,
     "fft_window_size": 1024,
@@ -32,11 +33,6 @@ DEFAULT_CONFIG = {
 
 def main(config):
     """Runs the dataset preparation pipeline based on the configuration."""
-
-    from data import ljspeech
-    from data.preprocessing import text as text_prep
-    from utilities import other as other_utils
-    from utilities import inference as inference_utils
 
     logging.info("Running dataset preparation pipeline...")
     logging.info("Configuration:\n%s", yaml.dump(config))
@@ -83,19 +79,10 @@ def _get_cl_args() -> argparse.Namespace:
 
 if __name__ == '__main__':
 
-    args = _get_cl_args()
-
-    configuration = DEFAULT_CONFIG
-
-    if args.config_path:
-        with open(args.config_path, 'r', encoding='utf-8') as file:
-            configuration = yaml.safe_load(file)
-
-    sys.path.append(os.path.join(HOME_PATH, 'src'))
-
-    from utilities import logging_utils
-
     logging_utils.setup_logging()
     logging.getLogger().setLevel(logging.INFO)
 
+    args = _get_cl_args()
+
+    configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
     main(configuration)

@@ -3,13 +3,10 @@
 
 import os
 import pathlib
-import sys
 import argparse
-import json
 import sys
 import logging
 import yaml  # Type: ignore
-import random
 
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
@@ -19,13 +16,14 @@ import numpy as np
 
 from data import data_loading
 from utilities import logging_utils
+from utilities import scripts_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
 
 DEFAULT_CONFIG = {
     "data": {
-        "dataset_path": "",
+        "dataset_path": scripts_utils.CfgRequired(),
         "train_split_ratio": 0.98,
         "n_test_files": 100
     },
@@ -102,14 +100,9 @@ def _get_cl_args() -> argparse.Namespace:
 
 if __name__ == '__main__':
 
-    args = _get_cl_args()
-
-    config = DEFAULT_CONFIG
-
-    if args.config_path:
-        with open(args.config_path, 'r', encoding='utf-8') as file:
-            config = json.load(file)
-
     logging_utils.setup_logging()
 
+    args = _get_cl_args()
+
+    config = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
     main(config)

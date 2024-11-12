@@ -15,6 +15,8 @@ The project is intended to be run within a proper Docker container. There are tw
 
 1. Development
    - the project should be edited preferably within a VSCode's DevContainer
+      - this automatically runs the setup scripts for the environment
+      - all VSCode's extensions, that come in handy, are configured for the DevContainer
    - the environment uses configurations from the `.devcontainer` folder
    - `project_setup.py` contains several functions for CI purposes (check `project_setup.py --help`)
 
@@ -29,17 +31,35 @@ python3.11 project_setup.py setup_venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Usage
+
+To run the scripts from the `scripts` directory one should first ensure the `PYTHONPATH` environment variable is correctly set. This is crucial for the source code to be seen by the scripts without the need to install it as a library. For example:
+
+```
+export PYTHONPATH=$PYTHONPATH:/home/devcontainer/workspace/src
+python scripts/train_model/main.py
+```
+
 ## Changelog
 
-### 0.0.1
+### 0.1.0
 
 - Established the initial project structure
 - Added document with project's overview
 
-### 0.0.2
+### 0.2.0
 
 - Introduced Docker environment setup
 - Added project setup script
 - Added pre-commit hooks
 - Added utilities for logging
 - Added project's dependencies config
+
+### 0.3.0
+
+- Added script and tools for downloading and preprocessing input data
+
+### 0.4.0
+- Added tools for loading the preprocessed data
+- Added support for Tensorboard
+- Added utilities for handling scripts configuration

@@ -19,7 +19,8 @@
 				"ms-python.pylint",
 				"eamodio.gitlens",
 				"streetsidesoftware.code-spell-checker",
-				"matangover.mypy"
+				"matangover.mypy",
+				"ms-toolsai.tensorboard"
 			]
 		}
 	}

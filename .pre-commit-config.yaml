@@ -66,6 +66,8 @@ repos:
           - --disable=missing-module-docstring
           - --disable=fixme
           - --disable=too-few-public-methods
+          - --disable=too-many-instance-attributes
+          - --disable=too-many-arguments
 
   # Checks whether the python import statements are properly sorted.
   - repo: https://github.com/asottile/reorder-python-imports

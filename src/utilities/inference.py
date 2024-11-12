@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
-
 from typing import List
+
 import torch
 
 

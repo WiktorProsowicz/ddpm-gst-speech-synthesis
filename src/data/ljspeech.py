@@ -3,22 +3,22 @@
 
 The dataset's details is available at https://keithito.com/LJ-Speech-Dataset/.
 """
-
-from typing import Callable, Tuple
-import math
 import csv
-import os
 import json
+import math
+import os
+from typing import Callable
+from typing import Tuple
 
 import torch
 from torch.utils import data as torch_data
 from torchaudio import datasets  # type: ignore
-from torchvision.transforms import transforms
 from torchaudio import transforms as audio_transforms
+from torchvision.transforms import transforms
 
 from data.preprocessing import alignments
-from data.preprocessing import text
 from data.preprocessing import audio as audio_prep
+from data.preprocessing import text
 
 
 class LJSpeechDataset(torch_data.Dataset):
@@ -43,8 +43,9 @@ class LJSpeechDataset(torch_data.Dataset):
 
         self._dataset = datasets.LJSPEECH(root=ds_path, download=True)
 
-        with open(os.path.join(ds_path, "LJSpeech-1.1", "metadata.csv"), "r") as file:
-            self._metadata = list(csv.reader(file, delimiter="|", quoting=csv.QUOTE_NONE))
+        metadata_path = os.path.join(ds_path, 'LJSpeech-1.1', 'metadata.csv')
+        with open(metadata_path, 'r', encoding='utf-8') as file:
+            self._metadata = list(csv.reader(file, delimiter='|', quoting=csv.QUOTE_NONE))
 
         self._sample_rate = sample_rate
         self._audio_max_length = audio_max_length
@@ -133,13 +134,12 @@ class LJSpeechDataset(torch_data.Dataset):
         outputs of the audio transforms.
         """
 
-        spec_mean = 0.0
-        spec_std = 0.0
+        spec_mean = torch.tensor(0.0)
+        spec_std = torch.tensor(0.0)
 
         transform = self._create_base_audio_transform()
 
-        for idx in range(len(self._dataset)):
-            audio, _, _, _ = self._dataset[idx]
+        for audio, _, _, _ in self._dataset:
 
             audio = transform(audio)
 
@@ -166,13 +166,13 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     global_spec_mean, global_spec_std = ds.get_spectrogram_stats()
 
     metadata = {
-        "global_spec_mean": global_spec_mean,
-        "global_spec_std": global_spec_std
+        'global_spec_mean': global_spec_mean,
+        'global_spec_std': global_spec_std
     }
 
-    for sample_idx in range(len(ds)):
-        sample_path = os.path.join(path, f"sample_{sample_idx:06d}.pt")
-        torch.save(ds[sample_idx], sample_path)
+    for sample_idx, sample in enumerate(ds):
+        sample_path = os.path.join(path, f'sample_{sample_idx:06d}.pt')
+        torch.save(sample, sample_path)
 
-    with open(os.path.join(path, "metadata.json"), "w") as file:
+    with open(os.path.join(path, 'metadata.json'), 'w', encoding='utf-8') as file:
         json.dump(metadata, file)

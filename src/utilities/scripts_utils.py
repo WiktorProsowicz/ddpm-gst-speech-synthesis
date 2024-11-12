@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Contains common utilities used by the scripts."""
-
-from typing import Optional, Dict
-import logging
 import json
+import logging
 import sys
+from typing import Dict
+from typing import Optional
 
 
 class CfgRequired:
@@ -65,12 +65,12 @@ def try_load_user_config(config_path: Optional[str], default_config: Dict):
     if config_path:
 
         try:
-            with open(config_path, 'r') as config_file:
+            with open(config_path, 'r', encoding='utf-8') as config_file:
                 config = _merge_configs(config, json.load(config_file))
 
         except FileNotFoundError:
             logging.critical(
-                "The configuration file was not found at the provided path: %s",
+                'The configuration file was not found at the provided path: %s',
                 config_path)
             sys.exit(1)
 

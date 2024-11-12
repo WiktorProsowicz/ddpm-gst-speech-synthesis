@@ -8,7 +8,7 @@
     FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
     ARG DEBIAN_FRONTEND=noninteractive
     RUN useradd -ms /bin/bash devcontainer
-   
+
     # Installing the main packages required for a new project's user
     # They're necessary to correctly use the project's content
     RUN apt update && \
@@ -18,5 +18,5 @@
         # Main dependencies
         apt update && apt install -y \
             git nano
-    
+
     USER devcontainer

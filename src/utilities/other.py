@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """Contains utility functions for various purposes."""
-
-import subprocess
-import os
 import logging
-import requests
+import os
+import subprocess
+
 import gdown
 
 
@@ -34,4 +33,4 @@ def download_phoneme_alignments(destination_path: str):
         subprocess.run(['rm', tar_path], check=True)
 
     except subprocess.CalledProcessError as proc_err:
-        logging.critical("Failed to download the phoneme alignments: %s", proc_err)
+        logging.critical('Failed to download the phoneme alignments: %s', proc_err)

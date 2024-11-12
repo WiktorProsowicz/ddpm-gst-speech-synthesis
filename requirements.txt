@@ -2,9 +2,9 @@
 # Contains libraries crucial for running the main project functionalities.
 # -------------------------------------------------------------------------
 
-PyYAML==6.0.2
 g2p_en==2.1.0
+PyYAML==6.0.2
 soundfile==0.12.1
-textgrid==1.6.1
 tensorboard==2.18.0
+textgrid==1.6.1
 torch-tb-profiler==0.4.3

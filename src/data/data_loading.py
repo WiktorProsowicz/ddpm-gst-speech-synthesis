@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Contains tools for loading serialized dataset."""
-
-from typing import List, Tuple
 import os
+from typing import List
+from typing import Tuple
 
-from torch.utils import data as torch_data
-import torch
 import numpy as np
+import torch
+from torch.utils import data as torch_data
 
 
 class _ProcessedDataset(torch_data.Dataset):

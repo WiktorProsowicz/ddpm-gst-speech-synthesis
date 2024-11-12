@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 """Contains training pipeline for the model."""
-
+import argparse
+import logging
 import os
 import pathlib
-import argparse
 import sys
-import logging
-import yaml  # Type: ignore
 
+import numpy as np
+import torch
+import torchvision
+import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
-import torchvision
-import torch
-import numpy as np
 
 from data import data_loading
 from utilities import logging_utils
@@ -22,18 +21,18 @@ HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
 
 DEFAULT_CONFIG = {
-    "data": {
-        "dataset_path": scripts_utils.CfgRequired(),
-        "train_split_ratio": 0.98,
-        "n_test_files": 100
+    'data': {
+        'dataset_path': scripts_utils.CfgRequired(),
+        'train_split_ratio': 0.98,
+        'n_test_files': 100
     },
-    "training": {
-        "batch_size": 64,
-        "epochs": 32,
+    'training': {
+        'batch_size': 64,
+        'epochs': 32,
     },
-    "model": {
-        "encoder_input_shape": [256, 80],
-        "decoder_input_shape": [1024, 80],
+    'model': {
+        'encoder_input_shape': [256, 80],
+        'decoder_input_shape': [1024, 80],
     }
 }
 
@@ -50,8 +49,8 @@ def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryW
 def main(config):
     """Runs the training pipeline based on the configuration."""
 
-    logging.info("Starting training pipeline.")
-    logging.info("Configuration:\n%s", yaml.dump(config))
+    logging.info('Starting training pipeline.')
+    logging.info('Configuration:\n%s', yaml.dump(config))
 
     tb_writer = torch_tb.SummaryWriter()
 
@@ -61,7 +60,7 @@ def main(config):
         config['data']['n_test_files']
     )
 
-    logging.info("Datasets loaded.")
+    logging.info('Datasets loaded.')
 
     _log_example_data(train_ds, tb_writer)
 
@@ -79,7 +78,7 @@ def main(config):
         shuffle=False
     )
 
-    logging.info("Data loaders created.")
+    logging.info('Data loaders created.')
 
     tb_writer.close()
 

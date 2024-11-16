@@ -7,6 +7,7 @@ import itertools
 import logging
 import os
 import sys
+import json
 
 import torch
 
@@ -140,3 +141,93 @@ def save_model_components(components: ModelComponents, path: str):
         torch.save(components.gst_provider.state_dict(), os.path.join(path, "gst_provider.pth"))
         torch.save(components.reference_embedder.state_dict(),
                    os.path.join(path, "reference_embedder.pth"))
+
+
+class ModelCheckpointHandler:
+    """Handles the saving and loading of model checkpoints.
+
+    The class is responsible for managing files inside the checkpoints directory. It shall
+    store both the metadata of the saved checkpoints as well as the model components.
+    """
+
+    def __init__(self, checkpoint_dir: str,
+                 checkpoint_basename: str):
+        """Initializes the ModelCheckpointHandler.
+
+        Args:
+            checkpoint_dir: The directory to store the model checkpoints.
+            checkpoint_basename: The base name of the checkpoints.
+        """
+
+        self._checkpoint_dir = checkpoint_dir
+        self._metadata_path = os.path.join(checkpoint_dir, "metadata.json")
+        self._checkpoint_basename = checkpoint_basename
+
+    def num_checkpoints(self) -> int:
+        """Returns the number of saved checkpoints."""
+
+        return len(self._get_metadata()['checkpoints'])
+
+    def get_newest_checkpoint(
+            self, model_components: ModelComponents) -> Tuple[ModelComponents, Dict[str, Any]]:
+        """Loads the newest checkpoint from the checkpoint directory.
+
+        Args:
+            model_components: The components of the model to load the checkpoint into.
+
+        Returns:
+            A tuple containing the model components and the metadata of the newest checkpoint.
+        """
+
+        metadata = self._get_metadata()
+
+        if not metadata['checkpoints']:
+            logging.critical("No checkpoints found.")
+            sys.exit(1)
+
+        newest_checkpoint = metadata['checkpoints'][-1]
+
+        checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
+        load_model_components(model_components, checkpoint_path)
+
+        return model_components, newest_checkpoint['metadata']
+
+    def save_checkpoint(self, model_components: ModelComponents,
+                        checkpoint_metadata: Dict[str, Any]):
+        """Saves the model components as a checkpoint.
+
+        Args:
+            model_components: The components of the model to save.
+            checkpoint_metadata: The metadata of the checkpoint.
+        """
+
+        checkpoint_dir = os.path.join(self._checkpoint_dir,
+                                      f'{self._checkpoint_basename}_{self.num_checkpoints()}')
+
+        save_model_components(model_components, checkpoint_dir)
+
+        metadata = self._get_metadata()
+
+        metadata['checkpoints'].append({
+            'directory_name': os.path.basename(checkpoint_dir),
+            'metadata': checkpoint_metadata
+        })
+
+        self._save_metadata(metadata)
+
+    def _get_metadata(self) -> Dict[str, Any]:
+        """Returns the metadata of the saved checkpoints."""
+
+        if not os.path.exists(self._metadata_path):
+            return {
+                "checkpoints": []
+            }
+
+        with open(self._metadata_path, "r", encoding='utf-8') as file:
+            return json.load(file)
+
+    def _save_metadata(self, metadata: Dict[str, Any]):
+        """Saves the metadata of the saved checkpoints."""
+
+        with open(self._metadata_path, "w", encoding='utf-8') as file:
+            json.dump(metadata, file)

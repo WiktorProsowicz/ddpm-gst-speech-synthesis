@@ -29,6 +29,8 @@ class ModelTrainer:
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
                  diff_params_scheduler: diff_utils.ParametrizationScheduler,
+                 checkpoints_handler: model_utils.ModelCheckpointHandler,
+                 checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float):
         """Initializes the model trainer.
@@ -40,6 +42,8 @@ class ModelTrainer:
             tb_logger: The tensorboard logger.
             optimizer: The optimizer to use for training.
             device: The device to run the computations on.
+            checkpoints_handler: The handler for saving/loading model checkpoints.
+            checkpoints_interval: The number of steps between saving checkpoints.
             diff_params_scheduler: The scheduler for the diffusion process parameters.
             validation_interval: The number of steps between validation runs.
         """
@@ -50,17 +54,20 @@ class ModelTrainer:
         self._tb_logger = tb_logger
         self._device = device
         self._diffusion_handler = diff_utils.DiffusionHandler(diff_params_scheduler)
+        self._checkpoints_handler = checkpoints_handler
+        self._checkpoints_interval = checkpoints_interval
         self._validation_interval = validation_interval
 
         self._optimizer = torch.optim.Adam(self._model_comps.parameters(), lr=learning_rate)
         self._noise_prediction_loss = torch.nn.MSELoss()
         self._duration_loss = torch.nn.MSELoss()
 
-    def run_training(self, num_steps: int, use_profiler: bool = False):
+    def run_training(self, num_steps: int, start_step: int = 0, use_profiler: bool = False):
         """Runs the training pipeline.
 
         Args:
             num_steps: The number of training steps to run.
+            start_step: The step to start training from.
             use_profiler: Whether to use the code profiling while training.
         """
 
@@ -75,13 +82,14 @@ class ModelTrainer:
                 with_stack=True,
             ) as profiler:
 
-                self._run_training_pipeline(num_steps, profiler)
+                self._run_training_pipeline(num_steps, start_step, profiler)
 
         else:
 
-            self._run_training_pipeline(num_steps)
+            self._run_training_pipeline(num_steps, start_step)
 
     def _run_training_pipeline(self, num_steps: int,
+                               start_step: int = 0,
                                profiler: Optional[torch.profiler.profile] = None):
         """Runs the training pipeline.
 
@@ -92,7 +100,7 @@ class ModelTrainer:
 
         data_loader_enum = enumerate(self._train_data_loader)
 
-        for step_idx in range(num_steps):
+        for step_idx in range(start_step, num_steps):
 
             try:
                 _, batch = next(data_loader_enum)
@@ -108,6 +116,11 @@ class ModelTrainer:
 
             if (step_idx + 1) % self._validation_interval == 0:
                 self._run_validation(step_idx)
+
+            if (step_idx + 1) % self._checkpoints_interval == 0:
+                self._checkpoints_handler.save_checkpoint(self._model_comps, {
+                    "n_training_steps": step_idx + 1,
+                })
 
     def _run_training_step(self, step_idx: int, batch):
         """Runs a single training step.
@@ -127,7 +140,17 @@ class ModelTrainer:
         noise_prediction_loss, duration_loss = self._compute_losses(
             spectrogram, phonemes, durations)
 
-        print(noise_prediction_loss, duration_loss)
+        total_loss = noise_prediction_loss + duration_loss
+
+        self._tb_logger.add_scalar(
+            'Training/Loss/NoisePrediction',
+            noise_prediction_loss.item(),
+            step_idx)
+        self._tb_logger.add_scalar('Training/Loss/Duration', duration_loss.item(), step_idx)
+        self._tb_logger.add_scalar('Training/Loss/Total', total_loss.item(), step_idx)
+
+        total_loss.backward()
+        self._optimizer.step()
 
     def _run_validation(self, step_idx: int):
         """Runs validation on the validation data.
@@ -135,6 +158,40 @@ class ModelTrainer:
         Args:
             step_idx: The index of the current training step.
         """
+
+        with torch.no_grad():
+
+            avg_noise_prediction_loss = torch.tensor(0, device=self._device)
+            avg_duration_loss = torch.tensor(0, device=self._device)
+            avg_total_loss = torch.tensor(0, device=self._device)
+
+            for batch in self._val_data_loader:
+
+                spectrogram, phonemes, durations = batch
+
+                spectrogram = spectrogram.to(self._device)
+                phonemes = phonemes.to(self._device)
+                durations = durations.to(self._device)
+
+                noise_prediction_loss, duration_loss = self._compute_losses(
+                    spectrogram, phonemes, durations)
+
+                avg_noise_prediction_loss += noise_prediction_loss
+                avg_duration_loss += duration_loss
+                avg_total_loss += noise_prediction_loss + duration_loss
+
+            avg_total_loss /= len(self._val_data_loader)
+            avg_noise_prediction_loss /= len(self._val_data_loader)
+            avg_duration_loss /= len(self._val_data_loader)
+
+            self._tb_logger.add_scalar('Validation/Loss/Total', avg_total_loss[0], step_idx)
+
+            self._tb_logger.add_scalar(
+                'Validation/Loss/NoisePrediction',
+                avg_noise_prediction_loss[0],
+                step_idx)
+
+            self._tb_logger.add_scalar('Validation/Loss/Duration', avg_duration_loss[0], step_idx)
 
     def _compute_losses(self, spectrogram, phonemes,
                         durations) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -153,10 +210,9 @@ class ModelTrainer:
         noised_data = self._diffusion_handler.add_noise(spectrogram, noise, diff_timestep)
 
         if self._model_comps.gst_provider and self._model_comps.reference_embedder:
-            gst_vectors: torch.Tensor = self._model_comps.gst_provider()
 
             style_embedding: torch.Tensor = self._model_comps.reference_embedder(
-                spectrogram, gst_vectors)
+                spectrogram, self._model_comps.gst_provider())
 
         else:
             style_embedding = None

@@ -60,6 +60,12 @@ python scripts/train_model.py
 - Added script and tools for downloading and preprocessing input data
 
 ### 0.4.0
+
 - Added tools for loading the preprocessed data
 - Added support for Tensorboard
 - Added utilities for handling scripts configuration
+
+### 0.4.1
+
+- Added deterministic dataset splitting
+- Fixed preparing input phonemes and durations

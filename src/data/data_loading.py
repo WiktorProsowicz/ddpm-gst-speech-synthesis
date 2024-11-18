@@ -61,18 +61,19 @@ def get_datasets(processed_dataset_path: str,
         minus the number of test files.
     """
 
+    rng = np.random.RandomState(2137)  # pylint: disable=no-member
     file_ids = []
 
     for file_name in os.listdir(processed_dataset_path):
         if file_name.endswith('.pt'):
             file_ids.append(file_name.split('.')[0])
 
-    test_file_ids = np.random.choice(file_ids, n_test_files, replace=False)
+    test_file_ids = rng.choice(file_ids, n_test_files, replace=False)
 
     file_ids = [file_id for file_id in file_ids if file_id not in test_file_ids]
 
     n_val_files = int(len(file_ids) * (1.0 - train_split_ratio))
-    val_file_ids = np.random.choice(file_ids, n_val_files, replace=False)
+    val_file_ids = rng.choice(file_ids, n_val_files, replace=False)
     train_file_ids = [file_id for file_id in file_ids if file_id not in val_file_ids]
 
     return (_ProcessedDataset(processed_dataset_path, train_file_ids),

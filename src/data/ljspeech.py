@@ -53,23 +53,27 @@ class LJSpeechDataset(torch_data.Dataset):
         self._fft_hop_size = fft_hop_size
         self._alignments = alignments.load_alignments(alignments_path)
 
-        self._max_phonemes = text.get_max_phonemes_for_audio_length(
-            self._alignments, audio_max_length)
+        n_phonemes_for_alignments = {
+            file_id: text.get_n_phonemes_for_audio_length(alignment, audio_max_length)
+            for file_id, alignment
+            in self._alignments.items()}
 
-        self._alignments = {file_id: alignment[:self._max_phonemes]
+        self._phonemes_sequence_length = max(n_phonemes_for_alignments.values())
+
+        self._alignments = {file_id: alignment[:n_phonemes_for_alignments[file_id]]
                             for file_id, alignment in self._alignments.items()}
 
         waveform_length = int(audio_max_length * sample_rate)
         output_spectrogram_length = math.ceil(waveform_length / fft_hop_size)
 
         self._alignments_transform = alignments.PhonemeDurationsExtractingTransform(
-            self._max_phonemes,
+            self._phonemes_sequence_length,
             output_spectrogram_length,
             audio_max_length
         )
 
         self._text_transform = transforms.Compose([
-            text.PadSequenceTransform(self._max_phonemes),
+            text.PadSequenceTransform(self._phonemes_sequence_length),
             text.OneHotEncodeTransform(text.ENHANCED_MFA_ARP_VOCAB)
         ])
 
@@ -107,6 +111,10 @@ class LJSpeechDataset(torch_data.Dataset):
     def __len__(self) -> int:
         """Returns the number of items in the dataset."""
         return len(self._dataset)
+
+    def get_sample_id(self, idx: int) -> str:
+        """Returns the sample ID for the given index."""
+        return self._metadata[idx][0]
 
     def get_spectrogram_stats(self) -> Tuple[float, float]:
         """Returns the global mean and standard deviation of the preprocessed spectrograms."""
@@ -171,7 +179,7 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     }
 
     for sample_idx, sample in enumerate(ds):
-        sample_path = os.path.join(path, f'sample_{sample_idx:06d}.pt')
+        sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')
         torch.save(sample, sample_path)
 
     with open(os.path.join(path, 'metadata.json'), 'w', encoding='utf-8') as file:

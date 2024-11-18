@@ -20,23 +20,17 @@ _ENHANCED_MFA_ARP_PHO = ['AA0', 'AA1', 'AA2', 'AE0', 'AE1', 'AE2',
 ENHANCED_MFA_ARP_VOCAB = ['<pad>', '<unk>', '<sil>'] + _ENHANCED_MFA_ARP_PHO
 
 
-def get_max_phonemes_for_audio_length(
-        phoneme_alignments: Dict[str, textgrid.IntervalTier], audio_length: float):
-    """Calculate the maximal number of phonemes accounting for the audio length.
+def get_n_phonemes_for_audio_length(
+        phoneme_alignments: textgrid.IntervalTier, audio_length: float):
+    """Calculate the number of phonemes accounting for the audio length.
 
     Args:
-        phoneme_alignments: Phoneme alignments with their file ids.
+        phoneme_alignments: MFA phoneme alignments.
         audio_length: Length of the audio in seconds.
     """
 
-    max_phonemes = 0
-
-    for alignment in phoneme_alignments.values():
-
-        n_phonemes = len([interval for interval in alignment if interval.maxTime < audio_length])
-        max_phonemes = max(max_phonemes, n_phonemes)
-
-    return max_phonemes
+    return len(
+        [interval for interval in phoneme_alignments if interval.maxTime < audio_length])
 
 
 def get_phonemes_from_alignments(phoneme_alignments: textgrid.IntervalTier):

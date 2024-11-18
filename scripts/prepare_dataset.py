@@ -81,7 +81,6 @@ def _get_cl_args() -> argparse.Namespace:
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
-    logging.getLogger().setLevel(logging.INFO)
 
     args = _get_cl_args()
 

@@ -69,3 +69,7 @@ python scripts/train_model.py
 
 - Added deterministic dataset splitting
 - Fixed preparing input phonemes and durations
+
+### 0.4.2
+
+- Added debug statements to dataset preparation script

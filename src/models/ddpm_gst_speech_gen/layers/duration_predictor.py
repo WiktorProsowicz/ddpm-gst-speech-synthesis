@@ -1,6 +1,5 @@
-# coding=utf-8
+# -*- coding: utf-8 -*-
 """Contains the duration predictor for the DDPM-GST-Speech-Gen model."""
-
 from typing import Tuple
 
 import torch

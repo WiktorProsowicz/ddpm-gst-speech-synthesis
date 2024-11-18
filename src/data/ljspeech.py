@@ -5,11 +5,11 @@ The dataset's details is available at https://keithito.com/LJ-Speech-Dataset/.
 """
 import csv
 import json
+import logging
 import math
 import os
 from typing import Callable
 from typing import Tuple
-import logging
 
 import torch
 from torch.utils import data as torch_data

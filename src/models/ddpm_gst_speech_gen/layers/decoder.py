@@ -1,7 +1,7 @@
-# coding=utf-8
+# -*- coding: utf-8 -*-
 """Contains the decoder layer for the DDPM-GST-Speech-Gen model."""
-
-from typing import Tuple, Optional
+from typing import Optional
+from typing import Tuple
 
 import torch
 

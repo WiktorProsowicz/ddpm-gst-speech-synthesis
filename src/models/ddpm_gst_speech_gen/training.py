@@ -1,8 +1,9 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains the training/validation/profiling pipeline for the DDPM-GST-Speech-Gen model."""
-
-from typing import Callable, Optional, Tuple
 import logging
+from typing import Callable
+from typing import Optional
+from typing import Tuple
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -124,7 +125,7 @@ class ModelTrainer:
             if (step_idx + 1) % self._checkpoints_interval == 0:
                 logging.debug('Saving checkpoint after %d steps...', step_idx + 1)
                 self._checkpoints_handler.save_checkpoint(self._model_comps, {
-                    "n_training_steps": step_idx + 1,
+                    'n_training_steps': step_idx + 1,
                 })
 
         logging.info('Training pipeline finished.')

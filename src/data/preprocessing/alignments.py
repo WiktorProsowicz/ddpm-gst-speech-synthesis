@@ -7,13 +7,11 @@ https://montreal-forced-aligner.readthedocs.io/en/latest/index.html
 It is expected the tool's output is a directory containing files in
 TextGrid format. The names should match the audio files in the dataset.
 """
-import math
 import os
 from typing import Dict
 from typing import List
 
 import numpy as np
-
 import textgrid
 import torch
 

@@ -1,8 +1,7 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains utilities for handling Diffusion denoising."""
-
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 
 import torch
 

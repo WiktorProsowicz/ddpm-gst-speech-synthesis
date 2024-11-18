@@ -1,26 +1,24 @@
 # -*- coding: utf-8 -*-
 """Contains training pipeline for the model."""
-
-from typing import Any, Dict, Tuple
 import argparse
 import logging
 import os
 import pathlib
-import sys
+from typing import Any
+from typing import Dict
 
 import numpy as np
 import torch
-import torchvision
 import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
+from models.ddpm_gst_speech_gen import training
+from models.ddpm_gst_speech_gen import utils as m_utils
+from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
-from models.ddpm_gst_speech_gen import utils as m_utils
-from models.ddpm_gst_speech_gen import training
-from utilities import diffusion as diff_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
@@ -33,7 +31,7 @@ DEFAULT_CONFIG = {
     },
     'training': {
         'batch_size': 64,
-        "lr": 2e-4,
+        'lr': 2e-4,
         'validation_interval': 100,
         'steps': 1000,
         'start_step': 0,

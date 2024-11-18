@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Contains functions performing textual data preprocessing."""
-from typing import Dict
 from typing import List
 
 import textgrid

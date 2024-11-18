@@ -1,10 +1,7 @@
-# coding=utf-8
+# -*- coding: utf-8 -*-
 """Contains the length regulator layer for the DDPM-GST-Speech-Gen model."""
-
-from typing import Tuple
-
-import torch
 import numpy as np
+import torch
 
 
 def _create_alignment_matrix(log_durations: torch.Tensor, max_length: int) -> torch.Tensor:
@@ -37,7 +34,7 @@ class LengthRegulator(torch.nn.Module):
     to omit the Soft Attention Collapse problem. Besides, it allows parallelization.
     """
 
-    def __init__(self, input_shape: Tuple[int, int], output_length: int):
+    def __init__(self, output_length: int):
         """Initializes the length regulator."""
 
         super().__init__()

@@ -53,32 +53,45 @@ class ModelComponents:
 
 def create_model_components(input_spectrogram_shape: Tuple[int, int],
                             input_phonemes_shape: Tuple[int, int],
-                            gst_embedding_dim: Optional[int],
-                            gst_token_count: Optional[int]) -> ModelComponents:
+                            cfg: Dict[str, Any]) -> ModelComponents:
     """Creates the components of the DDPM-GST-Speech-Gen model.
 
     Args:
         input_spectrogram_shape: The shape of the input spectrogram.
         input_phonemes_shape: The shape of the input one-hot encoded phonemes.
-        gst_embedding_dim: The length of each Global Style Token.
-        gst_token_count: The number of Global Style Tokens.
+        cfg: The internal configuration of the model. It contains the following keys:
+            - gst::use_gst: Whether to use the global style token (GST) module.
+            - gst::embedding_dim: The dimension of the GST embeddings.
+            - gst::token_count: The number of tokens in the GST embeddings.
+            - decoder::timestep_embedding_dim: The dimension of the time embeddings in the decoder.
     """
 
     decoder_input_channels, decoder_input_length = input_spectrogram_shape
-    _, input_phonemes_length = input_phonemes_shape
+    input_phonemes_length, _ = input_phonemes_shape
 
-    decoder = m_dec.Decoder(input_spectrogram_shape)
+    decoder = m_dec.Decoder(
+        input_spectrogram_shape,
+        cfg['decoder']['timestep_embedding_dim'])
+
     encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels)
     duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels))
     length_regulator = m_lr.LengthRegulator(
         (decoder_input_channels, input_phonemes_length), decoder_input_length)
 
-    if gst_embedding_dim and gst_token_count:
-        gst_provider = m_gst.GSTProvider(gst_embedding_dim, gst_token_count)
+    if cfg['gst']['use_gst']:
+
+        gst_provider = m_gst.GSTProvider(
+            cfg["gst"]['embedding_dim'],
+            cfg["gst"]['token_count'])
+
         reference_embedder = m_gst.ReferenceEmbedder(
-            input_spectrogram_shape, (gst_token_count, gst_embedding_dim))
+            input_spectrogram_shape,
+            (cfg["gst"]['token_count'],
+             cfg["gst"]['embedding_dim']))
     else:
+
         gst_provider = None
+        reference_embedder = None
 
     return ModelComponents(
         encoder, decoder, duration_predictor, length_regulator, gst_provider, reference_embedder

@@ -72,8 +72,8 @@ class Encoder(torch.nn.Module):
         self._res_blocks = _create_residual_blocks(
             input_length=input_length,
             conv_channels=embedding_dim,
-            conv_kernel_size=4,
-            conv_dilation_factors=[1, 2, 4, 1, 2, 4, 1]
+            conv_kernel_size=3,
+            conv_dilation_factors=[1, 3, 9, 1, 3, 9, 1]
         )
 
         self._final_lstm = torch.nn.LSTM(

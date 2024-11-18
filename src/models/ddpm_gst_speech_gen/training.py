@@ -169,13 +169,14 @@ class ModelTrainer:
 
         with torch.no_grad():
 
-            avg_noise_prediction_loss = torch.tensor(0, device=self._device)
-            avg_duration_loss = torch.tensor(0, device=self._device)
-            avg_total_loss = torch.tensor(0, device=self._device)
+            avg_noise_prediction_loss = torch.tensor(0., device=self._device)
+            avg_duration_loss = torch.tensor(0., device=self._device)
+            avg_total_loss = torch.tensor(0., device=self._device)
 
             for batch in self._val_data_loader:
 
                 spectrogram, phonemes, durations = batch
+                durations = torch.unsqueeze(durations, -1)
 
                 spectrogram = spectrogram.to(self._device)
                 phonemes = phonemes.to(self._device)
@@ -192,14 +193,17 @@ class ModelTrainer:
             avg_noise_prediction_loss /= len(self._val_data_loader)
             avg_duration_loss /= len(self._val_data_loader)
 
-            self._tb_logger.add_scalar('Validation/Loss/Total', avg_total_loss[0], step_idx)
+            self._tb_logger.add_scalar('Validation/Loss/Total', avg_total_loss.item(), step_idx)
 
             self._tb_logger.add_scalar(
                 'Validation/Loss/NoisePrediction',
-                avg_noise_prediction_loss[0],
+                avg_noise_prediction_loss.item(),
                 step_idx)
 
-            self._tb_logger.add_scalar('Validation/Loss/Duration', avg_duration_loss[0], step_idx)
+            self._tb_logger.add_scalar(
+                'Validation/Loss/Duration',
+                avg_duration_loss.item(),
+                step_idx)
 
     def _compute_losses(self, spectrogram, phonemes,
                         durations) -> Tuple[torch.Tensor, torch.Tensor]:

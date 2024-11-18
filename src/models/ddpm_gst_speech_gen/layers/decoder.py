@@ -8,7 +8,7 @@ import torch
 
 class _ResidualBlock(torch.nn.Module):
 
-    def __init__(self, skip_channels: int, input_channels: int, input_length: int):
+    def __init__(self, skip_channels: int, input_channels: int):
 
         super().__init__()
 
@@ -39,13 +39,12 @@ class _ResidualBlock(torch.nn.Module):
 
 
 def _create_residual_blocks(n_blocks: int, skip_connections_channel: int,
-                            input_channels: int, input_length: int) -> torch.nn.ModuleList:
+                            input_channels: int) -> torch.nn.ModuleList:
 
     blocks = [
         _ResidualBlock(
             skip_channels=skip_connections_channel,
-            input_channels=input_channels,
-            input_length=input_length)
+            input_channels=input_channels)
         for _ in range(n_blocks)
     ]
 
@@ -73,7 +72,7 @@ class Decoder(torch.nn.Module):
 
         super().__init__()
 
-        input_channels, input_length = input_noise_shape
+        input_channels, _ = input_noise_shape
 
         self._timestep_embedding_dim = timestep_embedding_dim
 
@@ -86,7 +85,7 @@ class Decoder(torch.nn.Module):
 
         skip_connections_channel = 512
         self._residual_blocks = _create_residual_blocks(
-            12, skip_connections_channel, input_channels, input_length)
+            12, skip_connections_channel, input_channels)
 
         self._postnet = torch.nn.Sequential(
             torch.nn.Conv1d(
@@ -112,7 +111,7 @@ class Decoder(torch.nn.Module):
 
         time_embedding = self._create_time_embedding(diffusion_step)
         time_embedding = self._timestep_encoder(time_embedding)
-        time_embedding = time_embedding.unsqueeze(1)
+        time_embedding = time_embedding.unsqueeze(-1)
         phoneme_representations = phoneme_representations.transpose(1, 2)
 
         output = noised_spectrogram
@@ -121,7 +120,7 @@ class Decoder(torch.nn.Module):
         for block in self._residual_blocks:
             output, block_skip_output = block(output, time_embedding, phoneme_representations)
 
-            if skip_output:
+            if skip_output is not None:
                 skip_output = skip_output + block_skip_output
 
             else:

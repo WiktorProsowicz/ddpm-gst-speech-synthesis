@@ -45,7 +45,7 @@ class DiffusionHandler:
             scheduler: Provides parameters for the diffusion process.
         """
 
-        self._betas = scheduler
+        self._betas = scheduler.get_beta_params()
         self._alphas = 1 - self._betas
         self._alpha_cumprod = torch.cumprod(self._alphas, dim=0)
         self._sqrt_alpha_cumprod = torch.sqrt(self._alpha_cumprod)

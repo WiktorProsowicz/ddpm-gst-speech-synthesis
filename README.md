@@ -73,3 +73,13 @@ python scripts/train_model.py
 ### 0.4.2
 
 - Added debug statements to dataset preparation script
+
+### 0.5.0
+
+- Implemented base components of the DDPM-GST-SPEECH_GEN
+   - encoder
+   - decoder
+   - duration predictor
+   - length regulator
+- Implemented training pipeline with logging, profiling and validation
+- Implemented the model training script

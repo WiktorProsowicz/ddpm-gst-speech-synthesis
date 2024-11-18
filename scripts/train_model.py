@@ -71,8 +71,10 @@ def _get_model_trainer(
     checkpoints_handler = m_utils.ModelCheckpointHandler(
         config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt')
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     model_components = m_utils.create_model_components(
-        input_spectrogram_shape, input_phonemes_shape, config['model'])
+        input_spectrogram_shape, input_phonemes_shape, config['model'], device)
 
     def model_provider():
 
@@ -87,7 +89,7 @@ def _get_model_trainer(
         train_loader,
         val_loader,
         tb_writer,
-        torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        device,
         diff_utils.LinearScheduler(
             config['training']['diffusion']['beta_min'],
             config['training']['diffusion']['beta_max'],
@@ -154,7 +156,7 @@ def main(config):
         config,
         tb_writer)
 
-    logging.info('Running training for %d steps starting from %d...',
+    logging.info('Running training for %d steps starting from the %d step...',
                  config['training']['steps'],
                  config['training']['start_step'])
 

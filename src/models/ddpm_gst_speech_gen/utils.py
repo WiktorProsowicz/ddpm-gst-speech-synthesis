@@ -53,7 +53,8 @@ class ModelComponents:
 
 def create_model_components(input_spectrogram_shape: Tuple[int, int],
                             input_phonemes_shape: Tuple[int, int],
-                            cfg: Dict[str, Any]) -> ModelComponents:
+                            cfg: Dict[str, Any],
+                            device: torch.device) -> ModelComponents:
     """Creates the components of the DDPM-GST-Speech-Gen model.
 
     Args:
@@ -74,20 +75,28 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
         cfg['decoder']['timestep_embedding_dim'])
 
     encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels)
+    encoder.to(device)
+
     duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels))
+    duration_predictor.to(device)
+
     length_regulator = m_lr.LengthRegulator(
         (decoder_input_channels, input_phonemes_length), decoder_input_length)
+    length_regulator.to(device)
 
     if cfg['gst']['use_gst']:
 
         gst_provider = m_gst.GSTProvider(
             cfg["gst"]['embedding_dim'],
             cfg["gst"]['token_count'])
+        gst_provider.to(device)
 
         reference_embedder = m_gst.ReferenceEmbedder(
             input_spectrogram_shape,
             (cfg["gst"]['token_count'],
              cfg["gst"]['embedding_dim']))
+        reference_embedder.to(device)
+
     else:
 
         gst_provider = None

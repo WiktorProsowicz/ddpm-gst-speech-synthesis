@@ -130,6 +130,7 @@ class ModelTrainer:
         """
 
         spectrogram, phonemes, durations = batch
+        durations = torch.unsqueeze(durations, -1)
 
         spectrogram = spectrogram.to(self._device)
         phonemes = phonemes.to(self._device)

@@ -2,6 +2,7 @@
 """Contains the training/validation/profiling pipeline for the DDPM-GST-Speech-Gen model."""
 
 from typing import Callable, Optional, Tuple
+import logging
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -98,6 +99,8 @@ class ModelTrainer:
             profiler: The profiler to use for profiling the code.
         """
 
+        logging.debug('Training pipeline started.')
+
         data_loader_enum = enumerate(self._train_data_loader)
 
         for step_idx in range(start_step, num_steps):
@@ -115,12 +118,16 @@ class ModelTrainer:
             self._run_training_step(step_idx, batch)
 
             if (step_idx + 1) % self._validation_interval == 0:
+                logging.debug('Running validation after %d steps...', step_idx + 1)
                 self._run_validation(step_idx)
 
             if (step_idx + 1) % self._checkpoints_interval == 0:
+                logging.debug('Saving checkpoint after %d steps...', step_idx + 1)
                 self._checkpoints_handler.save_checkpoint(self._model_comps, {
                     "n_training_steps": step_idx + 1,
                 })
+
+        logging.info('Training pipeline finished.')
 
     def _run_training_step(self, step_idx: int, batch):
         """Runs a single training step.

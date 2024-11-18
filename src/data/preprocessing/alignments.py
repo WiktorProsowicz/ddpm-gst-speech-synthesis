@@ -12,6 +12,8 @@ import os
 from typing import Dict
 from typing import List
 
+import numpy as np
+
 import textgrid
 import torch
 
@@ -74,7 +76,6 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
 
         self._output_length = output_length
         self._output_frames_per_second = output_spectrogram_length / output_audio_length
-        self._min_log_duration = .01
 
     def forward(self, alignments: List[textgrid.Interval]) -> torch.Tensor:
         """Transforms the forced phoneme alignments into phoneme durations.
@@ -87,20 +88,17 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
             the configured expected length with zeros.
         """
 
-        durations = []
+        durations = np.zeros(self._output_length)
 
-        for alignment in alignments:
+        for alignment_idx, alignment in enumerate(alignments):
 
-            length = alignment.maxTime - alignment.minTime
-            duration = round(length * self._output_frames_per_second)
+            frames_up_now = np.floor(alignment.maxTime * self._output_frames_per_second)
 
-            if duration > 1:
-                durations.append(math.log2(duration))
+            duration = frames_up_now - np.sum(durations)
 
-            else:
-                durations.append(self._min_log_duration)
+            durations[alignment_idx] = duration if duration > 1 else 1.
 
-        if len(durations) < self._output_length:
-            durations += ([0] * (self._output_length - len(durations)))
+        durations[:len(alignments)] = np.log2(durations[:len(alignments)])
+        durations[len(alignments):] = 0.
 
-        return torch.Tensor(durations[:self._output_length])
+        return torch.Tensor(durations)

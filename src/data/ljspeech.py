@@ -9,6 +9,7 @@ import math
 import os
 from typing import Callable
 from typing import Tuple
+import logging
 
 import torch
 from torch.utils import data as torch_data
@@ -51,8 +52,11 @@ class LJSpeechDataset(torch_data.Dataset):
         self._audio_max_length = audio_max_length
         self._fft_window_size = fft_window_size
         self._fft_hop_size = fft_hop_size
+
+        logging.debug('Loading alignments...')
         self._alignments = alignments.load_alignments(alignments_path)
 
+        logging.debug('Selecting phonemes up to the given audio length...')
         n_phonemes_for_alignments = {
             file_id: text.get_n_phonemes_for_audio_length(alignment, audio_max_length)
             for file_id, alignment
@@ -77,6 +81,7 @@ class LJSpeechDataset(torch_data.Dataset):
             text.OneHotEncodeTransform(text.ENHANCED_MFA_ARP_VOCAB)
         ])
 
+        logging.debug('Calculating global spectrogram mean and stddev...')
         self._global_spec_mean, self._global_spec_std = self._get_global_spec_stats()
 
         self._audio_transform = transforms.Compose([
@@ -171,6 +176,8 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
         path: Path to the file to serialize the dataset to.
     """
 
+    debug_log_interval = 1000
+
     global_spec_mean, global_spec_std = ds.get_spectrogram_stats()
 
     metadata = {
@@ -181,6 +188,9 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     for sample_idx, sample in enumerate(ds):
         sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')
         torch.save(sample, sample_path)
+
+        if (sample_idx + 1) % debug_log_interval == 0:
+            logging.debug('Serialized %d samples.', sample_idx + 1)
 
     with open(os.path.join(path, 'metadata.json'), 'w', encoding='utf-8') as file:
         json.dump(metadata, file)

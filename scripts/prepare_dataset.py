@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """Prepares a ready-to-use dataset with desired features.
 
-The script downloads the LJSpeech dataset and phoneme alignments, preprocesses
-the audio files, transcripts
+The script downloads the LJSpeech dataset and phoneme alignments. Then it converts the raw
+waveform files into spectrograms according to the provided parameters. The transcripts are
+encoded into phoneme tokens. The phoneme alignments are converted into log-scale durations
+of the particular phonemes. The dataset is serialized into a single folder for further use.
+
+For expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
 import argparse
 import logging
@@ -20,11 +24,12 @@ SCRIPT_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 
 DEFAULT_CONFIG = {
-    # Destination paths
+    # The path where the raw dataset will be (or is already) stored
     'raw_dataset_path': scripts_utils.CfgRequired(),
+    # The path where the preprocessed dataset will be stored
     'processed_dataset_path': scripts_utils.CfgRequired(),
+    # The path where the phoneme alignments will be (or have been) downloaded into
     'phoneme_alignments_path': scripts_utils.CfgRequired(),
-    # Dataset parameters
     'sample_rate': 22050,
     'fft_window_size': 1024,
     'fft_hop_size': 256,

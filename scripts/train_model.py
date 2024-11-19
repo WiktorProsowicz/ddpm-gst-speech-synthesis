@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Contains training pipeline for the model."""
+"""Contains training pipeline for the model.
+
+The training pipeline is responsible for running the training process for the DDPM-GST-Speech-Gen
+model. The user is supposed to provide the script with the directory containing the preprocessed
+dataset, destination directory for the checkpoints and various hyperparameters for the model,
+training and diffusion process.
+
+For the expected configuration parameters, see the DEFAULT_CONFIG constant.
+"""
+
 import argparse
 import logging
 import os
@@ -26,7 +35,9 @@ SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
 
 DEFAULT_CONFIG = {
     'data': {
+        # The path to the preprocessed dataset
         'dataset_path': scripts_utils.CfgRequired(),
+        # The split ratio of the dataset after removing the test files
         'train_split_ratio': 0.98,
         'n_test_files': 100
     },
@@ -50,7 +61,7 @@ DEFAULT_CONFIG = {
             'timestep_embedding_dim': 128,
         },
         'gst': {
-            'use_gst': True,
+            'use_gst': False,
             'embedding_dim': 256,
             'token_count': 32,
         }

@@ -99,7 +99,7 @@ class Decoder(torch.nn.Module):
                 diffusion_step: torch.Tensor,
                 noised_spectrogram: torch.Tensor,
                 phoneme_representations: torch.Tensor,
-                style_embedding: Optional[torch.Tensor]) -> torch.Tensor:
+                style_embedding: Optional[torch.Tensor]) -> torch.Tensor:  # pylint: disable=unused-argument
         """Predicts the noise added to the spectrogram.
 
         Args:

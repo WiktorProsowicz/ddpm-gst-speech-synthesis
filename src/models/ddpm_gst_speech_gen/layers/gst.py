@@ -17,7 +17,7 @@ class GSTProvider(torch.nn.Module):
     model architecture.
     """
 
-    def __init__(self, gst_embedding_dim: int, gst_token_count: int):
+    def __init__(self, gst_embedding_dim: int, gst_token_count: int):  # pylint: disable=unused-argument
         """Initializes the GST provider."""
 
         super().__init__()
@@ -38,7 +38,7 @@ class ReferenceEmbedder(torch.nn.Module):
     input phonemes and the expected audio is mitigated.
     """
 
-    def __init__(self, reference_spectrogram_shape: Tuple[int, int], gst_shape: Tuple[int, int]):
+    def __init__(self, reference_spectrogram_shape: Tuple[int, int], gst_shape: Tuple[int, int]):  # pylint: disable=unused-argument
         """Initializes the reference embedder."""
 
         super().__init__()

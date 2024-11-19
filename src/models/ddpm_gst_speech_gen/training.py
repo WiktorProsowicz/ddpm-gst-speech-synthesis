@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Contains the training/validation/profiling pipeline for the DDPM-GST-Speech-Gen model."""
 import logging
+import time
 from typing import Callable
 from typing import Optional
 from typing import Tuple
-import time
-import numpy as np
 
+import numpy as np
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
@@ -268,8 +268,8 @@ class ModelTrainer:
     def _perform_backward_diffusion(self, step_idx: int):
         """Tries to run the backward diffusion and logs the results."""
 
-        INIT_NOISE_SEED = 2137
-        rng = np.random.RandomState(INIT_NOISE_SEED)  # pylint: disable=no-member
+        init_noise_seed = 2137
+        rng = np.random.RandomState(init_noise_seed)  # pylint: disable=no-member
 
         with torch.no_grad():
 

@@ -87,3 +87,8 @@ python scripts/train_model.py
 ### 0.5.1
 
 - Added GPU support to the DevContainer environment
+
+### 0.5.2
+
+- Added running full backward diffusion process to the training pipeline
+- Added debug statements abound training time

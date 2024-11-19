@@ -4,6 +4,7 @@ import logging
 from typing import Callable
 from typing import Optional
 from typing import Tuple
+import time
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -102,6 +103,8 @@ class ModelTrainer:
             profiler: The profiler to use for profiling the code.
         """
 
+        training_step_debug_interval = 100
+        start_time = time.time()
         logging.debug('Training pipeline started.')
 
         data_loader_enum = enumerate(self._train_data_loader)
@@ -113,12 +116,15 @@ class ModelTrainer:
 
             except StopIteration:
                 data_loader_enum = enumerate(self._train_data_loader)
-                _, batch = next(self._train_data_loader)
+                _, batch = next(data_loader_enum)
 
             if profiler:
                 profiler.step()
 
             self._run_training_step(step_idx, batch)
+
+            if (step_idx + 1) % training_step_debug_interval == 0:
+                logging.debug('Performed %d training steps...', step_idx + 1)
 
             if (step_idx + 1) % self._validation_interval == 0:
 
@@ -138,6 +144,9 @@ class ModelTrainer:
                 })
 
         logging.info('Training pipeline finished.')
+        logging.debug('Training took %.2f minutes.', (time.time() - start_time) / 60)
+        logging.debug('Average time per step: %.2f seconds.',
+                      (time.time() - start_time) / num_steps)
 
     def _run_training_step(self, step_idx: int, batch):
         """Runs a single training step.

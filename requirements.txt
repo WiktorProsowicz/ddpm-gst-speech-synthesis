@@ -8,3 +8,4 @@ soundfile==0.12.1
 tensorboard==2.18.0
 textgrid==1.6.1
 torch-tb-profiler==0.4.3
+gdown==5.2.0

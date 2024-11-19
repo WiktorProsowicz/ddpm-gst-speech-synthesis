@@ -7,6 +7,11 @@ This project contains the implementation of a system performing human speech syn
 ```yaml
 - doc              # All resources related to the research behind the system
 - .devcontainer    # Configuration of the docker environment (see the 'Setup' chapter)
+- src:             # Source code
+   - data          # Dataset downloading & preprocessing tools
+   - models        # Particular models' source code
+   - utilities     # Utility functions & classes for inference, preprocessing etc
+- scripts          # Scripts to be run by the user 
 ```
 
 ### Setup

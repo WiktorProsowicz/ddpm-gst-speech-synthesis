@@ -83,3 +83,7 @@ python scripts/train_model.py
    - length regulator
 - Implemented training pipeline with logging, profiling and validation
 - Implemented the model training script
+
+### 0.5.1
+
+- Added GPU support to the DevContainer environment

@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import pathlib
+import sys
 from typing import Any
 from typing import Dict
 
@@ -111,6 +112,10 @@ def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryW
 
 def main(config):
     """Runs the training pipeline based on the configuration."""
+
+    if config['model']['gst']['use_gst']:
+        logging.critical('GST support is not implemented yet!')
+        sys.exit(1)
 
     logging.info('Starting training pipeline.')
     logging.info('Configuration:\n%s', yaml.dump(config))

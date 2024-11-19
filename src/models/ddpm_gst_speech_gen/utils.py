@@ -75,6 +75,7 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
     decoder = m_dec.Decoder(
         input_spectrogram_shape,
         cfg['decoder']['timestep_embedding_dim'])
+    decoder.to(device)
 
     encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels)
     encoder.to(device)

@@ -55,7 +55,7 @@ class ModelTrainer:
         self._val_data_loader = val_data_loader
         self._tb_logger = tb_logger
         self._device = device
-        self._diffusion_handler = diff_utils.DiffusionHandler(diff_params_scheduler)
+        self._diffusion_handler = diff_utils.DiffusionHandler(diff_params_scheduler, self._device)
         self._checkpoints_handler = checkpoints_handler
         self._checkpoints_interval = checkpoints_interval
         self._validation_interval = validation_interval

@@ -37,15 +37,16 @@ class LinearScheduler(ParametrizationScheduler):
 class DiffusionHandler:
     """Performs the diffusion actions based on the diffusion process parameters."""
 
-    def __init__(self, scheduler: ParametrizationScheduler):
+    def __init__(self, scheduler: ParametrizationScheduler, device: torch.device):
         """Initializes the diffusion handler.
 
         Args:
             scheduler: Provides parameters for the diffusion process.
+            device: The device to run the diffusion process on.
         """
 
-        self._betas = scheduler.get_beta_params()
-        self._alphas = 1 - self._betas
+        self._betas = scheduler.get_beta_params().to(device)
+        self._alphas = (1. - self._betas)
         self._alpha_cumprod = torch.cumprod(self._alphas, dim=0)
         self._sqrt_alpha_cumprod = torch.sqrt(self._alpha_cumprod)
         self._sqrt_one_minus_alpha_cumprod = torch.sqrt(1 - self._alpha_cumprod)

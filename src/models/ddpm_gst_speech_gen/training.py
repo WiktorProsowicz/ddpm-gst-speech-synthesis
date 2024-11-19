@@ -5,6 +5,7 @@ from typing import Callable
 from typing import Optional
 from typing import Tuple
 import time
+import numpy as np
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -267,6 +268,9 @@ class ModelTrainer:
     def _perform_backward_diffusion(self, step_idx: int):
         """Tries to run the backward diffusion and logs the results."""
 
+        INIT_NOISE_SEED = 2137
+        rng = np.random.RandomState(INIT_NOISE_SEED)  # pylint: disable=no-member
+
         with torch.no_grad():
 
             batch = next(iter(self._val_data_loader))
@@ -277,7 +281,8 @@ class ModelTrainer:
             spectrogram = spectrogram.to(self._device)
             phonemes = phonemes.to(self._device)
 
-            initial_noise = torch.randn_like(spectrogram)
+            initial_noise = rng.randn(*spectrogram.shape).astype(np.float32)
+            initial_noise = torch.from_numpy(initial_noise).to(self._device)
 
             phoneme_representations = self._model_comps.encoder(phonemes)
 

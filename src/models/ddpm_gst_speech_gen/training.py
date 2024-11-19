@@ -10,6 +10,7 @@ from torch.utils import tensorboard as pt_tensorboard
 
 from models.ddpm_gst_speech_gen import utils as model_utils
 from utilities import diffusion as diff_utils
+from utilities import inference as inf_utils
 
 
 class ModelTrainer:
@@ -59,6 +60,7 @@ class ModelTrainer:
         self._checkpoints_handler = checkpoints_handler
         self._checkpoints_interval = checkpoints_interval
         self._validation_interval = validation_interval
+        self._backward_diff_interval = validation_interval * 5
 
         self._optimizer = torch.optim.Adam(self._model_comps.parameters(), lr=learning_rate)
         self._noise_prediction_loss = torch.nn.MSELoss()
@@ -119,10 +121,17 @@ class ModelTrainer:
             self._run_training_step(step_idx, batch)
 
             if (step_idx + 1) % self._validation_interval == 0:
+
                 logging.debug('Running validation after %d steps...', step_idx + 1)
                 self._run_validation(step_idx)
 
+            if (step_idx + 1) % self._backward_diff_interval == 0:
+
+                logging.debug('Running full backward diffusion after %d steps...', step_idx + 1)
+                self._perform_backward_diffusion(step_idx)
+
             if (step_idx + 1) % self._checkpoints_interval == 0:
+
                 logging.debug('Saving checkpoint after %d steps...', step_idx + 1)
                 self._checkpoints_handler.save_checkpoint(self._model_comps, {
                     'n_training_steps': step_idx + 1,
@@ -245,3 +254,50 @@ class ModelTrainer:
         duration_loss = self._duration_loss(predicted_durations, durations)
 
         return noise_prediction_noise, duration_loss
+
+    def _perform_backward_diffusion(self, step_idx: int):
+        """Tries to run the backward diffusion and logs the results."""
+
+        with torch.no_grad():
+
+            batch = next(iter(self._val_data_loader))
+            spectrogram, phonemes, _ = batch
+            spectrogram = spectrogram[0:1]
+            phonemes = phonemes[0:1]
+
+            spectrogram = spectrogram.to(self._device)
+            phonemes = phonemes.to(self._device)
+
+            initial_noise = torch.randn_like(spectrogram)
+
+            phoneme_representations = self._model_comps.encoder(phonemes)
+
+            durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
+            durations_mask = torch.reshape(durations_mask, (1, -1, 1))
+            phoneme_durations = self._model_comps.duration_predictor(phoneme_representations)
+            phoneme_durations = phoneme_durations * durations_mask
+
+            stretched_phoneme_representations = self._model_comps.length_regulator(
+                phoneme_representations, phoneme_durations)
+
+            def model_callable(model_inputs: inf_utils.BackwardDiffusionModelInput) -> torch.Tensor:
+
+                return self._model_comps.decoder(
+                    model_inputs.timestep,
+                    model_inputs.noised_data,
+                    stretched_phoneme_representations,
+                    None)
+
+            denoised_spectrogram = inf_utils.run_backward_diffusion(model_callable,
+                                                                    self._diffusion_handler,
+                                                                    initial_noise)
+
+        self._tb_logger.add_image(
+            'Validation/BackwardDiffusion/Original',
+            spectrogram,
+            step_idx)
+
+        self._tb_logger.add_image(
+            'Validation/BackwardDiffusion/Denoised',
+            denoised_spectrogram,
+            step_idx)

@@ -23,5 +23,9 @@
 				"ms-toolsai.tensorboard"
 			]
 		}
-	}
+	},
+	"runArgs": [
+		"--gpus",
+		"all"
+	]
 }

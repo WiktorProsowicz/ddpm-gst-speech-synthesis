@@ -78,7 +78,7 @@ class ModelTrainer:
         if use_profiler:
 
             with torch.profiler.profile(
-                schedule=torch.profiler.schedule(wait=1, warmup=1, active=5, repeat=1),
+                schedule=torch.profiler.schedule(wait=2, warmup=5, active=5, repeat=1),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(
                     self._tb_logger.get_logdir()),
                 record_shapes=True,

@@ -116,7 +116,10 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
 
         Returns:
             List of of phoneme durations. The output sequence is padded to
-            the configured expected length with zeros.
+            the configured expected length with zeros. The durations equal to 1 in
+            linear scale are slipped to a small positive value in the log scale.
+            One is able recognize the original phoneme sequence's length by the number
+            of non-zero values.
         """
 
         durations = np.zeros(self._output_length)
@@ -130,6 +133,7 @@ class PhonemeDurationsExtractingTransform(torch.nn.Module):
             durations[alignment_idx] = duration if duration > 1 else 1.
 
         durations[:len(alignments)] = np.log2(durations[:len(alignments)])
+        np.clip(durations[:len(alignments)], a_min=.001, a_max=None)
         durations[len(alignments):] = 0.
 
         return torch.Tensor(durations)

@@ -176,7 +176,7 @@ def main(config):
 
     model_trainer.run_training(config['training']['steps'],
                                config['training']['start_step'],
-                               use_profiler=True)
+                               use_profiler=False)
 
     tb_writer.close()
 

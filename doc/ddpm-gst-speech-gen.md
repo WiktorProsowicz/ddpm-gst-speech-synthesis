@@ -20,7 +20,7 @@ The model components are based on the [Diff-TTS](https://arxiv.org/abs/2104.0140
 - Decoder:
     - predicts the noise that has been added to the GT spectrogram based on the input noised sample
     - the generation is conditioned with the stretched Encoder's output and the diffusion time step
- 
+
 
 ## Changelog
 

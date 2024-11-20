@@ -8,7 +8,6 @@ training and diffusion process.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import argparse
 import logging
 import os
@@ -24,13 +23,13 @@ from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
+from data import visualisation
+from data.preprocessing import text
 from model import training
 from model import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
-from data import visualisation
-from data.preprocessing import text
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')

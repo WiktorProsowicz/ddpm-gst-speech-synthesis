@@ -11,7 +11,7 @@ This project contains the implementation of a system performing human speech syn
    - data          # Dataset downloading & preprocessing tools
    - model         # The model source code containing tools for training, serialization etc
    - utilities     # Utility functions & classes for inference, preprocessing etc
-- scripts          # Scripts to be run by the user 
+- scripts          # Scripts to be run by the user
 ```
 
 ### Setup

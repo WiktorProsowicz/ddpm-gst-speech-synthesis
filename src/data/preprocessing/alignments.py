@@ -7,17 +7,16 @@ https://montreal-forced-aligner.readthedocs.io/en/latest/index.html
 It is expected the tool's output is a directory containing files in
 TextGrid format. The names should match the audio files in the dataset.
 """
+import logging
 import os
+import subprocess
 from typing import Dict
 from typing import List
-import subprocess
-import logging
 
+import gdown
 import numpy as np
 import textgrid
 import torch
-
-import gdown
 
 
 GDRIVE_ALIGNMENTS_URL = 'https://drive.google.com/uc?id=1d9A6K1qgwUCR4shci_RvTe2eeDHqq6au'

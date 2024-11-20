@@ -1,12 +1,12 @@
+# -*- coding: utf-8 -*-
 """Contains utilities used for visualization purposes."""
-
 from typing import List
 
 import matplotlib as mlp
-import torch
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from utilities import inference
 

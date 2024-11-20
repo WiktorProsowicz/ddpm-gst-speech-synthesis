@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
-from models.ddpm_gst_speech_gen import utils as model_utils
+from model import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
 

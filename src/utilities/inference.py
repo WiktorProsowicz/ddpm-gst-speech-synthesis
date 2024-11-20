@@ -2,22 +2,10 @@
 """Contains utilities for running inference with the trained model."""
 from dataclasses import dataclass
 from typing import Callable
-from typing import List
 
 import torch
 
 from utilities import diffusion as diff_utils
-
-
-def decode_transcript(transcript: torch.Tensor, vocab: List[str]) -> List[str]:
-    """Decodes the encoded transcript into a phoneme tokens.
-
-    The encoding may be either one-hot or argmax.
-    """
-
-    word_indices = transcript.argmax(dim=1)
-
-    return [vocab[i] for i in word_indices]
 
 
 def get_transcript_length(transcript: torch.Tensor) -> int:

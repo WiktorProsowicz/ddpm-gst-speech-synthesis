@@ -29,6 +29,8 @@ from model import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
+from data import visualisation
+from data.preprocessing import text
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
@@ -116,9 +118,23 @@ def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryW
 
     example_data = train_ds[np.random.randint(0, len(train_ds))]
 
-    spec, _, _ = example_data
+    spec, transcript, durations = example_data
 
-    tb_writer.add_image('example_mel_spectrograms', np.expand_dims(spec, axis=0))
+    tb_writer.add_image(
+        'Example/InputMelSpectrogram',
+        visualisation.colorize_spectrogram(spec, 'viridis'))
+
+    tb_writer.add_text(
+        'Example/Transcript',
+        ' '.join(visualisation.decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
+
+    durations_mask = (durations.numpy() > 0).astype(np.uint16)
+    pow_durations = (np.power(2, durations.numpy()) +
+                     1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
+
+    tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
+                         visualisation.annotate_spectrogram_with_phoneme_durations(
+                             spec.numpy(), pow_durations))
 
 
 def main(config):
@@ -132,6 +148,8 @@ def main(config):
     logging.info('Configuration:\n%s', yaml.dump(config))
 
     tb_writer = torch_tb.SummaryWriter()
+
+    tb_writer.add_text('Configuration', yaml.dump(config))
 
     train_ds, val_ds, _ = data_loading.get_datasets(
         config['data']['dataset_path'],

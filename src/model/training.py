@@ -13,6 +13,7 @@ from torch.utils import tensorboard as pt_tensorboard
 from model import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
+from data import visualisation
 
 
 class ModelTrainer:
@@ -308,10 +309,10 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Original',
-            spectrogram,
+            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Denoised',
-            denoised_spectrogram,
+            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
             step_idx)

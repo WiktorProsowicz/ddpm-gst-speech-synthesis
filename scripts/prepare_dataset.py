@@ -17,7 +17,6 @@ import yaml  # type: ignore
 
 from data import ljspeech
 from utilities import logging_utils
-from utilities import other as other_utils
 from utilities import scripts_utils
 
 SCRIPT_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
@@ -51,7 +50,7 @@ def main(config):
         logging.info('Downloading phoneme alignments...')
 
         os.makedirs(config['phoneme_alignments_path'])
-        other_utils.download_phoneme_alignments(config['phoneme_alignments_path'])
+        scripts_utils.download_phoneme_alignments(config['phoneme_alignments_path'])
 
     logging.info('Preparing the preprocessed dataset...')
 

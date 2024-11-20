@@ -2,22 +2,10 @@
 """Contains utilities for running inference with the trained model."""
 from dataclasses import dataclass
 from typing import Callable
-from typing import List
 
 import torch
 
 from utilities import diffusion as diff_utils
-
-
-def decode_transcript(transcript: torch.Tensor, vocab: List[str]) -> List[str]:
-    """Decodes the encoded transcript into a phoneme tokens.
-
-    The encoding may be either one-hot or argmax.
-    """
-
-    word_indices = transcript.argmax(dim=1)
-
-    return [vocab[i] for i in word_indices]
 
 
 def get_transcript_length(transcript: torch.Tensor) -> int:
@@ -41,6 +29,24 @@ def create_transcript_mask(transcript: torch.Tensor) -> torch.Tensor:
 
     return torch.cat((torch.ones(transcript_length),
                      torch.zeros(transcript.shape[1] - transcript_length)))
+
+
+def sanitize_predicted_durations(log_durations: torch.Tensor,
+                                 expected_output_length: int) -> torch.Tensor:
+    """Sanitizes the predicted durations so that an alignment matrix can be created.
+
+    Args:
+        log_durations: The predicted log durations.
+        expected_output_length: The expected length of the tensor stretched by the durations.
+    """
+
+    log_durations = torch.clamp(log_durations, min=0.0)
+    pow_duration = torch.pow(2.0, log_durations)
+
+    cum_durations = torch.cumsum(pow_duration, dim=1)
+    durations_mask = cum_durations <= expected_output_length
+
+    return log_durations * durations_mask
 
 
 @dataclass

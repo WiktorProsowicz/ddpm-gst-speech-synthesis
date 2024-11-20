@@ -10,7 +10,8 @@ import numpy as np
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
-from models.ddpm_gst_speech_gen import utils as model_utils
+from data import visualisation
+from model import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
 
@@ -288,7 +289,10 @@ class ModelTrainer:
 
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
             durations_mask = torch.reshape(durations_mask, (1, -1, 1))
+
             phoneme_durations = self._model_comps.duration_predictor(phoneme_representations)
+            phoneme_durations = inf_utils.sanitize_predicted_durations(phoneme_durations,
+                                                                       spectrogram.shape[2])
             phoneme_durations = phoneme_durations * durations_mask
 
             stretched_phoneme_representations = self._model_comps.length_regulator(
@@ -308,10 +312,10 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Original',
-            spectrogram,
+            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Denoised',
-            denoised_spectrogram,
+            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
             step_idx)

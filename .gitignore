@@ -3,3 +3,4 @@ doc/pdf/
 __pycache__/
 test_results/
 venv/
+runs/

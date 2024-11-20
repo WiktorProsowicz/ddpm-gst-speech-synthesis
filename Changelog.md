@@ -55,3 +55,9 @@
 
 - Verified the user scripts
 - Added the DDPM-GST-SPEECH-GEN model's overview
+
+### 1.0.1
+
+- Changed the internal project structure inside the `src` directory
+- Switched the profiling in the `train_model` script to be disabled by default
+- Fixed a bug related to total predicted phonemes duration exceeding the maximum allowed value

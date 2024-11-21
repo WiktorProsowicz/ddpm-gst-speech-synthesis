@@ -196,7 +196,7 @@ def main(config):
         config,
         tb_writer)
 
-    logging.info('Running training for %d steps starting from the %d step...',
+    logging.info('Running training for %d steps starting from the step %d...',
                  config['training']['steps'],
                  config['training']['start_step'])
 

@@ -126,7 +126,9 @@ class ModelTrainer:
             self._run_training_step(step_idx, batch)
 
             if (step_idx + 1) % training_step_debug_interval == 0:
-                logging.debug('Performed %d training steps...', step_idx + 1)
+                logging.debug('Performed %d training steps. (Avg time/steps in sec: %.2f).',
+                              step_idx + 1,
+                              (time.time() - start_time) / (step_idx - start_step + 1))
 
             if (step_idx + 1) % self._validation_interval == 0:
 
@@ -148,7 +150,7 @@ class ModelTrainer:
         logging.info('Training pipeline finished.')
         logging.debug('Training took %.2f minutes.', (time.time() - start_time) / 60)
         logging.debug('Average time per step: %.2f seconds.',
-                      (time.time() - start_time) / num_steps)
+                      (time.time() - start_time) / (num_steps - start_step))
 
     def _run_training_step(self, step_idx: int, batch):
         """Runs a single training step.

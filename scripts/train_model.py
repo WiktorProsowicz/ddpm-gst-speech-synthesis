@@ -60,13 +60,21 @@ DEFAULT_CONFIG = {
     'model': {
         'decoder': {
             'timestep_embedding_dim': 128,
+            'n_res_blocks': 12,
+            'internal_channels': 128,
+            'skip_connections_channels': 512
         },
         'gst': {
             'use_gst': False,
             'embedding_dim': 256,
             'token_count': 32,
-        }
-    }
+        },
+        'duration_predictor': {
+            'n_blocks': 4
+        },
+    },
+    # The name of the script run. Shall be used for the TensorBoard logging
+    'run_label': None
 }
 
 
@@ -146,7 +154,8 @@ def main(config):
     logging.info('Starting training pipeline.')
     logging.info('Configuration:\n%s', yaml.dump(config))
 
-    tb_writer = torch_tb.SummaryWriter()
+    tb_writer = torch_tb.SummaryWriter(
+        log_dir=f"runs/{config['run_label']}" if config['run_label'] is not None else None)
 
     tb_writer.add_text('Configuration', yaml.dump(config))
 
@@ -187,7 +196,7 @@ def main(config):
         config,
         tb_writer)
 
-    logging.info('Running training for %d steps starting from the %d step...',
+    logging.info('Running training for %d steps starting from the step %d...',
                  config['training']['steps'],
                  config['training']['start_step'])
 

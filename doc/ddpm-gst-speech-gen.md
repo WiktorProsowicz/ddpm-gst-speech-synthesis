@@ -27,3 +27,9 @@ The model components are based on the [Diff-TTS](https://arxiv.org/abs/2104.0140
 ### 1.0.0
 
 The model together with its training pipeline and utilities have been implemented. The current model does not support GST and therefore enabled only the diffusion process conditioned by the input phonemes and diffusion timestep.
+
+### 1.1.0
+
+The duration predictor has now residual connections and additional dropout.
+
+The decoder avoids using convolutions with kernel's size equal to 1. Additionally its residual blocks use internal number channels other than the number of channels in the input spectrogram. Each convolutional layer is equipped with activation and dropout to alleviate overfitting.

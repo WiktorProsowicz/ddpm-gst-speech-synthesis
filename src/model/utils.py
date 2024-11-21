@@ -52,6 +52,30 @@ class ModelComponents:
             self.length_regulator.parameters()
         )
 
+    def eval(self):
+        """Sets the model to evaluation mode."""
+
+        self.encoder.eval()
+        self.decoder.eval()
+        self.duration_predictor.eval()
+        self.length_regulator.eval()
+
+        if self.gst_provider and self.reference_embedder:
+            self.gst_provider.eval()
+            self.reference_embedder.eval()
+
+    def train(self):
+        """Sets the model to training mode."""
+
+        self.encoder.train()
+        self.decoder.train()
+        self.duration_predictor.train()
+        self.length_regulator.train()
+
+        if self.gst_provider and self.reference_embedder:
+            self.gst_provider.train()
+            self.reference_embedder.train()
+
 
 def create_model_components(input_spectrogram_shape: Tuple[int, int],
                             input_phonemes_shape: Tuple[int, int],
@@ -67,6 +91,11 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             - gst::embedding_dim: The dimension of the GST embeddings.
             - gst::token_count: The number of tokens in the GST embeddings.
             - decoder::timestep_embedding_dim: The dimension of the time embeddings in the decoder.
+            - duration_predictor::n_blocks: The number of convolutional blocks in the
+                duration predictor.
+            - decoder::n_res_blocks: The number of residual blocks in the decoder.
+            - decoder::internal_channels: The number of internal channels in the decoder.
+            - decoder::skip_connections_channels: The number of channels in the skip connections.
     """
 
     decoder_input_channels, decoder_input_length = input_spectrogram_shape
@@ -74,13 +103,17 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
 
     decoder = m_dec.Decoder(
         input_spectrogram_shape,
-        cfg['decoder']['timestep_embedding_dim'])
+        cfg['decoder']['timestep_embedding_dim'],
+        cfg['decoder']['n_res_blocks'],
+        cfg['decoder']['internal_channels'],
+        cfg['decoder']['skip_connections_channels'])
     decoder.to(device)
 
     encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels)
     encoder.to(device)
 
-    duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels))
+    duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels),
+                                                cfg['duration_predictor']['n_blocks'])
     duration_predictor.to(device)
 
     length_regulator = m_lr.LengthRegulator(decoder_input_length)

@@ -157,6 +157,8 @@ class ModelTrainer:
             step_idx: The index of the current step.
         """
 
+        self._model_comps.train()
+
         spectrogram, phonemes, durations = batch
         durations = torch.unsqueeze(durations, -1)
 
@@ -187,6 +189,8 @@ class ModelTrainer:
         Args:
             step_idx: The index of the current training step.
         """
+
+        self._model_comps.eval()
 
         with torch.no_grad():
 

@@ -52,6 +52,30 @@ class ModelComponents:
             self.length_regulator.parameters()
         )
 
+    def eval(self):
+        """Sets the model to evaluation mode."""
+
+        self.encoder.eval()
+        self.decoder.eval()
+        self.duration_predictor.eval()
+        self.length_regulator.eval()
+
+        if self.gst_provider and self.reference_embedder:
+            self.gst_provider.eval()
+            self.reference_embedder.eval()
+
+    def train(self):
+        """Sets the model to training mode."""
+
+        self.encoder.train()
+        self.decoder.train()
+        self.duration_predictor.train()
+        self.length_regulator.train()
+
+        if self.gst_provider and self.reference_embedder:
+            self.gst_provider.train()
+            self.reference_embedder.train()
+
 
 def create_model_components(input_spectrogram_shape: Tuple[int, int],
                             input_phonemes_shape: Tuple[int, int],

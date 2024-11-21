@@ -5,20 +5,32 @@ from typing import Tuple
 import torch
 
 
+class _ConvBlock(torch.nn.Module):
+    """Convolutional block for the duration predictor."""
+
+    def __init__(self, input_channels: int, input_length: int):
+        super().__init__()
+
+        self._layers = torch.nn.Sequential(
+            torch.nn.Conv1d(input_channels, input_channels, kernel_size=5, padding='same'),
+            torch.nn.ReLU(),
+            torch.nn.LayerNorm((input_channels, input_length)),
+            torch.nn.Dropout1d(0.3)
+        )
+
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        return self._layers(input_tensor) + input_tensor
+
+
 def _create_conv_blocks(n_blocks: int,
                         input_length: int,
                         input_channels: int) -> torch.nn.Sequential:
     """Creates the convolutional blocks for the duration predictor."""
 
-    def spawn_block():
-        return torch.nn.Sequential(
-            torch.nn.Conv1d(input_channels, input_channels, kernel_size=3, padding='same'),
-            torch.nn.ReLU(),
-            torch.nn.LayerNorm((input_channels, input_length)),
-            torch.nn.Dropout1d(0.1)
-        )
+    blocks = [_ConvBlock(input_channels=input_channels, input_length=input_length)
+              for _ in range(n_blocks)]
 
-    return torch.nn.Sequential(*[spawn_block() for _ in range(n_blocks)])
+    return torch.nn.Sequential(*blocks)
 
 
 class DurationPredictor(torch.nn.Module):
@@ -29,14 +41,13 @@ class DurationPredictor(torch.nn.Module):
     in the logarithm scale.
     """
 
-    def __init__(self, input_shape: Tuple[int, int]):
+    def __init__(self, input_shape: Tuple[int, int], n_conv_blocks: int):
         """Initializes the duration predictor."""
 
         super().__init__()
 
         input_length, input_features = input_shape
 
-        n_conv_blocks = 2
         self._conv_blocks = _create_conv_blocks(n_blocks=n_conv_blocks,
                                                 input_length=input_length,
                                                 input_channels=input_features)

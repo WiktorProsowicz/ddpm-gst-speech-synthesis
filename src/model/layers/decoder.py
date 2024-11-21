@@ -60,8 +60,10 @@ class _ResidualBlock(torch.nn.Module):
         return output, skip_connection
 
 
-def _create_residual_blocks(n_blocks: int, skip_connections_channels: int,
-                            block_input_channels: int, decoder_input_channels: int) -> torch.nn.ModuleList:
+def _create_residual_blocks(n_blocks: int,
+                            skip_connections_channels: int,
+                            block_input_channels: int,
+                            decoder_input_channels: int) -> torch.nn.ModuleList:
 
     blocks = [
         _ResidualBlock(

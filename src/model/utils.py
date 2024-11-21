@@ -91,7 +91,8 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             - gst::embedding_dim: The dimension of the GST embeddings.
             - gst::token_count: The number of tokens in the GST embeddings.
             - decoder::timestep_embedding_dim: The dimension of the time embeddings in the decoder.
-            - duration_predictor::n_blocks: The number of convolutional blocks in the duration predictor.
+            - duration_predictor::n_blocks: The number of convolutional blocks in the
+                duration predictor.
             - decoder::n_res_blocks: The number of residual blocks in the decoder.
             - decoder::internal_channels: The number of internal channels in the decoder.
             - decoder::skip_connections_channels: The number of channels in the skip connections.

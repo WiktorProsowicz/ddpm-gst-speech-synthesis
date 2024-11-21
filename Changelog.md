@@ -61,9 +61,10 @@
 - Changed the internal project structure inside the `src` directory
 - Switched the profiling in the `train_model` script to be disabled by default
 - Fixed a bug related to total predicted phonemes duration exceeding the maximum allowed value
+- Enhanced visualization in logging
 
 ### 1.1.0
 
 - Enhanced the model's internal structure
 - Added small optimizations to the training/validation pass
-- Added new controllable parameters to the 'train_model' script 
+- Added new controllable parameters to the 'train_model' script

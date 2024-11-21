@@ -8,21 +8,43 @@ import torch
 
 class _ResidualBlock(torch.nn.Module):
 
-    def __init__(self, skip_channels: int, input_channels: int):
+    def __init__(self, skip_channels: int, block_input_channels: int, decoder_input_channels: int):
 
         super().__init__()
 
-        self._norm = torch.nn.BatchNorm1d(input_channels)
-        self._conv1d = torch.nn.Conv1d(
-            input_channels,
-            input_channels,
-            kernel_size=3,
-            padding='same')
-        self._skip_connection = torch.nn.Conv1d(input_channels, skip_channels, kernel_size=1)
-        self._cond_timestep_conv = torch.nn.Conv1d(input_channels, input_channels, kernel_size=1)
-        self._cond_phonemes_conv = torch.nn.Conv1d(input_channels, input_channels, kernel_size=1)
-        self._output_conv = torch.nn.Conv1d(
-            input_channels, input_channels, kernel_size=1, padding='same')
+        self._norm = torch.nn.Sequential(torch.nn.BatchNorm1d(block_input_channels),
+                                         torch.nn.Conv1d(block_input_channels,
+                                                         block_input_channels,
+                                                         kernel_size=3,
+                                                         padding='same'),
+                                         torch.nn.Dropout(0.1))
+
+        self._skip_connection = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
+                                                                    skip_channels,
+                                                                    kernel_size=3,
+                                                                    padding='same'),
+                                                    torch.nn.Tanh(),
+                                                    torch.nn.Dropout(0.1))
+
+        self._cond_timestep_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
+                                                                       block_input_channels,
+                                                                       kernel_size=1),
+                                                       torch.nn.Tanh(),
+                                                       torch.nn.Dropout(0.1))
+
+        self._cond_phonemes_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
+                                                                       block_input_channels,
+                                                                       kernel_size=3,
+                                                                       padding='same'),
+                                                       torch.nn.Tanh(),
+                                                       torch.nn.Dropout(0.1))
+
+        self._output_conv = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
+                                                                block_input_channels,
+                                                                kernel_size=3,
+                                                                padding='same'),
+                                                torch.nn.Tanh(),
+                                                torch.nn.Dropout(0.1))
 
     def forward(self, input_noise: torch.Tensor, timestep_embedding: torch.Tensor,
                 phoneme_representations: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -38,13 +60,14 @@ class _ResidualBlock(torch.nn.Module):
         return output, skip_connection
 
 
-def _create_residual_blocks(n_blocks: int, skip_connections_channel: int,
-                            input_channels: int) -> torch.nn.ModuleList:
+def _create_residual_blocks(n_blocks: int, skip_connections_channels: int,
+                            block_input_channels: int, decoder_input_channels: int) -> torch.nn.ModuleList:
 
     blocks = [
         _ResidualBlock(
-            skip_channels=skip_connections_channel,
-            input_channels=input_channels)
+            skip_channels=skip_connections_channels,
+            block_input_channels=block_input_channels,
+            decoder_input_channels=decoder_input_channels)
         for _ in range(n_blocks)
     ]
 
@@ -67,6 +90,9 @@ class Decoder(torch.nn.Module):
     def __init__(self,
                  input_noise_shape: Tuple[int, int],
                  timestep_embedding_dim: int,
+                 n_res_blocks: int,
+                 internal_channels: int,
+                 skip_connections_channels: int
                  ):
         """Initializes the decoder."""
 
@@ -83,13 +109,20 @@ class Decoder(torch.nn.Module):
             torch.nn.SiLU()
         )
 
-        skip_connections_channel = 512
+        n_res_blocks = 12
+        skip_connections_channels = 512
+        internal_channels = 128
         self._residual_blocks = _create_residual_blocks(
-            12, skip_connections_channel, input_channels)
+            n_res_blocks, skip_connections_channels, internal_channels, input_channels)
+
+        self._prenet = torch.nn.Sequential(
+            torch.nn.Conv1d(input_channels, internal_channels, kernel_size=3, padding='same'),
+            torch.nn.Tanh(),
+        )
 
         self._postnet = torch.nn.Sequential(
             torch.nn.Conv1d(
-                skip_connections_channel,
+                skip_connections_channels,
                 input_channels,
                 kernel_size=3,
                 padding='same'),
@@ -114,7 +147,7 @@ class Decoder(torch.nn.Module):
         time_embedding = time_embedding.unsqueeze(-1)
         phoneme_representations = phoneme_representations.transpose(1, 2)
 
-        output = noised_spectrogram
+        output = self._prenet(noised_spectrogram)
         skip_output = None
 
         for block in self._residual_blocks:

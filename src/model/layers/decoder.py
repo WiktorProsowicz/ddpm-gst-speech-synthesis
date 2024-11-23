@@ -120,7 +120,11 @@ class Decoder(torch.nn.Module):
         skip_connections_channels = 512
         internal_channels = 128
         self._residual_blocks = _create_residual_blocks(
-            n_res_blocks, skip_connections_channels, internal_channels, input_channels, dropout_rate)
+            n_res_blocks,
+            skip_connections_channels,
+            internal_channels,
+            input_channels,
+            dropout_rate)
 
         self._prenet = torch.nn.Sequential(
             torch.nn.Conv1d(input_channels, internal_channels, kernel_size=3, padding='same'),

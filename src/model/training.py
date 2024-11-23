@@ -6,7 +6,6 @@ from typing import Callable
 from typing import Optional
 from typing import Tuple
 
-import numpy as np
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 

@@ -96,6 +96,7 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             - decoder::n_res_blocks: The number of residual blocks in the decoder.
             - decoder::internal_channels: The number of internal channels in the decoder.
             - decoder::skip_connections_channels: The number of channels in the skip connections.
+            - dropout_rate: The dropout rate to use in the whole model.
     """
 
     decoder_input_channels, decoder_input_length = input_spectrogram_shape
@@ -106,14 +107,16 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
         cfg['decoder']['timestep_embedding_dim'],
         cfg['decoder']['n_res_blocks'],
         cfg['decoder']['internal_channels'],
-        cfg['decoder']['skip_connections_channels'])
+        cfg['decoder']['skip_connections_channels'],
+        cfg['dropout_rate'])
     decoder.to(device)
 
-    encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels)
+    encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels, cfg['dropout_rate'])
     encoder.to(device)
 
     duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels),
-                                                cfg['duration_predictor']['n_blocks'])
+                                                cfg['duration_predictor']['n_blocks'],
+                                                cfg['dropout_rate'])
     duration_predictor.to(device)
 
     length_regulator = m_lr.LengthRegulator(decoder_input_length)

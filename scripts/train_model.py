@@ -72,6 +72,7 @@ DEFAULT_CONFIG = {
         'duration_predictor': {
             'n_blocks': 4
         },
+        'dropout_rate': 0.1
     },
     # The name of the script run. Shall be used for the TensorBoard logging
     'run_label': None

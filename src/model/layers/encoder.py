@@ -10,7 +10,7 @@ class _ResidualBlock(torch.nn.Module):
     """Residual block for the encoder."""
 
     def __init__(self, input_length: int, conv_dilation_factor: int,
-                 conv_kernel_size: int, conv_channels: int):
+                 conv_kernel_size: int, conv_channels: int, dropout_rate: float):
 
         super().__init__()
 
@@ -23,7 +23,8 @@ class _ResidualBlock(torch.nn.Module):
                 padding='same'
             ),
             torch.nn.ReLU(),
-            torch.nn.LayerNorm((conv_channels, input_length))
+            torch.nn.LayerNorm((conv_channels, input_length)),
+            torch.nn.Dropout(dropout_rate),
         )
 
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
@@ -34,12 +35,14 @@ class _ResidualBlock(torch.nn.Module):
 def _create_residual_blocks(input_length: int,
                             conv_channels: int,
                             conv_kernel_size: int,
-                            conv_dilation_factors: List[int]) -> torch.nn.Sequential:
+                            conv_dilation_factors: List[int],
+                            dropout_rate: float) -> torch.nn.Sequential:
 
     residual_blocks = [_ResidualBlock(input_length=input_length,
                                       conv_channels=conv_channels,
                                       conv_kernel_size=conv_kernel_size,
-                                      conv_dilation_factor=dilation_factor)
+                                      conv_dilation_factor=dilation_factor,
+                                      dropout_rate=dropout_rate)
                        for dilation_factor
                        in conv_dilation_factors]
 
@@ -56,7 +59,8 @@ class Encoder(torch.nn.Module):
     the speech).
     """
 
-    def __init__(self, input_phonemes_shape: Tuple[int, int], output_channels: int):
+    def __init__(self, input_phonemes_shape: Tuple[int, int],
+                 output_channels: int, dropout_rate: float):
         """Initializes the encoder."""
 
         super().__init__()
@@ -73,7 +77,8 @@ class Encoder(torch.nn.Module):
             input_length=input_length,
             conv_channels=embedding_dim,
             conv_kernel_size=3,
-            conv_dilation_factors=[1, 3, 9, 1, 3, 9, 1]
+            conv_dilation_factors=[1, 3, 9, 1, 3, 9, 1],
+            dropout_rate=dropout_rate
         )
 
         self._final_lstm = torch.nn.LSTM(

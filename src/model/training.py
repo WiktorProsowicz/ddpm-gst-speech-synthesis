@@ -6,7 +6,6 @@ from typing import Callable
 from typing import Optional
 from typing import Tuple
 
-import numpy as np
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
@@ -275,12 +274,42 @@ class ModelTrainer:
     def _perform_backward_diffusion(self, step_idx: int):
         """Tries to run the backward diffusion and logs the results."""
 
-        init_noise_seed = 2137
-        rng = np.random.RandomState(init_noise_seed)  # pylint: disable=no-member
+        self._model_comps.eval()
+
+        spectrogram, denoised_spectrogram = self._perform_backward_diff_for_loader(
+            self._val_data_loader)
+
+        self._tb_logger.add_image(
+            'Validation/BackwardDiffusion/Original',
+            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            step_idx)
+
+        self._tb_logger.add_image(
+            'Validation/BackwardDiffusion/Denoised',
+            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
+            step_idx)
+
+        spectrogram, denoised_spectrogram = self._perform_backward_diff_for_loader(
+            self._train_data_loader)
+
+        self._tb_logger.add_image(
+            'Training/BackwardDiffusion/Original',
+            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            step_idx)
+
+        self._tb_logger.add_image(
+            'Training/BackwardDiffusion/Denoised',
+            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
+            step_idx)
+
+    def _perform_backward_diff_for_loader(self,
+                                          loader: torch.utils.data.DataLoader
+                                          ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Runs backward diffusion using the specified data loader."""
 
         with torch.no_grad():
 
-            batch = next(iter(self._val_data_loader))
+            batch = next(iter(loader))
             spectrogram, phonemes, _ = batch
             spectrogram = spectrogram[0:1]
             phonemes = phonemes[0:1]
@@ -288,8 +317,7 @@ class ModelTrainer:
             spectrogram = spectrogram.to(self._device)
             phonemes = phonemes.to(self._device)
 
-            initial_noise = rng.randn(*spectrogram.shape).astype(np.float32)
-            initial_noise = torch.from_numpy(initial_noise).to(self._device)
+            initial_noise = torch.randn_like(spectrogram)
 
             phoneme_representations = self._model_comps.encoder(phonemes)
 
@@ -316,12 +344,4 @@ class ModelTrainer:
                                                                     self._diffusion_handler,
                                                                     initial_noise)
 
-        self._tb_logger.add_image(
-            'Validation/BackwardDiffusion/Original',
-            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
-            step_idx)
-
-        self._tb_logger.add_image(
-            'Validation/BackwardDiffusion/Denoised',
-            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
-            step_idx)
+        return spectrogram, denoised_spectrogram

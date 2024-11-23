@@ -68,3 +68,10 @@
 - Enhanced the model's internal structure
 - Added small optimizations to the training/validation pass
 - Added new controllable parameters to the 'train_model' script
+
+### 1.2.0
+
+- Added dropout to the Encoder module
+- Made the dropout in each layer controllable
+- Added new options to 'train_model' script
+- Extended the full backward diffusion at validation with an additional run for a sample from the train dataset

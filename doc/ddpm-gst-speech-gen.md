@@ -33,3 +33,7 @@ The model together with its training pipeline and utilities have been implemente
 The duration predictor has now residual connections and additional dropout.
 
 The decoder avoids using convolutions with kernel's size equal to 1. Additionally its residual blocks use internal number channels other than the number of channels in the input spectrogram. Each convolutional layer is equipped with activation and dropout to alleviate overfitting.
+
+### 1.2.0
+
+The Encoder has now dropout.

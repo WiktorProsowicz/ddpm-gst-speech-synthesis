@@ -8,70 +8,68 @@ import torch
 
 class _ResidualBlock(torch.nn.Module):
 
-    def __init__(self, skip_channels: int,
+    def __init__(self,
                  block_input_channels: int,
                  decoder_input_channels: int,
                  dropout_rate: float):
 
         super().__init__()
 
-        self._norm = torch.nn.Sequential(torch.nn.BatchNorm1d(block_input_channels),
-                                         torch.nn.Conv1d(block_input_channels,
-                                                         block_input_channels,
-                                                         kernel_size=3,
-                                                         padding='same'),
-                                         torch.nn.Dropout(dropout_rate))
+        self._cond_time = torch.nn.Sequential(
+            torch.nn.Linear(decoder_input_channels, block_input_channels),
+            torch.nn.SiLU(),
+            torch.nn.Dropout(dropout_rate)
+        )
 
-        self._skip_connection = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
-                                                                    skip_channels,
-                                                                    kernel_size=3,
-                                                                    padding='same'),
-                                                    torch.nn.Tanh(),
-                                                    torch.nn.Dropout(dropout_rate))
+        self._cond_phonemes = torch.nn.Sequential(torch.nn.Conv1d(
+            decoder_input_channels, decoder_input_channels, kernel_size=3, padding='same'),
+            torch.nn.SiLU(),
+            torch.nn.Dropout1d(dropout_rate)
+        )
 
-        self._cond_timestep_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
-                                                                       block_input_channels,
-                                                                       kernel_size=1),
-                                                       torch.nn.Tanh(),
-                                                       torch.nn.Dropout(dropout_rate))
+        self._conv1 = torch.nn.Sequential(
+            torch.nn.GroupNorm(8, block_input_channels),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(
+                block_input_channels,
+                block_input_channels,
+                kernel_size=3,
+                padding='same'),
+            torch.nn.Dropout2d(dropout_rate)
+        )
 
-        self._cond_phonemes_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
-                                                                       block_input_channels,
-                                                                       kernel_size=3,
-                                                                       padding='same'),
-                                                       torch.nn.Tanh(),
-                                                       torch.nn.Dropout(dropout_rate))
-
-        self._output_conv = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
-                                                                block_input_channels,
-                                                                kernel_size=3,
-                                                                padding='same'),
-                                                torch.nn.Tanh(),
-                                                torch.nn.Dropout(dropout_rate))
+        self._conv2 = torch.nn.Sequential(
+            torch.nn.GroupNorm(8, block_input_channels),
+            torch.nn.SiLU(),
+            torch.nn.Conv2d(
+                block_input_channels,
+                block_input_channels,
+                kernel_size=3,
+                padding='same'),
+            torch.nn.Dropout2d(dropout_rate)
+        )
 
     def forward(self, input_noise: torch.Tensor, timestep_embedding: torch.Tensor,
                 phoneme_representations: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 
-        output = self._norm(input_noise)
-        output = self._cond_timestep_conv(timestep_embedding) + output
-        output = self._cond_phonemes_conv(phoneme_representations) + output
-        output = torch.nn.functional.tanh(output) * torch.nn.functional.sigmoid(output)
+        time_cond = self._cond_time(timestep_embedding).unsqueeze(-1).unsqueeze(-1)
+        phoneme_cond = self._cond_phonemes(phoneme_representations).unsqueeze(1)
 
-        skip_connection = self._skip_connection(output)
-        output = self._output_conv(output) + input_noise
+        output = self._conv1(input_noise)
+        output = output + time_cond + phoneme_cond
+        output = self._conv2(output)
+        output = output + input_noise
 
-        return output, skip_connection
+        return output
 
 
 def _create_residual_blocks(n_blocks: int,
-                            skip_connections_channels: int,
                             block_input_channels: int,
                             decoder_input_channels: int,
                             dropout_rate) -> torch.nn.ModuleList:
 
     blocks = [
         _ResidualBlock(
-            skip_channels=skip_connections_channels,
             block_input_channels=block_input_channels,
             decoder_input_channels=decoder_input_channels,
             dropout_rate=dropout_rate)
@@ -99,39 +97,35 @@ class Decoder(torch.nn.Module):
                  timestep_embedding_dim: int,
                  n_res_blocks: int,
                  internal_channels: int,
-                 skip_connections_channels: int,
+                 skip_connections_channels: int,  # pylint: disable=unused-argument
                  dropout_rate: float):
         """Initializes the decoder."""
 
         super().__init__()
 
-        input_channels, _ = input_noise_shape
+        input_height, _ = input_noise_shape
 
         self._timestep_embedding_dim = timestep_embedding_dim
 
         self._timestep_encoder = torch.nn.Sequential(
-            torch.nn.Linear(timestep_embedding_dim, input_channels),
+            torch.nn.Linear(timestep_embedding_dim, input_height),
             torch.nn.SiLU(),
-            torch.nn.Linear(input_channels, input_channels),
+            torch.nn.Linear(input_height, input_height),
             torch.nn.SiLU()
         )
 
-        self._residual_blocks = _create_residual_blocks(
-            n_res_blocks,
-            skip_connections_channels,
-            internal_channels,
-            input_channels,
-            dropout_rate)
-
         self._prenet = torch.nn.Sequential(
-            torch.nn.Conv1d(input_channels, internal_channels, kernel_size=3, padding='same'),
+            torch.nn.Conv2d(1, internal_channels, kernel_size=3, padding='same'),
             torch.nn.Tanh(),
         )
 
+        self._residual_blocks = _create_residual_blocks(
+            n_res_blocks, internal_channels, input_height, dropout_rate)
+
         self._postnet = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                skip_connections_channels,
-                input_channels,
+            torch.nn.Conv2d(
+                internal_channels,
+                1,
                 kernel_size=3,
                 padding='same'),
         )
@@ -152,24 +146,16 @@ class Decoder(torch.nn.Module):
 
         time_embedding = self._create_time_embedding(diffusion_step)
         time_embedding = self._timestep_encoder(time_embedding)
-        time_embedding = time_embedding.unsqueeze(-1)
+
         phoneme_representations = phoneme_representations.transpose(1, 2)
+        noised_spectrogram = noised_spectrogram.unsqueeze(1)
 
         output = self._prenet(noised_spectrogram)
-        skip_output = None
 
         for block in self._residual_blocks:
-            output, block_skip_output = block(output, time_embedding, phoneme_representations)
+            output = block(output, time_embedding, phoneme_representations)
 
-            if skip_output is not None:
-                skip_output = skip_output + block_skip_output
-
-            else:
-                skip_output = block_skip_output
-
-        output = self._postnet(skip_output)
-
-        return output
+        return self._postnet(output).squeeze(1)
 
     def _create_time_embedding(self, diffusion_step: torch.Tensor) -> torch.Tensor:
         """Creates the Sinusoidal Positional Embedding for the input time steps."""

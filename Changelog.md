@@ -82,3 +82,7 @@
 - Made spectrograms normalizing optional
 - Modified Encoder's architecture
 - Fixed bug with fixed Decoder's parameters
+
+#### 1.3.1
+
+- Fixed bug related to serializing split data chunks (order of elements in serialized tuple)

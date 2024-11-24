@@ -9,7 +9,7 @@ import torch
 class _ResidualBlock(torch.nn.Module):
     """Residual block for the encoder."""
 
-    def __init__(self, input_length: int, conv_dilation_factor: int,
+    def __init__(self, input_length: int,
                  conv_kernel_size: int, conv_channels: int, dropout_rate: float):
 
         super().__init__()
@@ -19,7 +19,6 @@ class _ResidualBlock(torch.nn.Module):
                 in_channels=conv_channels,
                 out_channels=conv_channels,
                 kernel_size=conv_kernel_size,
-                dilation=conv_dilation_factor,
                 padding='same'
             ),
             torch.nn.ReLU(),
@@ -34,17 +33,15 @@ class _ResidualBlock(torch.nn.Module):
 
 def _create_residual_blocks(input_length: int,
                             conv_channels: int,
-                            conv_kernel_size: int,
-                            conv_dilation_factors: List[int],
+                            kernel_sizes: List[int],
                             dropout_rate: float) -> torch.nn.Sequential:
 
     residual_blocks = [_ResidualBlock(input_length=input_length,
                                       conv_channels=conv_channels,
-                                      conv_kernel_size=conv_kernel_size,
-                                      conv_dilation_factor=dilation_factor,
+                                      conv_kernel_size=kernel_size,
                                       dropout_rate=dropout_rate)
-                       for dilation_factor
-                       in conv_dilation_factors]
+                       for kernel_size
+                       in kernel_sizes]
 
     return torch.nn.Sequential(*residual_blocks)
 
@@ -76,8 +73,7 @@ class Encoder(torch.nn.Module):
         self._res_blocks = _create_residual_blocks(
             input_length=input_length,
             conv_channels=embedding_dim,
-            conv_kernel_size=3,
-            conv_dilation_factors=[1, 3, 9, 1, 3, 9, 1],
+            kernel_sizes=[7, 5, 3, 7, 5, 3],
             dropout_rate=dropout_rate
         )
 

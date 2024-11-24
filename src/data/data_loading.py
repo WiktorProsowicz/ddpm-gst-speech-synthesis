@@ -120,7 +120,7 @@ def split_processed_samples_into_chunks(
             n_spec_frames = np.sum(pow_durations[first_phoneme_idx:first_phoneme_idx + n_phonemes])
 
             ret = (spec[:, first_spec_idx:first_spec_idx + n_spec_frames],
-                   durations[first_phoneme_idx:first_phoneme_idx + n_phonemes],
-                   phonemes[first_phoneme_idx:first_phoneme_idx + n_phonemes])
+                   phonemes[first_phoneme_idx:first_phoneme_idx + n_phonemes],
+                   durations[first_phoneme_idx:first_phoneme_idx + n_phonemes])
 
             yield f'{sample_name}_{chunk_idx}', ret

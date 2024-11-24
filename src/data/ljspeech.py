@@ -9,8 +9,8 @@ import logging
 import math
 import os
 from typing import Callable
-from typing import Tuple
 from typing import Optional
+from typing import Tuple
 
 import torch
 from torch.utils import data as torch_data
@@ -83,6 +83,8 @@ class LJSpeechDataset(torch_data.Dataset):
             text.OneHotEncodeTransform(text.ENHANCED_MFA_ARP_VOCAB)
         ])
 
+        self._global_spec_mean, self._global_spec_std = None, None
+
         if normalize_spectrograms:
             logging.debug('Calculating global spectrogram mean and stddev...')
             self._global_spec_mean, self._global_spec_std = self._get_global_spec_stats()
@@ -91,10 +93,7 @@ class LJSpeechDataset(torch_data.Dataset):
                 self._create_base_audio_transform(),
                 transforms.Normalize(self._global_spec_mean, self._global_spec_std)
             ])
-
         else:
-            self._global_spec_mean, self._global_spec_std = None, None
-
             self._audio_transform = self._create_base_audio_transform()
 
     def __getitem__(self, idx: int):

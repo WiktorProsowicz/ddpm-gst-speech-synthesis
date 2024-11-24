@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Contains tools for loading serialized dataset."""
 import os
+from typing import Iterator
 from typing import List
 from typing import Tuple
-from typing import Iterator
 
 import numpy as np
 import torch
@@ -119,8 +119,8 @@ def split_processed_samples_into_chunks(
             first_spec_idx = np.sum(pow_durations[:first_phoneme_idx])
             n_spec_frames = np.sum(pow_durations[first_phoneme_idx:first_phoneme_idx + n_phonemes])
 
-            cut_spec = spec[:, first_spec_idx:first_spec_idx + n_spec_frames]
-            cut_durations = durations[first_phoneme_idx:first_phoneme_idx + n_phonemes]
-            cut_phonemes = phonemes[first_phoneme_idx:first_phoneme_idx + n_phonemes]
+            ret = (spec[:, first_spec_idx:first_spec_idx + n_spec_frames],
+                   durations[first_phoneme_idx:first_phoneme_idx + n_phonemes],
+                   phonemes[first_phoneme_idx:first_phoneme_idx + n_phonemes])
 
-            yield f'{sample_name}_{chunk_idx}', (cut_spec, cut_phonemes, cut_durations)
+            yield f'{sample_name}_{chunk_idx}', ret

@@ -6,17 +6,16 @@ extracted from each sample and saved into a specified directory.
 
 For expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import argparse
-import yaml  # type: ignore
 import logging
 import os
 
-from utilities import scripts_utils
-from utilities import logging_utils
-from data import data_loading
-
 import torch
+import yaml  # type: ignore
+
+from data import data_loading
+from utilities import logging_utils
+from utilities import scripts_utils
 
 DEFAULT_CONFIG = {
     'dataset_path': scripts_utils.CfgRequired(),

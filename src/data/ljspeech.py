@@ -9,6 +9,7 @@ import logging
 import math
 import os
 from typing import Callable
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -31,7 +32,8 @@ class LJSpeechDataset(torch_data.Dataset):
                  sample_rate: int,
                  fft_window_size: int,
                  fft_hop_size: int,
-                 audio_max_length: float) -> None:
+                 audio_max_length: float,
+                 normalize_spectrograms: bool) -> None:
         """Initializes the dataset.
 
         Args:
@@ -81,13 +83,18 @@ class LJSpeechDataset(torch_data.Dataset):
             text.OneHotEncodeTransform(text.ENHANCED_MFA_ARP_VOCAB)
         ])
 
-        logging.debug('Calculating global spectrogram mean and stddev...')
-        self._global_spec_mean, self._global_spec_std = self._get_global_spec_stats()
+        self._global_spec_mean, self._global_spec_std = None, None
 
-        self._audio_transform = transforms.Compose([
-            self._create_base_audio_transform(),
-            transforms.Normalize(self._global_spec_mean, self._global_spec_std)
-        ])
+        if normalize_spectrograms:
+            logging.debug('Calculating global spectrogram mean and stddev...')
+            self._global_spec_mean, self._global_spec_std = self._get_global_spec_stats()
+
+            self._audio_transform = transforms.Compose([
+                self._create_base_audio_transform(),
+                transforms.Normalize(self._global_spec_mean, self._global_spec_std)
+            ])
+        else:
+            self._audio_transform = self._create_base_audio_transform()
 
     def __getitem__(self, idx: int):
         """Returns a single item from the dataset.
@@ -121,8 +128,12 @@ class LJSpeechDataset(torch_data.Dataset):
         """Returns the sample ID for the given index."""
         return self._metadata[idx][0]
 
-    def get_spectrogram_stats(self) -> Tuple[float, float]:
+    def get_spectrogram_stats(self) -> Optional[Tuple[float, float]]:
         """Returns the global mean and standard deviation of the preprocessed spectrograms."""
+
+        if self._global_spec_mean is None or self._global_spec_std is None:
+            return None
+
         return self._global_spec_mean, self._global_spec_std
 
     def _create_base_audio_transform(self) -> Callable:
@@ -132,6 +143,7 @@ class LJSpeechDataset(torch_data.Dataset):
         """
 
         return transforms.Compose([
+            audio_transforms.Resample(orig_freq=22050, new_freq=self._sample_rate),
             audio_prep.AudioClippingTransform(self._audio_max_length, self._sample_rate),
             audio_transforms.MelSpectrogram(sample_rate=self._sample_rate,
                                             n_fft=self._fft_window_size,
@@ -178,12 +190,19 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
 
     debug_log_interval = 1000
 
-    global_spec_mean, global_spec_std = ds.get_spectrogram_stats()
+    global_spec = ds.get_spectrogram_stats()
 
-    metadata = {
-        'global_spec_mean': global_spec_mean,
-        'global_spec_std': global_spec_std
-    }
+    if global_spec is not None:
+
+        global_spec_mean, global_spec_std = global_spec
+
+        metadata = {
+            'global_spec_mean': global_spec_mean,
+            'global_spec_std': global_spec_std
+        }
+
+    else:
+        metadata = {}
 
     for sample_idx, sample in enumerate(ds):
         sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')

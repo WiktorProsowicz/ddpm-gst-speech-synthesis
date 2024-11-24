@@ -33,7 +33,8 @@ DEFAULT_CONFIG = {
     'sample_rate': 22050,
     'fft_window_size': 1024,
     'fft_hop_size': 256,
-    'audio_max_length': 6.0
+    'audio_max_length': 6.0,
+    'normalize_spectrograms': True
 }
 
 
@@ -60,7 +61,8 @@ def main(config):
                                   config['sample_rate'],
                                   config['fft_window_size'],
                                   config['fft_hop_size'],
-                                  config['audio_max_length'])
+                                  config['audio_max_length'],
+                                  config['normalize_spectrograms'])
 
     logging.info('Serializing the dataset...')
 

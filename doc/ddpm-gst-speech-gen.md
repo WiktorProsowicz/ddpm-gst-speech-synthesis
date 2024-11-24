@@ -37,3 +37,7 @@ The decoder avoids using convolutions with kernel's size equal to 1. Additionall
 ### 1.2.0
 
 The Encoder has now dropout.
+
+### 1.3.0
+
+Got rid of dilation in Encoder.

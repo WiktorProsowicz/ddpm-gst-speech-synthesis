@@ -3,6 +3,7 @@
 import os
 from typing import List
 from typing import Tuple
+from typing import Iterator
 
 import numpy as np
 import torch
@@ -79,3 +80,47 @@ def get_datasets(processed_dataset_path: str,
     return (_ProcessedDataset(processed_dataset_path, train_file_ids),
             _ProcessedDataset(processed_dataset_path, val_file_ids),
             _ProcessedDataset(processed_dataset_path, test_file_ids))
+
+
+def split_processed_samples_into_chunks(
+        samples_path: str,
+        n_phonemes: int
+) -> Iterator[Tuple[str, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]]:
+    """Splits each sample from processed dataset into smaller chunks.
+
+    Args:
+        samples_path: Path to the samples to split.
+        n_phonemes: Number of phonemes in each chunk.
+
+    Yields:
+        Tuple containing sample id and another tuple with mel spectrogram, transcript, and
+        phoneme durations.
+    """
+
+    for sample_file_name in os.listdir(samples_path):
+
+        if not sample_file_name.endswith('.pt'):
+            continue
+
+        sample_name = sample_file_name.split('.')[0]
+
+        spec, phonemes, durations = torch.load(os.path.join(
+            samples_path, sample_file_name), weights_only=True)
+
+        pow_durations = np.power(2.0, durations.numpy())
+        pow_durations = (pow_durations + 1e-4).astype(np.uint16)
+
+        n_phonemes_in_sample = torch.sum(phonemes).to(torch.int32).item()
+
+        for chunk_idx in range(n_phonemes_in_sample // n_phonemes):
+
+            first_phoneme_idx = chunk_idx * n_phonemes
+
+            first_spec_idx = np.sum(pow_durations[:first_phoneme_idx])
+            n_spec_frames = np.sum(pow_durations[first_phoneme_idx:first_phoneme_idx + n_phonemes])
+
+            cut_spec = spec[:, first_spec_idx:first_spec_idx + n_spec_frames]
+            cut_durations = durations[first_phoneme_idx:first_phoneme_idx + n_phonemes]
+            cut_phonemes = phonemes[first_phoneme_idx:first_phoneme_idx + n_phonemes]
+
+            yield f'{sample_name}_{chunk_idx}', (cut_spec, cut_phonemes, cut_durations)

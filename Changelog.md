@@ -80,3 +80,5 @@
 
 - Added script for splitting processed samples into chunks
 - Made spectrograms normalizing optional
+- Modified Encoder's architecture
+- Fixed bug with fixed Decoder's parameters

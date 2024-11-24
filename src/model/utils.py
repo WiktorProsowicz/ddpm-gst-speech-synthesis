@@ -12,6 +12,7 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import numpy as np
 
 from model.layers import decoder as m_dec
 from model.layers import duration_predictor as m_dp
@@ -293,3 +294,33 @@ class ModelCheckpointHandler:
 
         with open(self._metadata_path, 'w', encoding='utf-8') as file:
             json.dump(metadata, file)
+
+
+def create_loss_mask_for_durations(durations: torch.Tensor):
+    """Creates a mask used in the loss calculation for the phoneme durations.
+
+    Args:
+        durations: Ground truth phoneme durations.
+    """
+
+    return (durations > 0.0).to(torch.float)
+
+
+def create_loss_mask_for_spectrogram(
+        spectrogram: torch.Tensor, durations: torch.Tensor, durations_mask: torch.Tensor):
+    """Creates a boolean mask used in the loss calculation for the spectrogram.
+
+    Args:
+        spectrogram: The ground truth spectrogram.
+        durations: The ground truth phoneme durations in log scale.
+        durations_mask: The mask for the phoneme durations.
+    """
+
+    pow_durations = (np.power(2.0, durations.cpu().numpy()) + 1e-4).astype(np.int32)
+    pow_durations = pow_durations * durations_mask.cpu().numpy()
+
+    max_lengths = np.sum(pow_durations, axis=1, dtype=np.int32)
+
+    mask = np.arange(spectrogram.shape[2]).reshape(1, 1, -1) < max_lengths.reshape(-1, 1, 1)
+
+    return torch.from_numpy(mask).to(spectrogram.device)

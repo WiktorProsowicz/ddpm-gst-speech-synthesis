@@ -65,8 +65,8 @@ class ModelTrainer:
         self._backward_diff_interval = validation_interval * 5
 
         self._optimizer = torch.optim.Adam(self._model_comps.parameters(), lr=learning_rate)
-        self._noise_prediction_loss = torch.nn.MSELoss()
-        self._duration_loss = torch.nn.MSELoss()
+        self._noise_prediction_loss = torch.nn.MSELoss(reduction='none')
+        self._duration_loss = torch.nn.MSELoss(reduction='none')
 
     def run_training(self, num_steps: int, start_step: int = 0, use_profiler: bool = False):
         """Runs the training pipeline.
@@ -266,10 +266,16 @@ class ModelTrainer:
         decoder_output: torch.Tensor = self._model_comps.decoder(
             diff_timestep, noised_data, stretched_encoder_output, style_embedding)
 
-        noise_prediction_noise = self._noise_prediction_loss(decoder_output, spectrogram)
+        noise_prediction_loss = self._noise_prediction_loss(decoder_output, spectrogram)
         duration_loss = self._duration_loss(predicted_durations, durations)
 
-        return noise_prediction_noise, duration_loss
+        dur_mask = model_utils.create_loss_mask_for_durations(durations)
+        duration_loss = torch.mean(duration_loss * dur_mask)
+
+        spec_mask = model_utils.create_loss_mask_for_spectrogram(spectrogram, durations, dur_mask)
+        noise_prediction_loss = torch.mean(noise_prediction_loss * spec_mask)
+
+        return noise_prediction_loss, duration_loss
 
     def _perform_backward_diffusion(self, step_idx: int):
         """Tries to run the backward diffusion and logs the results."""

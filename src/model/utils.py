@@ -316,11 +316,12 @@ def create_loss_mask_for_spectrogram(
         durations_mask: The mask for the phoneme durations.
     """
 
-    pow_durations = (np.power(2.0, durations.cpu().numpy()) + 1e-4).astype(np.int32)
-    pow_durations = pow_durations * durations_mask.cpu().numpy()
+    pow_durations = (torch.pow(2.0, durations) + 1e-4).to(torch.int32)
+    pow_durations = pow_durations * durations_mask
 
-    max_lengths = np.sum(pow_durations, axis=1, dtype=np.int32)
+    max_lengths = torch.sum(pow_durations, dim=1).to(torch.int32)
 
-    mask = np.arange(spectrogram.shape[2]).reshape(1, 1, -1) < max_lengths.reshape(-1, 1, 1)
+    arange = torch.arange(spectrogram.shape[2]).reshape(1, 1, -1).to(spectrogram.device)
+    mask = arange < max_lengths.reshape(-1, 1, 1)
 
-    return torch.from_numpy(mask).to(spectrogram.device)
+    return mask.to(torch.float)

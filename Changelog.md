@@ -75,3 +75,8 @@
 - Made the dropout in each layer controllable
 - Added new options to 'train_model' script
 - Extended the full backward diffusion at validation with an additional run for a sample from the train dataset
+
+### 1.3.0
+
+- Added script for splitting processed samples into chunks
+- Made spectrograms normalizing optional

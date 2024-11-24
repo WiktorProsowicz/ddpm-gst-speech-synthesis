@@ -116,9 +116,6 @@ class Decoder(torch.nn.Module):
             torch.nn.SiLU()
         )
 
-        n_res_blocks = 12
-        skip_connections_channels = 512
-        internal_channels = 128
         self._residual_blocks = _create_residual_blocks(
             n_res_blocks,
             skip_connections_channels,

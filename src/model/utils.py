@@ -12,7 +12,6 @@ from typing import Optional
 from typing import Tuple
 
 import torch
-import numpy as np
 
 from model.layers import decoder as m_dec
 from model.layers import duration_predictor as m_dp
@@ -314,7 +313,8 @@ def create_loss_mask_for_durations(durations: torch.Tensor) -> Tuple[torch.Tenso
 @torch.no_grad()
 def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
                                      durations: torch.Tensor,
-                                     durations_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+                                     durations_mask: torch.Tensor
+                                     ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Creates a boolean mask used in the loss calculation for the spectrogram.
 
     Args:

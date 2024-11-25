@@ -3,18 +3,18 @@
 import logging
 import time
 from typing import Callable
+from typing import Dict
 from typing import Optional
 from typing import Tuple
-from typing import Dict
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualisation
+from model import metrics
 from model import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
-from model import metrics
 
 
 class ModelTrainer:
@@ -259,7 +259,7 @@ class ModelTrainer:
                 avg_noise_mse.item(),
                 step_idx)
 
-    def _compute_losses(self, spectrogram, phonemes,
+    def _compute_losses(self, spectrogram, phonemes,  # pylint: disable=too-many-locals
                         durations) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
         """Calls the model with the given input data and computes the losses.
 

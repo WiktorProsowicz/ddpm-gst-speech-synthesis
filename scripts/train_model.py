@@ -54,7 +54,7 @@ DEFAULT_CONFIG = {
         'diffusion': {
             'n_steps': 400,
             'beta_min': 0.0001,
-            'beta_max': 0.02,
+            'beta_max': 0.02
         }
     },
     'model': {
@@ -67,10 +67,14 @@ DEFAULT_CONFIG = {
         'gst': {
             'use_gst': False,
             'embedding_dim': 256,
-            'token_count': 32,
+            'token_count': 32
         },
         'duration_predictor': {
             'n_blocks': 4
+        },
+        'encoder': {
+            'n_blocks': 2,
+            'embedding_dim': 128
         },
         'dropout_rate': 0.1
     },

@@ -56,14 +56,17 @@ class Encoder(torch.nn.Module):
     the speech).
     """
 
-    def __init__(self, input_phonemes_shape: Tuple[int, int],
-                 output_channels: int, dropout_rate: float):
+    def __init__(self,
+                 input_phonemes_shape: Tuple[int, int],
+                 n_blocks: int,
+                 output_channels: int,
+                 embedding_dim: int,
+                 dropout_rate: float):
         """Initializes the encoder."""
 
         super().__init__()
 
         input_length, input_onehot_dim = input_phonemes_shape
-        embedding_dim = 512
 
         self._prenet = torch.nn.Sequential(
             torch.nn.Linear(input_onehot_dim, embedding_dim),
@@ -73,7 +76,7 @@ class Encoder(torch.nn.Module):
         self._res_blocks = _create_residual_blocks(
             input_length=input_length,
             conv_channels=embedding_dim,
-            kernel_sizes=[7, 5, 3, 7, 5, 3],
+            kernel_sizes=[7, 5, 3] * n_blocks,
             dropout_rate=dropout_rate
         )
 

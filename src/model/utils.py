@@ -296,6 +296,7 @@ class ModelCheckpointHandler:
             json.dump(metadata, file)
 
 
+@torch.no_grad()
 def create_loss_mask_for_durations(durations: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Creates a mask used in the loss calculation for the phoneme durations.
 
@@ -310,6 +311,7 @@ def create_loss_mask_for_durations(durations: torch.Tensor) -> Tuple[torch.Tenso
     return mask, torch.sum(mask)
 
 
+@torch.no_grad()
 def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
                                      durations: torch.Tensor,
                                      durations_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -336,6 +338,7 @@ def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
     return mask, torch.sum(mask) * spectrogram.shape[1]
 
 
+@torch.no_grad()
 def create_loss_weight_for_spectrogram(spectrogram: torch.Tensor):
     """Creates a weight matrix used to in the calculation of loss for the spectrogram.
 

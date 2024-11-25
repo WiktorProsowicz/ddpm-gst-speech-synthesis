@@ -5,6 +5,7 @@ import time
 from typing import Callable
 from typing import Optional
 from typing import Tuple
+from typing import Dict
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -13,6 +14,7 @@ from data import visualisation
 from model import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
+from model import metrics
 
 
 class ModelTrainer:
@@ -125,7 +127,7 @@ class ModelTrainer:
             self._run_training_step(step_idx, batch)
 
             if (step_idx + 1) % training_step_debug_interval == 0:
-                logging.debug('Performed %d training steps. (Avg time/steps in sec: %.2f).',
+                logging.debug('Performed %d training steps. (Avg time/step in sec: %.2f).',
                               step_idx + 1,
                               (time.time() - start_time) / (step_idx - start_step + 1))
 
@@ -169,7 +171,7 @@ class ModelTrainer:
 
         self._optimizer.zero_grad()
 
-        noise_prediction_loss, duration_loss = self._compute_losses(
+        noise_prediction_loss, duration_loss, named_metrics = self._compute_losses(
             spectrogram, phonemes, durations)
 
         total_loss = noise_prediction_loss + duration_loss
@@ -180,6 +182,16 @@ class ModelTrainer:
             step_idx)
         self._tb_logger.add_scalar('Training/Loss/Duration', duration_loss.item(), step_idx)
         self._tb_logger.add_scalar('Training/Loss/Total', total_loss.item(), step_idx)
+
+        self._tb_logger.add_scalar(
+            'Training/Metrics/DurationMAE',
+            named_metrics['duration_pred_mae'].item(),
+            step_idx)
+
+        self._tb_logger.add_scalar(
+            'Training/Metrics/NoiseMAE',
+            named_metrics['noise_pred_mae'].item(),
+            step_idx)
 
         total_loss.backward()
         self._optimizer.step()
@@ -198,6 +210,8 @@ class ModelTrainer:
             avg_noise_prediction_loss = torch.tensor(0., device=self._device)
             avg_duration_loss = torch.tensor(0., device=self._device)
             avg_total_loss = torch.tensor(0., device=self._device)
+            avg_duration_mse = torch.tensor(0., device=self._device)
+            avg_noise_mse = torch.tensor(0., device=self._device)
 
             for batch in self._val_data_loader:
 
@@ -208,16 +222,20 @@ class ModelTrainer:
                 phonemes = phonemes.to(self._device)
                 durations = durations.to(self._device)
 
-                noise_prediction_loss, duration_loss = self._compute_losses(
+                noise_prediction_loss, duration_loss, named_metrics = self._compute_losses(
                     spectrogram, phonemes, durations)
 
                 avg_noise_prediction_loss += noise_prediction_loss
                 avg_duration_loss += duration_loss
                 avg_total_loss += noise_prediction_loss + duration_loss
+                avg_duration_mse += named_metrics['duration_pred_mae']
+                avg_noise_mse += named_metrics['noise_pred_mae']
 
             avg_total_loss /= len(self._val_data_loader)
             avg_noise_prediction_loss /= len(self._val_data_loader)
             avg_duration_loss /= len(self._val_data_loader)
+            avg_duration_mse /= len(self._val_data_loader)
+            avg_noise_mse /= len(self._val_data_loader)
 
             self._tb_logger.add_scalar('Validation/Loss/Total', avg_total_loss.item(), step_idx)
 
@@ -231,12 +249,22 @@ class ModelTrainer:
                 avg_duration_loss.item(),
                 step_idx)
 
+            self._tb_logger.add_scalar(
+                'Validation/Metrics/DurationMAE',
+                avg_duration_mse.item(),
+                step_idx)
+
+            self._tb_logger.add_scalar(
+                'Validation/Metrics/NoiseMAE',
+                avg_noise_mse.item(),
+                step_idx)
+
     def _compute_losses(self, spectrogram, phonemes,
-                        durations) -> Tuple[torch.Tensor, torch.Tensor]:
+                        durations) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
         """Calls the model with the given input data and computes the losses.
 
         Returns:
-            A tuple containing the noise prediction and duration prediction losses.
+            A tuple containing the noise prediction loss, duration prediction loss and metrics.
         """
 
         batch_size = spectrogram.shape[0]
@@ -279,7 +307,14 @@ class ModelTrainer:
         noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask * spec_weights)
         noise_prediction_loss /= spec_mask_sum
 
-        return noise_prediction_loss, duration_loss
+        named_metrics = {
+            'duration_pred_mae': metrics.mean_absolute_error(
+                predicted_durations, durations, dur_mask, dur_mask_sum),
+            'noise_pred_mae': metrics.mean_absolute_error(
+                decoder_output, spectrogram, spec_mask, spec_mask_sum),
+        }
+
+        return noise_prediction_loss, duration_loss, named_metrics
 
     def _perform_backward_diffusion(self, step_idx: int):
         """Tries to run the backward diffusion and logs the results."""

@@ -273,7 +273,8 @@ class ModelTrainer:
         duration_loss = torch.mean(duration_loss * dur_mask)
 
         spec_mask = model_utils.create_loss_mask_for_spectrogram(spectrogram, durations, dur_mask)
-        noise_prediction_loss = torch.mean(noise_prediction_loss * spec_mask)
+        spec_weights = model_utils.create_loss_weight_for_spectrogram(spectrogram)
+        noise_prediction_loss = torch.mean(noise_prediction_loss * spec_mask * spec_weights)
 
         return noise_prediction_loss, duration_loss
 

@@ -269,12 +269,15 @@ class ModelTrainer:
         noise_prediction_loss = self._noise_prediction_loss(decoder_output, spectrogram)
         duration_loss = self._duration_loss(predicted_durations, durations)
 
-        dur_mask = model_utils.create_loss_mask_for_durations(durations)
-        duration_loss = torch.mean(duration_loss * dur_mask)
+        dur_mask, dur_mask_sum = model_utils.create_loss_mask_for_durations(durations)
+        duration_loss = torch.sum(duration_loss * dur_mask) / dur_mask_sum
 
-        spec_mask = model_utils.create_loss_mask_for_spectrogram(spectrogram, durations, dur_mask)
+        spec_mask, spec_mask_sum = model_utils.create_loss_mask_for_spectrogram(spectrogram,
+                                                                                durations,
+                                                                                dur_mask)
         spec_weights = model_utils.create_loss_weight_for_spectrogram(spectrogram)
-        noise_prediction_loss = torch.mean(noise_prediction_loss * spec_mask * spec_weights)
+        noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask * spec_weights)
+        noise_prediction_loss /= spec_mask_sum
 
         return noise_prediction_loss, duration_loss
 

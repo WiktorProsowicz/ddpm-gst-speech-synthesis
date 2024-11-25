@@ -296,24 +296,32 @@ class ModelCheckpointHandler:
             json.dump(metadata, file)
 
 
-def create_loss_mask_for_durations(durations: torch.Tensor):
+def create_loss_mask_for_durations(durations: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Creates a mask used in the loss calculation for the phoneme durations.
 
     Args:
         durations: Ground truth phoneme durations.
+
+    Returns:
+        A tuple containing the mask and the sum of the mask elements to compute the mean loss.
     """
 
-    return (durations > 0.0).to(torch.float)
+    mask = (durations > 0.0).to(torch.float)
+    return mask, torch.sum(mask)
 
 
-def create_loss_mask_for_spectrogram(
-        spectrogram: torch.Tensor, durations: torch.Tensor, durations_mask: torch.Tensor):
+def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
+                                     durations: torch.Tensor,
+                                     durations_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Creates a boolean mask used in the loss calculation for the spectrogram.
 
     Args:
         spectrogram: The ground truth spectrogram.
         durations: The ground truth phoneme durations in log scale.
         durations_mask: The mask for the phoneme durations.
+
+    Returns:
+        A tuple containing the mask and the sum of the mask elements to compute the mean loss.
     """
 
     pow_durations = (torch.pow(2.0, durations) + 1e-4).to(torch.int32)
@@ -323,8 +331,9 @@ def create_loss_mask_for_spectrogram(
 
     arange = torch.arange(spectrogram.shape[2]).reshape(1, 1, -1).to(spectrogram.device)
     mask = arange < max_lengths.reshape(-1, 1, 1)
+    mask = mask.to(torch.float)
 
-    return mask.to(torch.float)
+    return mask, torch.sum(mask) * spectrogram.shape[1]
 
 
 def create_loss_weight_for_spectrogram(spectrogram: torch.Tensor):

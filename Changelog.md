@@ -86,3 +86,8 @@
 #### 1.3.1
 
 - Fixed bug related to serializing split data chunks (order of elements in serialized tuple)
+
+### 1.4.0
+
+- Added computing Mean Absolute Error metric to training pipeline
+- Added mask and weights to computing loss

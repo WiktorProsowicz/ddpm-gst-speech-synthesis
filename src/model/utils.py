@@ -325,3 +325,16 @@ def create_loss_mask_for_spectrogram(
     mask = arange < max_lengths.reshape(-1, 1, 1)
 
     return mask.to(torch.float)
+
+
+def create_loss_weight_for_spectrogram(spectrogram: torch.Tensor):
+    """Creates a weight matrix used to in the calculation of loss for the spectrogram.
+
+    The weights are intended to guide the spectrogram to focus on lower frequency regions.
+
+    Args:
+        spectrogram: Either the  ground truth of the predicted spectrogram.
+    """
+
+    return torch.logspace(
+        0., 1., steps=spectrogram.shape[1], base=10.0, device=spectrogram.device).reshape(1, -1, 1)

@@ -57,7 +57,8 @@ DEFAULT_CONFIG = {
             'beta_max': 0.02,
         },
 
-        'use_gt_durations_for_backward_diff': True
+        'use_gt_durations_for_backward_diff': True,
+        'use_loss_weights': True
     },
     'model': {
         'decoder': {
@@ -125,7 +126,8 @@ def _get_model_trainer(
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
         config['training']['lr'],
-        config['training']['use_gt_durations_for_backward_diff']
+        config['training']['use_gt_durations_for_backward_diff'],
+        config['training']['use_loss_weights']
     )
 
 

@@ -40,7 +40,8 @@ class ModelTrainer:
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
-                 use_gt_durations_for_back_diff: bool):
+                 use_gt_durations_for_back_diff: bool,
+                 use_loss_weights: bool):
         """Initializes the model trainer.
 
         Args:
@@ -69,6 +70,7 @@ class ModelTrainer:
         self._validation_interval = validation_interval
         self._backward_diff_interval = validation_interval * 5
         self._use_gt_durations_for_back_diff = use_gt_durations_for_back_diff
+        self._use_loss_weights = use_loss_weights
 
         self._optimizer = torch.optim.Adam(self._model_comps.parameters(), lr=learning_rate)
         self._noise_prediction_loss = torch.nn.MSELoss(reduction='none')
@@ -307,8 +309,13 @@ class ModelTrainer:
         spec_mask, spec_mask_sum = model_utils.create_loss_mask_for_spectrogram(spectrogram,
                                                                                 durations,
                                                                                 dur_mask)
-        spec_weights = model_utils.create_loss_weight_for_spectrogram(spectrogram)
-        noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask * spec_weights)
+        if self._use_loss_weights:
+            spec_weights = model_utils.create_loss_weight_for_spectrogram(spectrogram)
+            noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask * spec_weights)
+
+        else:
+            noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask)
+
         noise_prediction_loss /= spec_mask_sum
 
         named_metrics = {

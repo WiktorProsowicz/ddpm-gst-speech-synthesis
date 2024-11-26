@@ -300,7 +300,7 @@ class ModelTrainer:
         decoder_output: torch.Tensor = self._model_comps.decoder(
             diff_timestep, noised_data, stretched_encoder_output, style_embedding)
 
-        noise_prediction_loss = self._noise_prediction_loss(decoder_output, spectrogram)
+        noise_prediction_loss = self._noise_prediction_loss(decoder_output, noise)
         duration_loss = self._duration_loss(predicted_durations, durations)
 
         dur_mask, dur_mask_sum = model_utils.create_loss_mask_for_durations(durations)
@@ -322,7 +322,7 @@ class ModelTrainer:
             'duration_pred_mae': metrics.mean_absolute_error(
                 predicted_durations, durations, dur_mask, dur_mask_sum),
             'noise_pred_mae': metrics.mean_absolute_error(
-                decoder_output, spectrogram, spec_mask, spec_mask_sum),
+                decoder_output, noise, spec_mask, spec_mask_sum),
         }
 
         return noise_prediction_loss, duration_loss, named_metrics

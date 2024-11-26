@@ -39,7 +39,8 @@ class ModelTrainer:
                  checkpoints_handler: model_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
-                 learning_rate: float):
+                 learning_rate: float,
+                 use_gt_durations_for_back_diff: bool):
         """Initializes the model trainer.
 
         Args:
@@ -53,6 +54,8 @@ class ModelTrainer:
             checkpoints_interval: The number of steps between saving checkpoints.
             diff_params_scheduler: The scheduler for the diffusion process parameters.
             validation_interval: The number of steps between validation runs.
+            use_gt_durations_for_back_diff: Tells whether to use ground truth durations
+                instead of the predicted ones while performing backward diffusion.
         """
 
         self._model_comps = model_provider()
@@ -65,6 +68,7 @@ class ModelTrainer:
         self._checkpoints_interval = checkpoints_interval
         self._validation_interval = validation_interval
         self._backward_diff_interval = validation_interval * 5
+        self._use_gt_durations_for_back_diff = use_gt_durations_for_back_diff
 
         self._optimizer = torch.optim.Adam(self._model_comps.parameters(), lr=learning_rate)
         self._noise_prediction_loss = torch.nn.MSELoss(reduction='none')
@@ -355,7 +359,7 @@ class ModelTrainer:
         with torch.no_grad():
 
             batch = next(iter(loader))
-            spectrogram, phonemes, _ = batch
+            spectrogram, phonemes, durations = batch
             spectrogram = spectrogram[0:1]
             phonemes = phonemes[0:1]
 
@@ -369,10 +373,14 @@ class ModelTrainer:
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
             durations_mask = torch.reshape(durations_mask, (1, -1, 1))
 
-            phoneme_durations = self._model_comps.duration_predictor(phoneme_representations)
-            phoneme_durations = inf_utils.sanitize_predicted_durations(phoneme_durations,
-                                                                       spectrogram.shape[2])
-            phoneme_durations = phoneme_durations * durations_mask
+            if self._use_gt_durations_for_back_diff:
+                phoneme_durations = self._model_comps.duration_predictor(phoneme_representations)
+                phoneme_durations = inf_utils.sanitize_predicted_durations(phoneme_durations,
+                                                                           spectrogram.shape[2])
+                phoneme_durations = phoneme_durations * durations_mask
+
+            else:
+                phoneme_durations = durations
 
             stretched_phoneme_representations = self._model_comps.length_regulator(
                 phoneme_representations, phoneme_durations)

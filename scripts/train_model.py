@@ -69,10 +69,14 @@ DEFAULT_CONFIG = {
         'gst': {
             'use_gst': False,
             'embedding_dim': 256,
-            'token_count': 32,
+            'token_count': 32
         },
         'duration_predictor': {
             'n_blocks': 4
+        },
+        'encoder': {
+            'n_blocks': 2,
+            'embedding_dim': 128
         },
         'dropout_rate': 0.1
     },

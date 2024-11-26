@@ -96,6 +96,8 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             - decoder::n_res_blocks: The number of residual blocks in the decoder.
             - decoder::internal_channels: The number of internal channels in the decoder.
             - decoder::skip_connections_channels: The number of channels in the skip connections.
+            - encoder::n_blocks: The number of convolutional in the encoder.
+            - encoder::embedding_dim: The dimension of the embeddings in the encoder.
             - dropout_rate: The dropout rate to use in the whole model.
     """
 
@@ -111,7 +113,11 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
         cfg['dropout_rate'])
     decoder.to(device)
 
-    encoder = m_enc.Encoder(input_phonemes_shape, decoder_input_channels, cfg['dropout_rate'])
+    encoder = m_enc.Encoder(input_phonemes_shape,
+                            cfg['encoder']['n_blocks'],
+                            decoder_input_channels,
+                            cfg['encoder']['embedding_dim'],
+                            cfg['dropout_rate'])
     encoder.to(device)
 
     duration_predictor = m_dp.DurationPredictor((input_phonemes_length, decoder_input_channels),

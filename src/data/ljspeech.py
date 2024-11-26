@@ -91,7 +91,7 @@ class LJSpeechDataset(torch_data.Dataset):
 
             self._audio_transform = transforms.Compose([
                 self._create_base_audio_transform(),
-                transforms.Normalize(self._global_spec_mean, self._global_spec_std)
+                transforms.Lambda(lambda x: (x - self._global_spec_mean) / self._global_spec_std)
             ])
         else:
             self._audio_transform = self._create_base_audio_transform()
@@ -103,7 +103,9 @@ class LJSpeechDataset(torch_data.Dataset):
             idx: Index of the item to return.
 
         Returns:
-            A tuple containing the waveform and the sample rate.
+            A tuple containing the preprocessed spectrogram, the transcript and the
+                phoneme durations. The spectrogram's values are normalized to [0, 1].
+                Each individual spectrogram's element has mean 0 and std 1 across the dataset.
         """
 
         audio, _, _, _ = self._dataset[idx]
@@ -128,7 +130,7 @@ class LJSpeechDataset(torch_data.Dataset):
         """Returns the sample ID for the given index."""
         return self._metadata[idx][0]
 
-    def get_spectrogram_stats(self) -> Optional[Tuple[float, float]]:
+    def get_spectrogram_stats(self) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
         """Returns the global mean and standard deviation of the preprocessed spectrograms."""
 
         if self._global_spec_mean is None or self._global_spec_std is None:
@@ -149,18 +151,18 @@ class LJSpeechDataset(torch_data.Dataset):
                                             n_fft=self._fft_window_size,
                                             n_mels=80,
                                             hop_length=self._fft_hop_size),
-            audio_transforms.AmplitudeToDB()
+            audio_transforms.AmplitudeToDB(),
+            transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min()))
         ])
 
-    def _get_global_spec_stats(self) -> Tuple[float, float]:
+    def _get_global_spec_stats(self) -> Tuple[torch.Tensor, torch.Tensor]:
         """Calculates the global mean and standard deviation of the spectrograms.
 
         The stats are created with respect to the output spectrograms, i.e. the
         outputs of the audio transforms.
         """
 
-        spec_mean = torch.tensor(0.0)
-        spec_std = torch.tensor(0.0)
+        spec_mean = None
 
         transform = self._create_base_audio_transform()
 
@@ -168,13 +170,24 @@ class LJSpeechDataset(torch_data.Dataset):
 
             audio = transform(audio)
 
-            spec_mean += audio.mean()
-            spec_std += audio.std()
+            if spec_mean is None:
+                spec_mean = torch.zeros_like(audio)
 
-        spec_mean = spec_mean.item()
-        spec_std = spec_std.item()
+            spec_mean += audio
 
         spec_mean /= len(self._dataset)
+
+        spec_std = None
+
+        for audio, _, _, _ in self._dataset:
+
+            audio = transform(audio)
+
+            if spec_std is None:
+                spec_std = torch.zeros_like(audio)
+
+            spec_std += (audio - spec_mean) ** 2
+
         spec_std /= len(self._dataset)
 
         return spec_mean, spec_std
@@ -197,8 +210,8 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
         global_spec_mean, global_spec_std = global_spec
 
         metadata = {
-            'global_spec_mean': global_spec_mean,
-            'global_spec_std': global_spec_std
+            'global_spec_mean': global_spec_mean.tolist(),
+            'global_spec_std': global_spec_std.tolist()
         }
 
     else:

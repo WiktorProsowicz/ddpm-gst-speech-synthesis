@@ -60,7 +60,7 @@ def main(config):
             continue
 
         padding_size = max_spec_length - spec_length
-        padding = torch.full((spec.shape[0], padding_size), spec.min())
+        padding = torch.full((spec.shape[0], padding_size), 0.0)
         spec = torch.cat([spec, padding], dim=1)
 
         torch.save((spec, phonemes, durations), os.path.join(

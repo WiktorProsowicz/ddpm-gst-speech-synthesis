@@ -5,6 +5,8 @@ from typing import Tuple
 
 import torch
 
+from utilities import other as other_utils
+
 
 class _ResidualBlock(torch.nn.Module):
 
@@ -145,7 +147,8 @@ class Decoder(torch.nn.Module):
             style_embedding: The style embedding from the GST module.
         """
 
-        time_embedding = self._create_time_embedding(diffusion_step)
+        time_embedding = other_utils.create_positional_encoding(
+            diffusion_step, self._timestep_embedding_dim)
         time_embedding = self._timestep_encoder(time_embedding)
         time_embedding = time_embedding.unsqueeze(-1)
         phoneme_representations = phoneme_representations.transpose(1, 2)
@@ -165,14 +168,3 @@ class Decoder(torch.nn.Module):
         output = self._postnet(skip_output)
 
         return output
-
-    def _create_time_embedding(self, diffusion_step: torch.Tensor) -> torch.Tensor:
-        """Creates the Sinusoidal Positional Embedding for the input time steps."""
-
-        i_steps = torch.arange(0, self._timestep_embedding_dim // 2, device=diffusion_step.device)
-        factor = 10000 ** (i_steps / (self._timestep_embedding_dim // 2))
-
-        t_embedding = diffusion_step[:, None].repeat(1, self._timestep_embedding_dim // 2)
-        t_embedding = t_embedding / factor
-
-        return torch.cat([torch.sin(t_embedding), torch.cos(t_embedding)], dim=-1)

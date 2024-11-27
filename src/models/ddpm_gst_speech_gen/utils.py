@@ -10,6 +10,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
+from typing import Callable
 
 import torch
 
@@ -18,6 +19,7 @@ from layers.ddpm_gst_speech_gen import encoder as m_enc
 from layers.shared import duration_predictor as m_dp
 from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
+from utilities import other as other_utils
 
 
 @dataclass
@@ -151,16 +153,6 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
     )
 
 
-def _try_load_state_dict(module: torch.nn.Module, saved_module_path: str):
-    """Attempts to load the state dict of the module from the specified path."""
-
-    if not os.path.exists(saved_module_path):
-        logging.critical("Module state dict not found at '%s'.", saved_module_path)
-        sys.exit(1)
-
-    module.load_state_dict(torch.load(saved_module_path, weights_only=True))
-
-
 def load_model_components(components: ModelComponents, path: str) -> ModelComponents:
     """Loads the model components from the specified path.
 
@@ -173,16 +165,20 @@ def load_model_components(components: ModelComponents, path: str) -> ModelCompon
         logging.critical("Model components not found at '%s'.", path)
         sys.exit(1)
 
-    _try_load_state_dict(components.encoder, os.path.join(path, 'encoder.pth'))
-    _try_load_state_dict(components.decoder, os.path.join(path, 'decoder.pth'))
-    _try_load_state_dict(
+    other_utils.try_load_state_dict(components.encoder, os.path.join(path, 'encoder.pth'))
+    other_utils.try_load_state_dict(components.decoder, os.path.join(path, 'decoder.pth'))
+    other_utils.try_load_state_dict(
         components.duration_predictor, os.path.join(
             path, 'duration_predictor.pth'))
-    _try_load_state_dict(components.length_regulator, os.path.join(path, 'length_regulator.pth'))
+    other_utils.try_load_state_dict(
+        components.length_regulator, os.path.join(
+            path, 'length_regulator.pth'))
 
     if components.gst_provider and components.reference_embedder:
-        _try_load_state_dict(components.gst_provider, os.path.join(path, 'gst_provider.pth'))
-        _try_load_state_dict(
+        other_utils.try_load_state_dict(
+            components.gst_provider, os.path.join(
+                path, 'gst_provider.pth'))
+        other_utils.try_load_state_dict(
             components.reference_embedder, os.path.join(
                 path, 'reference_embedder.pth'))
 
@@ -209,96 +205,6 @@ def save_model_components(components: ModelComponents, path: str):
         torch.save(components.gst_provider.state_dict(), os.path.join(path, 'gst_provider.pth'))
         torch.save(components.reference_embedder.state_dict(),
                    os.path.join(path, 'reference_embedder.pth'))
-
-
-class ModelCheckpointHandler:
-    """Handles the saving and loading of model checkpoints.
-
-    The class is responsible for managing files inside the checkpoints directory. It shall
-    store both the metadata of the saved checkpoints as well as the model components.
-    """
-
-    def __init__(self, checkpoint_dir: str,
-                 checkpoint_basename: str):
-        """Initializes the ModelCheckpointHandler.
-
-        Args:
-            checkpoint_dir: The directory to store the model checkpoints.
-            checkpoint_basename: The base name of the checkpoints.
-        """
-
-        self._checkpoint_dir = checkpoint_dir
-        self._metadata_path = os.path.join(checkpoint_dir, 'metadata.json')
-        self._checkpoint_basename = checkpoint_basename
-
-    def num_checkpoints(self) -> int:
-        """Returns the number of saved checkpoints."""
-
-        return len(self._get_metadata()['checkpoints'])
-
-    def get_newest_checkpoint(
-            self, model_components: ModelComponents) -> Tuple[ModelComponents, Dict[str, Any]]:
-        """Loads the newest checkpoint from the checkpoint directory.
-
-        Args:
-            model_components: The components of the model to load the checkpoint into.
-
-        Returns:
-            A tuple containing the model components and the metadata of the newest checkpoint.
-        """
-
-        metadata = self._get_metadata()
-
-        if not metadata['checkpoints']:
-            logging.critical('No checkpoints found.')
-            sys.exit(1)
-
-        newest_checkpoint = metadata['checkpoints'][-1]
-
-        checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
-        load_model_components(model_components, checkpoint_path)
-
-        return model_components, newest_checkpoint['metadata']
-
-    def save_checkpoint(self, model_components: ModelComponents,
-                        checkpoint_metadata: Dict[str, Any]):
-        """Saves the model components as a checkpoint.
-
-        Args:
-            model_components: The components of the model to save.
-            checkpoint_metadata: The metadata of the checkpoint.
-        """
-
-        checkpoint_dir = os.path.join(self._checkpoint_dir,
-                                      f'{self._checkpoint_basename}_{self.num_checkpoints()}')
-
-        save_model_components(model_components, checkpoint_dir)
-
-        metadata = self._get_metadata()
-
-        metadata['checkpoints'].append({
-            'directory_name': os.path.basename(checkpoint_dir),
-            'metadata': checkpoint_metadata
-        })
-
-        self._save_metadata(metadata)
-
-    def _get_metadata(self) -> Dict[str, Any]:
-        """Returns the metadata of the saved checkpoints."""
-
-        if not os.path.exists(self._metadata_path):
-            return {
-                'checkpoints': []
-            }
-
-        with open(self._metadata_path, 'r', encoding='utf-8') as file:
-            return json.load(file)
-
-    def _save_metadata(self, metadata: Dict[str, Any]):
-        """Saves the metadata of the saved checkpoints."""
-
-        with open(self._metadata_path, 'w', encoding='utf-8') as file:
-            json.dump(metadata, file)
 
 
 @torch.no_grad()

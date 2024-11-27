@@ -34,7 +34,8 @@ DEFAULT_CONFIG = {
     'fft_window_size': 1024,
     'fft_hop_size': 256,
     'audio_max_length': 6.0,
-    'normalize_spectrograms': True
+    'normalize_spectrograms': True,
+    'scale_spectrograms': False
 }
 
 
@@ -62,7 +63,8 @@ def main(config):
                                   config['fft_window_size'],
                                   config['fft_hop_size'],
                                   config['audio_max_length'],
-                                  config['normalize_spectrograms'])
+                                  config['normalize_spectrograms'],
+                                  config['scale_spectrograms'])
 
     logging.info('Serializing the dataset...')
 

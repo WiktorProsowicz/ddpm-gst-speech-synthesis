@@ -33,7 +33,8 @@ class LJSpeechDataset(torch_data.Dataset):
                  fft_window_size: int,
                  fft_hop_size: int,
                  audio_max_length: float,
-                 normalize_spectrograms: bool) -> None:
+                 normalize_spectrograms: bool,
+                 scale_spectrograms: bool) -> None:
         """Initializes the dataset.
 
         Args:
@@ -41,6 +42,9 @@ class LJSpeechDataset(torch_data.Dataset):
                 torchaudio.datasets.LJSPEECH generated structure.
             alignments_path: Path to a directory containing output of the Montreal Forced
                 Aligner tool. See data.preprocessing.alignments.
+            normalize_spectrograms: If True, the spectrograms are normalized to have zero
+                mean and unit variance.
+            scale_spectrograms: If True, the spectrograms are scaled to [0, 1].
         """
         super().__init__()
 
@@ -54,6 +58,7 @@ class LJSpeechDataset(torch_data.Dataset):
         self._audio_max_length = audio_max_length
         self._fft_window_size = fft_window_size
         self._fft_hop_size = fft_hop_size
+        self._scale_spectrograms = scale_spectrograms
 
         logging.debug('Loading alignments...')
         self._alignments = alignments.load_alignments(alignments_path)
@@ -144,6 +149,13 @@ class LJSpeechDataset(torch_data.Dataset):
         The transform does not contain the normalization step.
         """
 
+        if self._scale_spectrograms:
+            def scaling_lambda(x):
+                return (x - x.min()) / (x.max() - x.min())
+        else:
+            def scaling_lambda(x):
+                return x
+
         return transforms.Compose([
             audio_transforms.Resample(orig_freq=22050, new_freq=self._sample_rate),
             audio_prep.AudioClippingTransform(self._audio_max_length, self._sample_rate),
@@ -152,7 +164,7 @@ class LJSpeechDataset(torch_data.Dataset):
                                             n_mels=80,
                                             hop_length=self._fft_hop_size),
             audio_transforms.AmplitudeToDB(),
-            transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min()))
+            transforms.Lambda(scaling_lambda)
         ])
 
     def _get_global_spec_stats(self) -> Tuple[torch.Tensor, torch.Tensor]:

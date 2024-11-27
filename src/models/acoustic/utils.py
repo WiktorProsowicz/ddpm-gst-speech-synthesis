@@ -6,7 +6,10 @@ from typing import Optional
 from typing import Tuple
 from typing import Dict
 from typing import Any
+import os
+import sys
 import itertools
+import logging
 
 import torch
 
@@ -15,6 +18,7 @@ from layers.shared import length_regulator as m_lr
 from layers.shared import duration_predictor as m_dp
 from layers.acoustic import encoder as m_encoder
 from layers.acoustic import decoder as m_decoder
+from utilities import other as other_utils
 
 
 @dataclass
@@ -132,3 +136,54 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         gst=gst,
         embedder=embedder
     )
+
+
+def load_model_components(components: ModelComponents, path: str) -> ModelComponents:
+    """Loads the model components from the specified path.
+
+    Args:
+        components: The freshly initialized components of the model.
+        path: The path to the saved model.
+    """
+
+    if not os.path.exists(path):
+        logging.critical("Model components not found at '%s'.", path)
+        sys.exit(1)
+
+    other_utils.try_load_state_dict(components.encoder, os.path.join(path, 'encoder.pth'))
+    other_utils.try_load_state_dict(components.decoder, os.path.join(path, 'decoder.pth'))
+    other_utils.try_load_state_dict(
+        components.duration_predictor, os.path.join(
+            path, 'duration_predictor.pth'))
+    other_utils.try_load_state_dict(
+        components.length_regulator, os.path.join(
+            path, 'length_regulator.pth'))
+
+    if components.gst and components.embedder:
+        other_utils.try_load_state_dict(
+            components.gst, os.path.join(path, 'gst.pth'))
+        other_utils.try_load_state_dict(
+            components.embedder, os.path.join(path, 'embedder.pth'))
+
+    return components
+
+
+def save_model_components(components: ModelComponents, path: str):
+    """Saves the model components to the specified path.
+
+    Args:
+        components: The components of the model.
+        path: The path to save the model.
+    """
+
+    os.makedirs(path, exist_ok=True)
+
+    torch.save(components.encoder.state_dict(), os.path.join(path, 'encoder.pth'))
+    torch.save(components.decoder.state_dict(), os.path.join(path, 'decoder.pth'))
+    torch.save(components.duration_predictor.state_dict(),
+               os.path.join(path, 'duration_predictor.pth'))
+    torch.save(components.length_regulator.state_dict(), os.path.join(path, 'length_regulator.pth'))
+
+    if components.gst and components.embedder:
+        torch.save(components.gst.state_dict(), os.path.join(path, 'gst.pth'))
+        torch.save(components.embedder.state_dict(), os.path.join(path, 'embedder.pth'))

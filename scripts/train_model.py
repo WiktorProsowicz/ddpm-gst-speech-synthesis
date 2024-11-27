@@ -30,6 +30,7 @@ from models.ddpm_gst_speech_gen import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
+from utilities import other as other_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
@@ -95,8 +96,9 @@ def _get_model_trainer(
         tb_writer: torch_tb.SummaryWriter
 ) -> training.ModelTrainer:
 
-    checkpoints_handler = m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt')
+    checkpoints_handler = other_utils.ModelCheckpointHandler(
+        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt',
+        m_utils.load_model_components, m_utils.save_model_components)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

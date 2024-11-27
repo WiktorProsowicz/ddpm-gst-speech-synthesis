@@ -15,6 +15,7 @@ from models.ddpm_gst_speech_gen import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
 from utilities import metrics
+from utilities import other as other_utils
 
 
 class ModelTrainer:
@@ -36,7 +37,7 @@ class ModelTrainer:
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
                  diff_params_scheduler: diff_utils.ParametrizationScheduler,
-                 checkpoints_handler: model_utils.ModelCheckpointHandler,
+                 checkpoints_handler: other_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
@@ -303,14 +304,14 @@ class ModelTrainer:
         noise_prediction_loss = self._noise_prediction_loss(decoder_output, noise)
         duration_loss = self._duration_loss(predicted_durations, durations)
 
-        dur_mask, dur_mask_sum = model_utils.create_loss_mask_for_durations(durations)
+        dur_mask, dur_mask_sum = other_utils.create_loss_mask_for_durations(durations)
         duration_loss = torch.sum(duration_loss * dur_mask) / dur_mask_sum
 
-        spec_mask, spec_mask_sum = model_utils.create_loss_mask_for_spectrogram(spectrogram,
+        spec_mask, spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(spectrogram,
                                                                                 durations,
                                                                                 dur_mask)
         if self._use_loss_weights:
-            spec_weights = model_utils.create_loss_weight_for_spectrogram(spectrogram)
+            spec_weights = other_utils.create_loss_weight_for_spectrogram(spectrogram)
             noise_prediction_loss = torch.sum(noise_prediction_loss * spec_mask * spec_weights)
 
         else:

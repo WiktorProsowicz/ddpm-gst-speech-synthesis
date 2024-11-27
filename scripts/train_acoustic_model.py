@@ -16,15 +16,13 @@ import sys
 from typing import Any
 from typing import Dict
 
-import numpy as np
 import torch
 import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
-from data import visualisation
-from data.preprocessing import text
+from data import visualization
 from models.acoustic import training
 from models.acoustic import utils as m_utils
 from utilities import logging_utils
@@ -88,7 +86,7 @@ def _get_model_trainer(
 ) -> training.ModelTrainer:
 
     checkpoints_handler = other_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt',
+        config['training']['checkpoints_path'], 'acoustic_model',
         m_utils.load_model_components,
         m_utils.save_model_components
     )
@@ -120,29 +118,6 @@ def _get_model_trainer(
         config['training']['use_loss_weights'])
 
 
-def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryWriter):
-
-    example_data = train_ds[np.random.randint(0, len(train_ds))]
-
-    spec, transcript, durations = example_data
-
-    tb_writer.add_image(
-        'Example/InputMelSpectrogram',
-        visualisation.colorize_spectrogram(spec, 'viridis'))
-
-    tb_writer.add_text(
-        'Example/Transcript',
-        ' '.join(visualisation.decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
-
-    durations_mask = (durations.numpy() > 0).astype(np.uint16)
-    pow_durations = (np.power(2, durations.numpy()) +
-                     1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
-
-    tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
-                         visualisation.annotate_spectrogram_with_phoneme_durations(
-                             spec.numpy(), pow_durations))
-
-
 def main(config):
     """Runs the training pipeline based on the configuration."""
 
@@ -166,7 +141,7 @@ def main(config):
 
     logging.info('Datasets loaded.')
 
-    _log_example_data(train_ds, tb_writer)
+    visualization.log_example_ljspeech_data(train_ds, tb_writer)
 
     train_loader = torch_data.DataLoader(
         train_ds,

@@ -7,8 +7,11 @@ import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.utils.tensorboard
+import torch.utils.tensorboard.summary
 
 from utilities import inference
+from data.preprocessing import text
 
 
 def colorize_spectrogram(spectrogram: torch.Tensor, colormap: str) -> torch.Tensor:
@@ -68,3 +71,35 @@ def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,
     ax.set_ylabel('Frequency bin index')
 
     return fig
+
+
+def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
+                              tb_writer: torch.utils.tensorboard.SummaryWriter):
+    """Logs example data samples to TensorBoard.
+
+    Args:
+        dataset: The dataset to sample the data from. The dataset should be the output of the
+            `scripts/prepare_dataset.py` and should contain the following structure:
+            (spectrogram, transcript, durations).
+        tb_writer: The TensorBoard writer to log the data.
+    """
+
+    example_data = dataset[np.random.randint(0, len(dataset))]
+
+    spec, transcript, durations = example_data
+
+    tb_writer.add_image(
+        'Example/InputMelSpectrogram',
+        colorize_spectrogram(spec, 'viridis'))
+
+    tb_writer.add_text(
+        'Example/Transcript',
+        ' '.join(decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
+
+    durations_mask = (durations.numpy() > 0).astype(np.uint16)
+    pow_durations = (np.power(2, durations.numpy()) +
+                     1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
+
+    tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
+                         annotate_spectrogram_with_phoneme_durations(
+                             spec.numpy(), pow_durations))

@@ -133,29 +133,6 @@ def _get_model_trainer(
     )
 
 
-def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryWriter):
-
-    example_data = train_ds[np.random.randint(0, len(train_ds))]
-
-    spec, transcript, durations = example_data
-
-    tb_writer.add_image(
-        'Example/InputMelSpectrogram',
-        visualization.colorize_spectrogram(spec, 'viridis'))
-
-    tb_writer.add_text(
-        'Example/Transcript',
-        ' '.join(visualization.decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
-
-    durations_mask = (durations.numpy() > 0).astype(np.uint16)
-    pow_durations = (np.power(2, durations.numpy()) +
-                     1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
-
-    tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
-                         visualization.annotate_spectrogram_with_phoneme_durations(
-                             spec.numpy(), pow_durations))
-
-
 def main(config):
     """Runs the training pipeline based on the configuration."""
 
@@ -179,7 +156,7 @@ def main(config):
 
     logging.info('Datasets loaded.')
 
-    _log_example_data(train_ds, tb_writer)
+    visualization.log_example_ljspeech_data(train_ds, tb_writer)
 
     train_loader = torch_data.DataLoader(
         train_ds,

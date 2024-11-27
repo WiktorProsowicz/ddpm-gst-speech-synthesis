@@ -10,7 +10,7 @@ from typing import Tuple
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
-from data import visualisation
+from data import visualization
 from models.acoustic import utils as model_utils
 from utilities import inference as inf_utils
 from utilities import metrics
@@ -327,12 +327,12 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Validation/Visualization/Original',
-            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Validation/Visualization/Predicted',
-            visualisation.colorize_spectrogram(decoder_output[0], 'viridis'),
+            visualization.colorize_spectrogram(decoder_output[0], 'viridis'),
             step_idx)
 
         spectrogram, decoder_output = self._perform_visualization_for_loader(
@@ -340,12 +340,12 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Training/Visualization/Original',
-            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Training/Visualization/Predicted',
-            visualisation.colorize_spectrogram(decoder_output[0], 'viridis'),
+            visualization.colorize_spectrogram(decoder_output[0], 'viridis'),
             step_idx)
 
     def _perform_visualization_for_loader(self,

@@ -10,7 +10,7 @@ from typing import Tuple
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
-from data import visualisation
+from data import visualization
 from models.ddpm_gst_speech_gen import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
@@ -338,12 +338,12 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Original',
-            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Validation/BackwardDiffusion/Denoised',
-            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
             step_idx)
 
         spectrogram, denoised_spectrogram = self._perform_backward_diff_for_loader(
@@ -351,12 +351,12 @@ class ModelTrainer:
 
         self._tb_logger.add_image(
             'Training/BackwardDiffusion/Original',
-            visualisation.colorize_spectrogram(spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
             step_idx)
 
         self._tb_logger.add_image(
             'Training/BackwardDiffusion/Denoised',
-            visualisation.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
+            visualization.colorize_spectrogram(denoised_spectrogram[0], 'viridis'),
             step_idx)
 
     def _perform_backward_diff_for_loader(self,

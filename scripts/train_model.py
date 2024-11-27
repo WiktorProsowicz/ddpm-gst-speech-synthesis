@@ -23,7 +23,7 @@ from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
-from data import visualisation
+from data import visualization
 from data.preprocessing import text
 from models.ddpm_gst_speech_gen import training
 from models.ddpm_gst_speech_gen import utils as m_utils
@@ -141,18 +141,18 @@ def _log_example_data(train_ds: torch_data.Dataset, tb_writer: torch_tb.SummaryW
 
     tb_writer.add_image(
         'Example/InputMelSpectrogram',
-        visualisation.colorize_spectrogram(spec, 'viridis'))
+        visualization.colorize_spectrogram(spec, 'viridis'))
 
     tb_writer.add_text(
         'Example/Transcript',
-        ' '.join(visualisation.decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
+        ' '.join(visualization.decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
 
     durations_mask = (durations.numpy() > 0).astype(np.uint16)
     pow_durations = (np.power(2, durations.numpy()) +
                      1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
 
     tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
-                         visualisation.annotate_spectrogram_with_phoneme_durations(
+                         visualization.annotate_spectrogram_with_phoneme_durations(
                              spec.numpy(), pow_durations))
 
 

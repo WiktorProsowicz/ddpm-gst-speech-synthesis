@@ -187,7 +187,7 @@ class LJSpeechDataset(torch_data.Dataset):
 
             spec_mean += audio
 
-        spec_mean /= len(self._dataset)
+        spec_mean /= len(self._dataset)  # type: ignore
 
         spec_std = None
 
@@ -200,7 +200,7 @@ class LJSpeechDataset(torch_data.Dataset):
 
             spec_std += (audio - spec_mean) ** 2
 
-        spec_std /= len(self._dataset)
+        spec_std /= len(self._dataset)  # type: ignore
 
         return spec_mean, spec_std
 

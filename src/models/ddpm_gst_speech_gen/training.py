@@ -11,10 +11,10 @@ import torch
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualisation
-from model import metrics
-from model import utils as model_utils
+from models.ddpm_gst_speech_gen import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
+from utilities import metrics
 
 
 class ModelTrainer:

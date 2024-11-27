@@ -25,8 +25,8 @@ from torch.utils import tensorboard as torch_tb
 from data import data_loading
 from data import visualisation
 from data.preprocessing import text
-from model import training
-from model import utils as m_utils
+from models.ddpm_gst_speech_gen import training
+from models.ddpm_gst_speech_gen import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils

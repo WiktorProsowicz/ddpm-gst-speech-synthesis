@@ -13,11 +13,11 @@ from typing import Tuple
 
 import torch
 
-from model.layers import decoder as m_dec
-from model.layers import duration_predictor as m_dp
-from model.layers import encoder as m_enc
-from model.layers import gst as m_gst
-from model.layers import length_regulator as m_lr
+from layers.ddpm_gst_speech_gen import decoder as m_dec
+from layers.ddpm_gst_speech_gen import encoder as m_enc
+from layers.shared import duration_predictor as m_dp
+from layers.shared import gst as m_gst
+from layers.shared import length_regulator as m_lr
 
 
 @dataclass

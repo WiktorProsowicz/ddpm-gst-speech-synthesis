@@ -350,7 +350,7 @@ class ModelTrainer:
 
     def _perform_visualization_for_loader(self,
                                           data_loader: torch.utils.data.DataLoader
-                                          ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                                          ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Performs visualization for the given data loader."""
 
         with torch.no_grad():

@@ -1,6 +1,5 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains definition of Feed Forward Transformer Block."""
-
 from typing import Tuple
 
 import torch

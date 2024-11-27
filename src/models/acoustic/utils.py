@@ -1,23 +1,22 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains utilities specific fot the acoustic model."""
-
-from dataclasses import dataclass
-from typing import Optional
-from typing import Tuple
-from typing import Dict
-from typing import Any
-import os
-import sys
 import itertools
 import logging
+import os
+import sys
+from dataclasses import dataclass
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import Tuple
 
 import torch
 
+from layers.acoustic import decoder as m_decoder
+from layers.acoustic import encoder as m_encoder
+from layers.shared import duration_predictor as m_dp
 from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
-from layers.shared import duration_predictor as m_dp
-from layers.acoustic import encoder as m_encoder
-from layers.acoustic import decoder as m_decoder
 from utilities import other as other_utils
 
 
@@ -94,7 +93,8 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
             - decoder::n_blocks: The number of FFT blocks to use in the decoder.
             - decoder::fft_conv_channels: The number of convolutional channels in the FFT blocks.
             - decoder::output_channels: The number of output channels in the decoder.
-            - duration_predictor::n_blocks: The number of convolutional blocks to use in the duration predictor.
+            - duration_predictor::n_blocks: The number of convolutional blocks to use in
+                the duration predictor.
             - gst::use_gst: Whether to use the global style tokens.
     """
 

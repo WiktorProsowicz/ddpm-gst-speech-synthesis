@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contains utility functions for the DDPM-GST-Speech-Gen model."""
 import itertools
-import json
 import logging
 import os
 import sys
@@ -10,7 +9,6 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
-from typing import Callable
 
 import torch
 

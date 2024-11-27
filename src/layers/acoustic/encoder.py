@@ -1,11 +1,10 @@
+# -*- coding: utf-8 -*-
 """Contains the encoder for the acoustic model."""
-
 from typing import Tuple
 
 import torch
 
 from layers.shared import fft_block
-
 from utilities import other as other_utils
 
 

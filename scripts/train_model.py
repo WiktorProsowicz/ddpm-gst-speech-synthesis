@@ -29,8 +29,8 @@ from models.ddpm_gst_speech_gen import training
 from models.ddpm_gst_speech_gen import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
-from utilities import scripts_utils
 from utilities import other as other_utils
+from utilities import scripts_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')

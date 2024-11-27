@@ -1,14 +1,14 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains miscellaneous utilities."""
-
-import torch
+import json
+import logging
 import os
 import sys
-import logging
 from typing import Any
 from typing import Dict
 from typing import Tuple
-import json
+
+import torch
 
 
 def create_positional_encoding(time_steps: torch.Tensor, embedding_dim: int) -> torch.Tensor:

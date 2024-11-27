@@ -40,7 +40,7 @@ class Encoder(torch.nn.Module):
         )
 
         self._positional_encoding = torch.nn.Parameter(
-            other_utils.create_positional_encoding(torch.range(0, input_length - 1),
+            other_utils.create_positional_encoding(torch.arange(0, input_length),
                                                    embedding_dim),
             requires_grad=False
         )

@@ -43,12 +43,14 @@ class FFTBlock(torch.nn.Module):
             torch.nn.Conv1d(
                 in_channels=input_embedding_dim,
                 out_channels=conv_channels,
-                kernel_size=3),
+                kernel_size=3,
+                padding='same'),
             torch.nn.ReLU(),
             torch.nn.Conv1d(
                 in_channels=conv_channels,
                 out_channels=input_embedding_dim,
-                kernel_size=3),
+                kernel_size=3,
+                padding='same'),
             torch.nn.ReLU()
         )
 

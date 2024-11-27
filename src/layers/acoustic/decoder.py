@@ -36,7 +36,7 @@ class Decoder(torch.nn.Module):
         input_length, input_channels = input_phonemes_shape
 
         self._positional_encoding = torch.nn.Parameter(
-            other_utils.create_positional_encoding(torch.range(0, input_length - 1),
+            other_utils.create_positional_encoding(torch.arange(0, input_length),
                                                    input_channels),
             requires_grad=False
         )

@@ -262,12 +262,14 @@ class ModelTrainer:
                 avg_spec_mse.item(),
                 step_idx)
 
-    def _compute_losses(self, spectrogram, phonemes,
-                        durations) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
+    def _compute_losses(self, spectrogram, phonemes,  # pylint: disable=too-many-locals
+                        durations
+                        ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
         """Calls the model with the given input data and computes the losses.
 
         Returns:
-            A tuple containing the spectrogram prediction loss, duration prediction loss and metrics.
+            A tuple containing the spectrogram prediction loss, duration prediction loss and
+            metrics.
         """
 
         if self._model_comps.gst and self._model_comps.embedder:
@@ -361,6 +363,14 @@ class ModelTrainer:
             spectrogram = spectrogram.to(self._device)
             phonemes = phonemes.to(self._device)
 
+            if self._model_comps.gst and self._model_comps.embedder:
+
+                style_embedding: torch.Tensor = self._model_comps.embedder(
+                    spectrogram, self._model_comps.gst())
+
+            else:
+                style_embedding = None
+
             phoneme_representations = self._model_comps.encoder(phonemes)
 
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
@@ -378,6 +388,7 @@ class ModelTrainer:
             stretched_phoneme_representations = self._model_comps.length_regulator(
                 phoneme_representations, phoneme_durations)
 
-            decoder_output = self._model_comps.decoder(stretched_phoneme_representations)
+            decoder_output = self._model_comps.decoder(
+                stretched_phoneme_representations, style_embedding)
 
             return spectrogram, decoder_output

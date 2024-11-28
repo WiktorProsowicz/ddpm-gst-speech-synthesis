@@ -9,7 +9,8 @@ This project contains the implementation of a system performing human speech syn
 - .devcontainer    # Configuration of the docker environment (see the 'Setup' chapter)
 - src:             # Source code
    - data          # Dataset downloading & preprocessing tools
-   - model         # The model source code containing tools for training, serialization etc
+   - layers        # Neural modules used in models' architecture
+   - model         # Models' API, training tools, serialization etc
    - utilities     # Utility functions & classes for inference, preprocessing etc
 - scripts          # Scripts to be run by the user
 ```

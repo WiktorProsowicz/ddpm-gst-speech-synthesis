@@ -17,6 +17,7 @@ from layers.acoustic import encoder as m_encoder
 from layers.shared import duration_predictor as m_dp
 from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
+from layers.shared import ref_embedder
 from models import utils as shared_m_utils
 
 
@@ -28,7 +29,7 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
     length_regulator: m_lr.LengthRegulator
     duration_predictor: m_dp.DurationPredictor
     gst: Optional[m_gst.GSTProvider]
-    embedder: Optional[m_gst.ReferenceEmbedder]
+    embedder: Optional[ref_embedder.ReferenceEmbedder]
 
     def parameters(self):
         """Returns the parameters of the model."""

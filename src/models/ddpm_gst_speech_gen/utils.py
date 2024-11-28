@@ -17,6 +17,7 @@ from layers.ddpm_gst_speech_gen import encoder as m_enc
 from layers.shared import duration_predictor as m_dp
 from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
+from layers.shared import ref_embedder
 from models import utils as shared_m_utils
 
 
@@ -29,7 +30,7 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
     duration_predictor: m_dp.DurationPredictor
     length_regulator: m_lr.LengthRegulator
     gst_provider: Optional[m_gst.GSTProvider]
-    reference_embedder: Optional[m_gst.ReferenceEmbedder]
+    reference_embedder: Optional[ref_embedder.ReferenceEmbedder]
 
     def parameters(self):
         """Returns the model's parameters."""
@@ -135,7 +136,7 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             cfg['gst']['token_count'])
         gst_provider.to(device)
 
-        reference_embedder = m_gst.ReferenceEmbedder(
+        reference_embedder = ref_embedder.ReferenceEmbedder(
             input_spectrogram_shape,
             (cfg['gst']['token_count'],
              cfg['gst']['embedding_dim']))

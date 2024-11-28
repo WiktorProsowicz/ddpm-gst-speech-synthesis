@@ -129,11 +129,12 @@ class ModelTrainer(base_trainer.BaseTrainer):
                 predicted_durations, durations, dur_mask, dur_mask_sum),
             'spec_pred_mae': metrics.mean_absolute_error(
                 decoder_output, spectrogram, spec_mask, spec_mask_sum),
+            'total_loss': spec_prediction_loss + duration_loss
         }
 
     def _on_step_end(self, step_idx):
 
-        if step_idx % self._visualization_interval == 0:
+        if (step_idx + 1) % self._visualization_interval == 0:
             logging.info('Visualizing model output after %d steps.', step_idx + 1)
             self._perform_visualization(step_idx)
 

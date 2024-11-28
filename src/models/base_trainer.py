@@ -146,8 +146,7 @@ class BaseTrainer(ABC):
 
         self._model_comps.train()
 
-        for tensor in batch:
-            tensor.to(self._device)
+        batch = tuple(tensor.to(self._device) for tensor in batch)
 
         self._optimizer.zero_grad()
 
@@ -176,8 +175,7 @@ class BaseTrainer(ABC):
 
             for batch in self._val_data_loader:
 
-                for tensor in batch:
-                    tensor.to(self._device)
+                batch = tuple(tensor.to(self._device) for tensor in batch)
 
                 losses_and_metrics = self._compute_losses(batch)
 

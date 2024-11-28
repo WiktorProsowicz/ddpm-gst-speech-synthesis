@@ -148,11 +148,12 @@ class ModelTrainer(base_trainer.BaseTrainer):
                 predicted_durations, durations, dur_mask, dur_mask_sum),
             'noise_pred_mae': metrics.mean_absolute_error(
                 decoder_output, noise, spec_mask, spec_mask_sum),
+            'total_loss': noise_prediction_loss + duration_loss
         }
 
     def _on_step_end(self, step_idx: int):
 
-        if step_idx % self._backward_diff_interval == 0:
+        if (step_idx + 1) % self._backward_diff_interval == 0:
             logging.info('Running backward diffusion after %d steps.', step_idx + 1)
             self._perform_backward_diffusion(step_idx)
 
@@ -195,6 +196,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
         with torch.no_grad():
 
             batch = next(iter(loader))
+            batch = tuple(tensor.to(self._device) for tensor in batch)
+
             spectrogram, phonemes, durations = batch
             spectrogram = spectrogram[0:1]
             phonemes = phonemes[0:1]

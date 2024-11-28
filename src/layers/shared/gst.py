@@ -17,10 +17,16 @@ class GSTProvider(torch.nn.Module):
     model architecture.
     """
 
-    def __init__(self, gst_embedding_dim: int, gst_token_count: int):  # pylint: disable=unused-argument
+    def __init__(self, gst_embedding_dim: int, gst_token_count: int):
         """Initializes the GST provider."""
 
         super().__init__()
+
+        self._gst = torch.nn.Parameter(
+            torch.randn(
+                gst_token_count,
+                gst_embedding_dim),
+            requires_grad=False)
 
     def forward(self) -> torch.Tensor:
         """Provides the Global Style Tokens.
@@ -28,3 +34,5 @@ class GSTProvider(torch.nn.Module):
         Returns:
             The set of Global Style Token.
         """
+
+        return self._gst

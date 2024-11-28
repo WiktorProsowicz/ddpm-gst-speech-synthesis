@@ -23,10 +23,10 @@ from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
 from data import visualization
+from models import utils as shared_m_utils
 from models.acoustic import training
 from models.acoustic import utils as m_utils
 from utilities import logging_utils
-from utilities import other as other_utils
 from utilities import scripts_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
@@ -85,7 +85,7 @@ def _get_model_trainer(
         tb_writer: torch_tb.SummaryWriter
 ) -> training.ModelTrainer:
 
-    checkpoints_handler = other_utils.ModelCheckpointHandler(
+    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
         config['training']['checkpoints_path'], 'acoustic_model',
         m_utils.load_model_components,
         m_utils.save_model_components

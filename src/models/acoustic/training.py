@@ -9,8 +9,9 @@ import torch
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualization
-from models.acoustic import utils as model_utils
 from models import base_trainer
+from models import utils as shared_m_utils
+from models.acoustic import utils as model_utils
 from utilities import inference as inf_utils
 from utilities import metrics
 from utilities import other as other_utils
@@ -33,7 +34,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  val_data_loader: torch.utils.data.DataLoader,
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
-                 checkpoints_handler: other_utils.ModelCheckpointHandler,
+                 checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
@@ -73,10 +74,12 @@ class ModelTrainer(base_trainer.BaseTrainer):
     @property
     def model_comps(self) -> model_utils.ModelComponents:
         """Returns the model components."""
+
+        assert isinstance(self._model_comps, model_utils.ModelComponents)
         return self._model_comps
 
     def _compute_losses(self, input_batch: Tuple[torch.Tensor, ...]  # pylint: disable=too-many-locals
-                        ) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
+                        ) -> Dict[str, torch.Tensor]:
         """Overrides BaseTrainer::_compute_losses."""
 
         spectrogram, phonemes, durations = input_batch

@@ -17,11 +17,11 @@ from layers.acoustic import encoder as m_encoder
 from layers.shared import duration_predictor as m_dp
 from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
-from utilities import other as other_utils
+from models import utils as shared_m_utils
 
 
 @dataclass
-class ModelComponents:
+class ModelComponents(shared_m_utils.BaseModelComponents):
     """Contains the components of the acoustic model."""
     encoder: m_encoder.Encoder
     decoder: m_decoder.Decoder
@@ -150,19 +150,19 @@ def load_model_components(components: ModelComponents, path: str) -> ModelCompon
         logging.critical("Model components not found at '%s'.", path)
         sys.exit(1)
 
-    other_utils.try_load_state_dict(components.encoder, os.path.join(path, 'encoder.pth'))
-    other_utils.try_load_state_dict(components.decoder, os.path.join(path, 'decoder.pth'))
-    other_utils.try_load_state_dict(
+    shared_m_utils.try_load_state_dict(components.encoder, os.path.join(path, 'encoder.pth'))
+    shared_m_utils.try_load_state_dict(components.decoder, os.path.join(path, 'decoder.pth'))
+    shared_m_utils.try_load_state_dict(
         components.duration_predictor, os.path.join(
             path, 'duration_predictor.pth'))
-    other_utils.try_load_state_dict(
+    shared_m_utils.try_load_state_dict(
         components.length_regulator, os.path.join(
             path, 'length_regulator.pth'))
 
     if components.gst and components.embedder:
-        other_utils.try_load_state_dict(
+        shared_m_utils.try_load_state_dict(
             components.gst, os.path.join(path, 'gst.pth'))
-        other_utils.try_load_state_dict(
+        shared_m_utils.try_load_state_dict(
             components.embedder, os.path.join(path, 'embedder.pth'))
 
     return components

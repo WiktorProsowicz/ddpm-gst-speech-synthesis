@@ -1,21 +1,16 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains definition of the base trainer class."""
-
-
-from abc import ABC
-from abc import abstractmethod
-from typing import Callable
-from typing import Optional
-from typing import Dict
-from typing import Tuple
 import logging
 import time
+from abc import ABC
+from abc import abstractmethod
+from typing import Dict
+from typing import Optional
+from typing import Tuple
 
-import torch
 import torch.utils.tensorboard
 
 from models import utils as shared_m_utils
-from utilities import other as other_utils
 
 
 class BaseTrainer(ABC):
@@ -35,7 +30,7 @@ class BaseTrainer(ABC):
                  tb_logger: torch.utils.tensorboard.writer.SummaryWriter,
                  device: torch.device,
                  validation_interval: int,
-                 checkpoints_handler: other_utils.ModelCheckpointHandler,
+                 checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  optimizer: torch.optim.Optimizer):
         """Initializes the trainer.

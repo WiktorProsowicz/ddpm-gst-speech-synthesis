@@ -6,12 +6,10 @@ import matplotlib as mlp
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-import torch.utils.tensorboard
 import torch.utils.tensorboard.summary
 
-from utilities import inference
 from data.preprocessing import text
+from utilities import inference
 
 
 def colorize_spectrogram(spectrogram: torch.Tensor, colormap: str) -> torch.Tensor:

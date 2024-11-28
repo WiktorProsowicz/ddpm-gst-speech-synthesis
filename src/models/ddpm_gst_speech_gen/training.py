@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 """Contains the training/validation/profiling pipeline for the DDPM-GST-Speech-Gen model."""
 import logging
-import time
 from typing import Callable
 from typing import Dict
-from typing import Optional
 from typing import Tuple
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualization
-from models.ddpm_gst_speech_gen import utils as model_utils
 from models import base_trainer
+from models import utils as shared_m_utils
+from models.ddpm_gst_speech_gen import utils as model_utils
 from utilities import diffusion as diff_utils
 from utilities import inference as inf_utils
 from utilities import metrics
@@ -38,7 +37,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
                  diff_params_scheduler: diff_utils.ParametrizationScheduler,
-                 checkpoints_handler: other_utils.ModelCheckpointHandler,
+                 checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
@@ -82,9 +81,11 @@ class ModelTrainer(base_trainer.BaseTrainer):
     @property
     def model_comps(self) -> model_utils.ModelComponents:
         """Returns the model components."""
+
+        assert isinstance(self._model_comps, model_utils.ModelComponents)
         return self._model_comps
 
-    def _compute_losses(self,
+    def _compute_losses(self,  # pylint: disable=too-many-locals
                         input_batch: Tuple[torch.Tensor, ...]
                         ) -> Dict[str, torch.Tensor]:
         """Calls the model with the given input data and computes the losses.

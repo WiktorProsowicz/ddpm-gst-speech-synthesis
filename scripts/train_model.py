@@ -16,7 +16,6 @@ import sys
 from typing import Any
 from typing import Dict
 
-import numpy as np
 import torch
 import yaml  # type: ignore
 from torch.utils import data as torch_data
@@ -24,12 +23,11 @@ from torch.utils import tensorboard as torch_tb
 
 from data import data_loading
 from data import visualization
-from data.preprocessing import text
+from models import utils as shared_m_utils
 from models.ddpm_gst_speech_gen import training
 from models.ddpm_gst_speech_gen import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
-from utilities import other as other_utils
 from utilities import scripts_utils
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
@@ -96,7 +94,7 @@ def _get_model_trainer(
         tb_writer: torch_tb.SummaryWriter
 ) -> training.ModelTrainer:
 
-    checkpoints_handler = other_utils.ModelCheckpointHandler(
+    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
         config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt',
         m_utils.load_model_components, m_utils.save_model_components)
 

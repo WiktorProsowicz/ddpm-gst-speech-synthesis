@@ -1,6 +1,5 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains the module creating embedding from the reference audio."""
-
 from typing import Tuple
 
 import torch

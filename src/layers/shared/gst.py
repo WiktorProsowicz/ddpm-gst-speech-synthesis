@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Contains the GST module for the DDPM-GST-Speech-Gen model."""
-from typing import Tuple
-
 import torch
 
 

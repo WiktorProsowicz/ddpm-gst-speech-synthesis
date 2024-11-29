@@ -12,7 +12,6 @@ import argparse
 import logging
 import os
 import pathlib
-import sys
 from typing import Any
 from typing import Dict
 

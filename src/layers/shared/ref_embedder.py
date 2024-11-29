@@ -24,16 +24,17 @@ class _DownsamplingBlock(torch.nn.Module):
             torch.nn.Conv2d(
                 output_channels,
                 output_channels,
-                kernel_size=3,
+                kernel_size=4,
                 stride=2,
-                padding='same'),
+                padding=(1, 1)),
             torch.nn.ReLU(),
         )
 
     def forward(self, input_spec: torch.Tensor) -> torch.Tensor:
         """Downsamples and encodes the input spectrogram."""
 
-        return self._convs(input_spec)
+        output = self._convs(input_spec)
+        return output
 
 
 def _create_downsampling_blocks(input_channels: int, output_channels: int, dropout_rate: float,
@@ -72,11 +73,11 @@ class ReferenceEmbedder(torch.nn.Module):
         # Calculate the most suitable number of channels for the downsampling
         # blocks so that the out_channels * downsampled_height is close to the
         # gst_size.
-        downsampled_height = (spec_channels // 2**n_ref_encoder_blocks)
+        downsampled_height = spec_channels // 2**n_ref_encoder_blocks
         blocks_out_ch = gst_size // downsampled_height
 
         self._down_blocks = _create_downsampling_blocks(
-            spec_channels, blocks_out_ch, dropout_rate, n_ref_encoder_blocks)
+            1, blocks_out_ch, dropout_rate, n_ref_encoder_blocks)
 
         self._recurr_pool = torch.nn.LSTM(
             input_size=blocks_out_ch * downsampled_height,
@@ -92,7 +93,8 @@ class ReferenceEmbedder(torch.nn.Module):
         self._gst_att = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
             num_heads=n_attention_heads,
-            dropout=dropout_rate)
+            dropout=dropout_rate,
+            batch_first=True)
 
     def forward(self, reference_audio: torch.Tensor, gst: torch.Tensor) -> torch.Tensor:
         """Converts the reference audio into the style embedding.
@@ -106,11 +108,11 @@ class ReferenceEmbedder(torch.nn.Module):
         """
 
         reference_audio = reference_audio.unsqueeze(1)
-        gst = gst.unsqueeze(0)
 
-        output = self._down_blocks(reference_audio).transpose(1, 3)
+        output = self._down_blocks(reference_audio)
 
         batch_size, channels, height, width = output.shape
+        output = output.transpose(1, 3)
         output = output.reshape(batch_size, width, channels * height)
 
         _, (_, final_state) = self._recurr_pool(output)
@@ -118,6 +120,7 @@ class ReferenceEmbedder(torch.nn.Module):
         encoded_ref = self._post_enc(final_state.squeeze(0))
         encoded_ref = encoded_ref.unsqueeze(1)
 
+        gst = gst.unsqueeze(0).expand(batch_size, -1, -1)
         att_out, _ = self._gst_att(encoded_ref, gst, gst)
 
         return att_out.squeeze(1)

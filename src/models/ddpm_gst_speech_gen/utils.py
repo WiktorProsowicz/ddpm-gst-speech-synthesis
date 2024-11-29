@@ -139,7 +139,10 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
         reference_embedder = ref_embedder.ReferenceEmbedder(
             input_spectrogram_shape,
             (cfg['gst']['token_count'],
-             cfg['gst']['embedding_dim']))
+             cfg['gst']['embedding_dim']),
+            cfg['gst']['n_ref_encoder_blocks'],
+            cfg['gst']['n_attention_heads'],
+            cfg['dropout_rate'])
         reference_embedder.to(device)
 
     else:

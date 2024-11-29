@@ -126,8 +126,23 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         dropout_rate=cfg['dropout_rate']
     ).to(device)
 
-    gst = None
-    embedder = None
+    if cfg['gst']['use_gst']:
+        gst = m_gst.GSTProvider(
+            gst_embedding_dim=cfg['gst']['token_dim'],
+            gst_token_count=cfg['gst']['n_tokens']
+        ).to(device)
+
+        embedder = ref_embedder.ReferenceEmbedder(
+            reference_spectrogram_shape=output_spectrogram_shape,
+            gst_shape=(cfg['gst']['n_tokens'], cfg['gst']['token_dim']),
+            n_ref_encoder_blocks=cfg['gst']['n_ref_encoder_blocks'],
+            n_attention_heads=cfg['gst']['n_attention_heads'],
+            dropout_rate=cfg['dropout_rate']
+        ).to(device)
+
+    else:
+        gst = None
+        embedder = None
 
     return ModelComponents(
         encoder=encoder,

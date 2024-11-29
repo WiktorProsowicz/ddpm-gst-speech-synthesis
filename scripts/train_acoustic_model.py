@@ -62,17 +62,23 @@ DEFAULT_CONFIG = {
         },
         'decoder': {
             'n_blocks': 6,
-            'fft_conv_channels': 758,
+            'fft_conv_channels': 768,
             'output_channels': 80
         },
         'duration_predictor': {
             'n_blocks': 2
         },
         'gst': {
-            'use_gst': False}
+            'use_gst': False,
+            'n_tokens': 32,
+            'token_dim': 256,
+            'n_attention_heads': 4,
+            'n_ref_encoder_blocks': 3
+        }
     },
     # The name of the script run. Shall be used for the TensorBoard logging
-    'run_label': None
+    'run_label': None,
+    'use_profiler': False
 }
 
 
@@ -120,10 +126,6 @@ def _get_model_trainer(
 
 def main(config):
     """Runs the training pipeline based on the configuration."""
-
-    if config['model']['gst']['use_gst']:
-        logging.critical('GST support is not implemented yet!')
-        sys.exit(1)
 
     logging.info('Starting training pipeline.')
     logging.info('Configuration:\n%s', yaml.dump(config))
@@ -176,7 +178,7 @@ def main(config):
 
     model_trainer.run_training(config['training']['steps'],
                                config['training']['start_step'],
-                               use_profiler=False)
+                               use_profiler=config['use_profiler'])
 
     tb_writer.close()
 

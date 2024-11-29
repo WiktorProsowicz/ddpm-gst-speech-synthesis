@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains the encoder for the acoustic model."""
 from typing import Tuple
+from typing import Optional
 
 import torch
 
@@ -40,12 +41,17 @@ class Decoder(torch.nn.Module):
             requires_grad=False
         )
 
-        self._fft_blocks = torch.nn.Sequential(
-            *[fft_block.FFTBlock(input_shape=(input_length, input_channels),
-                                 n_heads=n_heads,
-                                 dropout_rate=dropout_rate,
-                                 conv_channels=fft_conv_channels)
-              for _ in range(n_blocks)]
+        self._fft_blocks = torch.nn.ModuleList(
+            [fft_block.FFTBlock(input_shape=(input_length, input_channels),
+                                n_heads=n_heads,
+                                dropout_rate=dropout_rate,
+                                conv_channels=fft_conv_channels)
+             for _ in range(n_blocks)]
+        )
+
+        self._cond_layers = torch.nn.ModuleList(
+            [torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+             for _ in range(n_blocks)]
         )
 
         self._postnet = torch.nn.Sequential(
@@ -54,7 +60,7 @@ class Decoder(torch.nn.Module):
         )
 
     def forward(self, input_phonemes: torch.Tensor,
-                style_embedding: torch.Tensor) -> torch.Tensor:  # pylint: disable=unused-argument
+                style_embedding: Optional[torch.Tensor]) -> torch.Tensor:
         """Decodes the stretched phoneme representations into spectrogram frames.
 
         Args:
@@ -66,5 +72,16 @@ class Decoder(torch.nn.Module):
         """
 
         output = input_phonemes + self._positional_encoding
-        output = self._fft_blocks(output)
+
+        if style_embedding is not None:
+            style_embedding = style_embedding.unsqueeze(1)
+
+            for block, cond_l in zip(self._fft_blocks, self._cond_layers):
+                output = block(output)
+                output = output + cond_l(style_embedding)
+
+        else:
+            for block in self._fft_blocks:
+                output = block(output)
+
         return self._postnet(output).transpose(1, 2)

@@ -10,7 +10,7 @@ This project contains the implementation of a system performing human speech syn
 - src:             # Source code
    - data          # Dataset downloading & preprocessing tools
    - layers        # Neural modules used in models' architecture
-   - model         # Models' API, training tools, serialization etc
+   - models        # Models' API, training tools, serialization etc
    - utilities     # Utility functions & classes for inference, preprocessing etc
 - scripts          # Scripts to be run by the user
 ```

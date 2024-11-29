@@ -97,6 +97,7 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
             - decoder::n_res_blocks: The number of residual blocks in the decoder.
             - decoder::internal_channels: The number of internal channels in the decoder.
             - decoder::skip_connections_channels: The number of channels in the skip connections.
+            - decoder::conv_kernel_size: The kernel size of the convolutional layers in the decoder.
             - encoder::n_blocks: The number of convolutional in the encoder.
             - encoder::embedding_dim: The dimension of the embeddings in the encoder.
             - dropout_rate: The dropout rate to use in the whole model.
@@ -111,6 +112,7 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
         cfg['decoder']['n_res_blocks'],
         cfg['decoder']['internal_channels'],
         cfg['decoder']['skip_connections_channels'],
+        cfg['decoder']['conv_kernel_size'],
         cfg['dropout_rate'])
     decoder.to(device)
 

@@ -64,7 +64,8 @@ DEFAULT_CONFIG = {
             'timestep_embedding_dim': 128,
             'n_res_blocks': 12,
             'internal_channels': 128,
-            'skip_connections_channels': 512
+            'skip_connections_channels': 512,
+            'conv_kernel_size': 3,
         },
         'gst': {
             'use_gst': False,

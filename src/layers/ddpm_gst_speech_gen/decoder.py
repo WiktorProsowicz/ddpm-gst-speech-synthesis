@@ -13,6 +13,7 @@ class _ResidualBlock(torch.nn.Module):
     def __init__(self, skip_channels: int,
                  block_input_channels: int,
                  decoder_input_channels: int,
+                 conv_kernel_size: int,
                  dropout_rate: float):
 
         super().__init__()
@@ -20,13 +21,13 @@ class _ResidualBlock(torch.nn.Module):
         self._norm = torch.nn.Sequential(torch.nn.BatchNorm1d(block_input_channels),
                                          torch.nn.Conv1d(block_input_channels,
                                                          block_input_channels,
-                                                         kernel_size=1,
+                                                         kernel_size=conv_kernel_size,
                                                          padding='same'),
                                          torch.nn.Dropout(dropout_rate))
 
         self._skip_connection = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
                                                                     skip_channels,
-                                                                    kernel_size=1,
+                                                                    kernel_size=conv_kernel_size,
                                                                     padding='same'),
                                                     torch.nn.Dropout(dropout_rate))
 
@@ -37,13 +38,13 @@ class _ResidualBlock(torch.nn.Module):
 
         self._cond_phonemes_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
                                                                        block_input_channels,
-                                                                       kernel_size=1,
+                                                                       kernel_size=conv_kernel_size,
                                                                        padding='same'),
                                                        torch.nn.Dropout(dropout_rate))
 
         self._output_conv = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
                                                                 block_input_channels,
-                                                                kernel_size=1,
+                                                                kernel_size=conv_kernel_size,
                                                                 padding='same'),
                                                 torch.nn.Dropout(dropout_rate))
 
@@ -65,6 +66,7 @@ def _create_residual_blocks(n_blocks: int,
                             skip_connections_channels: int,
                             block_input_channels: int,
                             decoder_input_channels: int,
+                            conv_kernel_size: int,
                             dropout_rate) -> torch.nn.ModuleList:
 
     blocks = [
@@ -72,6 +74,7 @@ def _create_residual_blocks(n_blocks: int,
             skip_channels=skip_connections_channels,
             block_input_channels=block_input_channels,
             decoder_input_channels=decoder_input_channels,
+            conv_kernel_size=conv_kernel_size,
             dropout_rate=dropout_rate)
         for _ in range(n_blocks)
     ]
@@ -98,6 +101,7 @@ class Decoder(torch.nn.Module):
                  n_res_blocks: int,
                  internal_channels: int,
                  skip_connections_channels: int,
+                 conv_kernel_size: int,
                  dropout_rate: float):
         """Initializes the decoder."""
 
@@ -119,17 +123,21 @@ class Decoder(torch.nn.Module):
             skip_connections_channels,
             internal_channels,
             input_channels,
+            conv_kernel_size,
             dropout_rate)
 
         self._prenet = torch.nn.Sequential(
-            torch.nn.Conv1d(input_channels, internal_channels, kernel_size=1, padding='same'),
+            torch.nn.Conv1d(input_channels,
+                            internal_channels,
+                            kernel_size=conv_kernel_size,
+                            padding='same'),
         )
 
         self._postnet = torch.nn.Sequential(
             torch.nn.Conv1d(
                 skip_connections_channels,
                 input_channels,
-                kernel_size=1,
+                kernel_size=conv_kernel_size,
                 padding='same'),
         )
 

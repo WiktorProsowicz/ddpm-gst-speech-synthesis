@@ -103,6 +103,7 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         input_phonemes_shape=input_phonemes_shape,
         n_blocks=cfg['encoder']['n_blocks'],
         embedding_dim=cfg['encoder']['embedding_dim'],
+        n_heads=cfg['n_heads'],
         dropout_rate=cfg['dropout_rate'],
         fft_conv_channels=cfg['encoder']['fft_conv_channels']
     ).to(device)

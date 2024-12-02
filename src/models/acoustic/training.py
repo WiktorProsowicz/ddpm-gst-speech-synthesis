@@ -93,7 +93,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         else:
             style_embedding = None
 
-        encoder_output: torch.Tensor = self.model_comps.encoder(phonemes)
+        encoder_output: torch.Tensor = self.model_comps.encoder(phonemes, style_embedding)
 
         predicted_durations: torch.Tensor = self.model_comps.duration_predictor(
             encoder_output.detach())
@@ -101,8 +101,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         stretched_encoder_output: torch.Tensor = self.model_comps.length_regulator(
             encoder_output, durations)
 
-        decoder_output: torch.Tensor = self.model_comps.decoder(
-            stretched_encoder_output, style_embedding)
+        decoder_output: torch.Tensor = self.model_comps.decoder(stretched_encoder_output)
 
         spec_prediction_loss = self._spec_prediction_loss(decoder_output, spectrogram)
         duration_loss = self._duration_loss(predicted_durations, durations)
@@ -191,7 +190,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             else:
                 style_embedding = None
 
-            phoneme_representations = self.model_comps.encoder(phonemes)
+            phoneme_representations = self.model_comps.encoder(phonemes, style_embedding)
 
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
             durations_mask = torch.reshape(durations_mask, (1, -1, 1))
@@ -209,6 +208,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
                 phoneme_representations, phoneme_durations)
 
             decoder_output = self.model_comps.decoder(
-                stretched_phoneme_representations, style_embedding)
+                stretched_phoneme_representations)
 
             return spectrogram, decoder_output

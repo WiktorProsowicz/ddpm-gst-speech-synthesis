@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains the encoder for the acoustic model."""
 from typing import Tuple
+from typing import Optional
 
 import torch
 
@@ -22,6 +23,7 @@ class Encoder(torch.nn.Module):
                  input_phonemes_shape: Tuple[int, int],
                  n_blocks: int,
                  embedding_dim: int,
+                 n_heads: int,
                  dropout_rate: float,
                  fft_conv_channels: int
                  ):
@@ -44,26 +46,43 @@ class Encoder(torch.nn.Module):
             requires_grad=False
         )
 
-        self._fft_blocks = torch.nn.Sequential(
-            *[fft_block.FFTBlock(input_shape=(input_length, embedding_dim),
-                                 n_heads=8,
-                                 dropout_rate=dropout_rate,
-                                 conv_channels=fft_conv_channels)
-              for _ in range(n_blocks)]
+        self._cond_layers = torch.nn.ModuleList(
+            [torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+             for _ in range(n_blocks)]
         )
 
-    def forward(self, input_phonemes: torch.Tensor) -> torch.Tensor:
+        self._fft_blocks = torch.nn.ModuleList(
+            [fft_block.FFTBlock(input_shape=(input_length, embedding_dim),
+                                n_heads=n_heads,
+                                dropout_rate=dropout_rate,
+                                conv_channels=fft_conv_channels)
+             for _ in range(n_blocks)]
+        )
+
+    def forward(self, input_phonemes: torch.Tensor,
+                style_embedding: Optional[torch.Tensor]) -> torch.Tensor:
         """Encodes the input phonemes into enriched representations.
 
         Args:
             input_phonemes: The input one-hot encoded phonemes.
+            style_embedding: The style embedding to condition the generation on.
 
         Returns:
             The enriched representations of the input phonemes.
         """
 
-        phoneme_embeddings = self._phoneme_embedding(input_phonemes)
+        output = self._phoneme_embedding(input_phonemes)
+        output += self._positional_encoding
 
-        phoneme_embeddings += self._positional_encoding
+        if style_embedding is not None:
+            style_embedding = style_embedding.unsqueeze(1)
 
-        return self._fft_blocks(phoneme_embeddings)
+            for block, cond_l in zip(self._fft_blocks, self._cond_layers):
+                output = block(output)
+                output = output + cond_l(style_embedding)
+
+        else:
+            for block in self._fft_blocks:
+                output = block(output)
+
+        return output

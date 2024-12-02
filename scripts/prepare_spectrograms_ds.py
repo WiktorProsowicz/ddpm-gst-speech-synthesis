@@ -6,7 +6,6 @@ a mel-spectrogram and a linear-spectrogram.
 
 For expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import argparse
 import logging
 import os
@@ -66,7 +65,7 @@ def main(config):
 def _get_cl_args() -> argparse.Namespace:
 
     arg_parser = argparse.ArgumentParser(
-        description="Prepares a preprocessed dataset used to train the Mel-to-Linear converter.")
+        description='Prepares a preprocessed dataset used to train the Mel-to-Linear converter.')
 
     arg_parser.add_argument(
         '--config_path',

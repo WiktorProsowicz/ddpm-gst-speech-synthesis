@@ -1,4 +1,4 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains training pipeline for the mel-to-linear spectrogram converter model.
 
 The script trains the mel-to-linear spectrogram converter model on the LJSpeech dataset.
@@ -7,23 +7,22 @@ for the checkpoints and various hyperparameters for the model and training.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import argparse
 import logging
-import yaml
 from typing import Any
 from typing import Dict
 
-from torch.utils import tensorboard as torch_tb
-from torch.utils import data as torch_data
 import torch
+import yaml  # type: ignore
+from torch.utils import data as torch_data
+from torch.utils import tensorboard as torch_tb
 
-from utilities import scripts_utils
-from utilities import logging_utils
 from data import data_loading
+from models import utils as shared_m_utils
 from models.mel_to_lin_converter import training
 from models.mel_to_lin_converter import utils as m_utils
-from models import utils as shared_m_utils
+from utilities import logging_utils
+from utilities import scripts_utils
 
 
 DEFAULT_CONFIG = {

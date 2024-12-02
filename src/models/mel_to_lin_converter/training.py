@@ -1,18 +1,18 @@
+# -*- coding: utf-8 -*-
 """Contains raining/validation/profiling pipeline for the mel-to-linear spectrogram converter."""
-
+import logging
 from typing import Callable
 from typing import Dict
 from typing import Tuple
-import logging
 
 import torch
 import torch.utils.tensorboard as pt_tensorboard
 
-from models import utils as shared_m_utils
+from data import visualization
 from models import base_trainer
+from models import utils as shared_m_utils
 from models.mel_to_lin_converter import utils as m_utils
 from utilities import metrics
-from data import visualization
 
 
 class ModelTrainer(base_trainer.BaseTrainer):

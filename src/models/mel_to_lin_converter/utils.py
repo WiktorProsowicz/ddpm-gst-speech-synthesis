@@ -1,19 +1,18 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains utilities specific to the mel-to-linear spectrogram converter model."""
-
-from typing import Tuple
-from typing import Dict
-from typing import Any
-from dataclasses import dataclass
+import logging
 import os
 import sys
-import logging
+from dataclasses import dataclass
+from typing import Any
+from typing import Dict
+from typing import Tuple
 
 import torch
 
-from utilities import other as other_utils
-from models import utils as shared_m_utils
 from layers.shared import fft_block
+from models import utils as shared_m_utils
+from utilities import other as other_utils
 
 
 class MelToLinConverter(torch.nn.Module):

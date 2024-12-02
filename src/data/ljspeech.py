@@ -205,6 +205,78 @@ class LJSpeechDataset(torch_data.Dataset):
         return spec_mean, spec_std
 
 
+class LJSpeechSpectrogramsDs(torch_data.Dataset):
+    """Contains (mel-spectrogram, linear-spectrogram) pairs from the LJSpeech dataset."""
+
+    def __init__(self,
+                 raw_ds_path: str,
+                 sample_rate: int,
+                 fft_window_size: int,
+                 fft_hop_size: int,
+                 scale_spectrograms: bool):
+
+        super().__init__()
+
+        self._dataset = datasets.LJSPEECH(root=raw_ds_path, download=True)
+
+        metadata_path = os.path.join(raw_ds_path, 'LJSpeech-1.1', 'metadata.csv')
+        with open(metadata_path, 'r', encoding='utf-8') as file:
+            self._metadata = list(csv.reader(file, delimiter='|', quoting=csv.QUOTE_NONE))
+
+        self._sample_rate = sample_rate
+        self._fft_window_size = fft_window_size
+        self._fft_hop_size = fft_hop_size
+        self._scale_spectrograms = scale_spectrograms
+
+        if self._scale_spectrograms:
+            def scaling_lambda(x):
+                return (x - x.min()) / (x.max() - x.min())
+        else:
+            def scaling_lambda(x):
+                return x
+
+        self._mel_spec_transform = transforms.Compose([
+            audio_transforms.Resample(orig_freq=22050, new_freq=sample_rate),
+            audio_transforms.MelSpectrogram(sample_rate=sample_rate,
+                                            n_fft=fft_window_size,
+                                            n_mels=80,
+                                            hop_length=fft_hop_size),
+            audio_transforms.AmplitudeToDB(),
+            transforms.Lambda(scaling_lambda)
+        ])
+
+        self._linear_spec_transform = transforms.Compose([
+            audio_transforms.Resample(orig_freq=22050, new_freq=sample_rate),
+            audio_transforms.Spectrogram(n_fft=fft_window_size,
+                                         hop_length=fft_hop_size,
+                                         power=1),
+            audio_transforms.AmplitudeToDB(),
+            transforms.Lambda(scaling_lambda)
+        ])
+
+    def __getitem__(self, idx: int):
+        """Returns a single item from the dataset.
+
+        Args:
+            idx: Index of the item to return.
+
+        Returns:
+            A tuple containing the (mel-spectrogram, linear-spectrogram) pair.
+        """
+
+        audio, _, _, _ = self._dataset[idx]
+
+        return self._mel_spec_transform(audio)[0], self._linear_spec_transform(audio)[0]
+
+    def __len__(self) -> int:
+        """Returns the number of items in the dataset."""
+        return len(self._dataset)
+
+    def get_sample_id(self, idx: int) -> str:
+        """Returns the sample ID for the given index."""
+        return self._metadata[idx][0]
+
+
 def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     """Serializes the dataset to a file.
 
@@ -238,3 +310,47 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
 
     with open(os.path.join(path, 'metadata.json'), 'w', encoding='utf-8') as file:
         json.dump(metadata, file)
+
+
+def _split_spectrograms(specs: Tuple[torch.Tensor, torch.Tensor], max_frames: int):
+    """Splits the given spectrograms pair into chunks of the given length."""
+
+    mel_spec, linear_spec = specs
+
+    n_chunks = mel_spec.size(1) // max_frames
+
+    for i in range(n_chunks):
+        start_idx = i * max_frames
+        end_idx = (i + 1) * max_frames
+
+        yield mel_spec[:, start_idx:end_idx], linear_spec[:, start_idx:end_idx]
+
+
+def serialize_spectrograms_ds(ds: LJSpeechSpectrogramsDs,
+                              path: str,
+                              max_frames_in_split_spectrogram: Optional[int]) -> None:
+    """Serializes the dataset to a file.
+
+    Args:
+        ds: The dataset to serialize.
+        path: The directory the files shall be saved to.
+        max_frames_in_split_spectrogram: If not None, the spectrograms are split into chunks
+            of the given length.
+    """
+
+    debug_log_interval = 1000
+
+    for sample_idx, sample in enumerate(ds):
+
+        if max_frames_in_split_spectrogram is not None:
+            for split_idx, split_sample in enumerate(_split_spectrograms(
+                    sample, max_frames_in_split_spectrogram)):
+
+                sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}_{split_idx}.pt')
+                torch.save(split_sample, sample_path)
+        else:
+            sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')
+            torch.save(sample, sample_path)
+
+        if (sample_idx + 1) % debug_log_interval == 0:
+            logging.debug('Serialized %d samples.', sample_idx + 1)

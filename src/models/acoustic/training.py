@@ -37,7 +37,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
-                 learning_rate: float,
+                 d_model: int,
+                 warmup_steps: int,
                  use_gt_durations_for_visualization: bool,
                  use_loss_weights: bool):
         """Initializes the model trainer.
@@ -45,13 +46,18 @@ class ModelTrainer(base_trainer.BaseTrainer):
         See the arguments of the BaseTrainer constructor.
 
         Args:
-            learning_rate: The learning rate for the optimizer.
+            d_model: Dimensionality of the transformer architecture. It is the size of the
+                embedding every input sequence's element is projected to.
+            warmup_steps: The number of warmup steps for the learning rate scheduler.
             use_gt_durations_for_visualization: Tells whether to use ground truth durations
                 instead of the predicted ones while performing visualization.
             use_loss_weights: Tells whether to use loss weights for the loss computation.
         """
 
         model_components = model_provider()
+        base_optimizer = torch.optim.Adam(model_components.parameters(),
+                                          lr=2e-4,
+                                          betas=(0.9, 0.98))
 
         super().__init__(
             model_comps=model_components,
@@ -62,7 +68,9 @@ class ModelTrainer(base_trainer.BaseTrainer):
             checkpoints_handler=checkpoints_handler,
             checkpoints_interval=checkpoints_interval,
             validation_interval=validation_interval,
-            optimizer=torch.optim.Adam(model_components.parameters(), lr=learning_rate))
+            optimizer=shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                               d_model,
+                                                               warmup_steps))
 
         self._use_gt_durations_for_visualization = use_gt_durations_for_visualization
         self._use_loss_weights = use_loss_weights

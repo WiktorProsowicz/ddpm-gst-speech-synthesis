@@ -103,3 +103,4 @@
 - Added new options to the script training DDPM-GST-Speech-Gen
 - Refactored classes performing models training
 - Fixed bug in computing loss of the DDPM-GST-Speech-Gen model
+- Added dynamic learning rate scheduler to transformer-based models

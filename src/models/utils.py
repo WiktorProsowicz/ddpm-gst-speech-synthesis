@@ -11,7 +11,6 @@ from typing import Dict
 from typing import Iterator
 from typing import Tuple
 
-import torch
 import torch.optim.optimizer
 
 

@@ -35,7 +35,7 @@ DEFAULT_CONFIG = {
     },
     'training': {
         'batch_size': 64,
-        'lr': 2e-4,
+        'warmup_steps': 4000,
         'validation_interval': 100,
         'steps': 1000,
         'start_step': 0,
@@ -92,7 +92,8 @@ def _get_model_trainer(
         checkpoints_handler,
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
-        config['training']['lr'])
+        config['model']['d_model'],
+        config['training']['warmup_steps'])
 
 
 def main(config):

@@ -96,8 +96,7 @@ def _get_model_trainer(
 ) -> training.ModelTrainer:
 
     checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt',
-        m_utils.load_model_components, m_utils.save_model_components)
+        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

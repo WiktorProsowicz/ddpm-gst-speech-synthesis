@@ -9,26 +9,59 @@ from abc import abstractmethod
 from typing import Any
 from typing import Dict
 from typing import Iterator
+from typing import Optional
 from typing import Tuple
 
-import torch
 import torch.optim.optimizer
 
 
 class BaseModelComponents(ABC):
     """Base class for the model components."""
 
-    @abstractmethod
     def parameters(self) -> Iterator[torch.nn.Parameter]:
         """Returns the parameters of the model."""
 
-    @abstractmethod
+        for component in self.get_components().values():
+            if component is not None:
+                yield from component.parameters()
+
     def eval(self):
         """Sets the model to evaluation mode."""
 
-    @abstractmethod
+        for component in self.get_components().values():
+            if component is not None:
+                component.eval()
+
     def train(self):
         """Sets the model to training mode."""
+
+        for component in self.get_components().values():
+            if component is not None:
+                component.train()
+
+    def load_from_path(self, path: str):
+        """Loads the model components from the specified directory."""
+
+        if not os.path.exists(path):
+            logging.critical("Model components not found at '%s'.", path)
+            sys.exit(1)
+
+        for component_name, component in self.get_components().items():
+            if component is not None:
+                try_load_state_dict(component, os.path.join(path, f'{component_name}.pth'))
+
+    def save_to_path(self, path: str):
+        """Saves the model components to the specified directory."""
+
+        os.makedirs(path, exist_ok=True)
+
+        for component_name, component in self.get_components().items():
+            if component is not None:
+                torch.save(component.state_dict(), os.path.join(path, f'{component_name}.pth'))
+
+    @abstractmethod
+    def get_components(self) -> Dict[str, Optional[torch.nn.Module]]:
+        """Returns all named components possessed by the concrete class' instance."""
 
 
 def try_load_state_dict(module: torch.nn.Module, saved_module_path: str):
@@ -49,9 +82,7 @@ class ModelCheckpointHandler:
     """
 
     def __init__(self, checkpoint_dir: str,
-                 checkpoint_basename: str,
-                 loading_func: Any,
-                 saving_func: Any):
+                 checkpoint_basename: str):
         """Initializes the ModelCheckpointHandler.
 
         Args:
@@ -64,8 +95,6 @@ class ModelCheckpointHandler:
         self._checkpoint_dir = checkpoint_dir
         self._metadata_path = os.path.join(checkpoint_dir, 'metadata.json')
         self._checkpoint_basename = checkpoint_basename
-        self._loading_func = loading_func
-        self._saving_func = saving_func
 
     def num_checkpoints(self) -> int:
         """Returns the number of saved checkpoints."""
@@ -73,7 +102,7 @@ class ModelCheckpointHandler:
         return len(self._get_metadata()['checkpoints'])
 
     def get_newest_checkpoint(
-            self, model_components: Any) -> Tuple[Any, Dict[str, Any]]:
+            self, model_components: BaseModelComponents) -> Tuple[Any, Dict[str, Any]]:
         """Loads the newest checkpoint from the checkpoint directory.
 
         Args:
@@ -92,11 +121,11 @@ class ModelCheckpointHandler:
         newest_checkpoint = metadata['checkpoints'][-1]
 
         checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
-        self._loading_func(model_components, checkpoint_path)
+        model_components.load_from_path(checkpoint_path)
 
         return model_components, newest_checkpoint['metadata']
 
-    def save_checkpoint(self, model_components: Any,
+    def save_checkpoint(self, model_components: BaseModelComponents,
                         checkpoint_metadata: Dict[str, Any]):
         """Saves the model components as a checkpoint.
 
@@ -108,7 +137,7 @@ class ModelCheckpointHandler:
         checkpoint_dir = os.path.join(self._checkpoint_dir,
                                       f'{self._checkpoint_basename}_{self.num_checkpoints()}')
 
-        self._saving_func(model_components, checkpoint_dir)
+        model_components.save_to_path(checkpoint_dir)
 
         metadata = self._get_metadata()
 

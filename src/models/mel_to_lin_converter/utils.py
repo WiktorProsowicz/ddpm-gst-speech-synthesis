@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """Contains utilities specific to the mel-to-linear spectrogram converter model."""
-import logging
-import os
-import sys
 from dataclasses import dataclass
 from typing import Any
 from typing import Dict
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -87,14 +85,10 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
 
     converter: MelToLinConverter
 
-    def train(self):
-        self.converter.train()
-
-    def eval(self):
-        self.converter.eval()
-
-    def parameters(self):
-        return self.converter.parameters()
+    def get_components(self) -> Dict[str, Optional[torch.nn.Module]]:
+        return {
+            'converter': self.converter
+        }
 
 
 def create_model_components(input_spectrogram_shape: Tuple[int, int],
@@ -123,21 +117,3 @@ def create_model_components(input_spectrogram_shape: Tuple[int, int],
                                     fft_conv_channels=cfg['fft_conv_channels'],
                                     dropout_rate=cfg['dropout_rate']).to(device)
     )
-
-
-def load_model_components(components: ModelComponents, path: str):
-    """Loads the model components from the specified path"""
-
-    if not os.path.exists(path):
-        logging.critical("Model components not found at '%s'.", path)
-        sys.exit(1)
-
-    shared_m_utils.try_load_state_dict(components.converter, os.path.join(path, 'converter.pth'))
-
-
-def save_model_components(components: ModelComponents, path: str):
-    """Saves the model components to the specified path"""
-
-    os.makedirs(path, exist_ok=True)
-
-    torch.save(components.converter.state_dict(), os.path.join(path, 'converter.pth'))

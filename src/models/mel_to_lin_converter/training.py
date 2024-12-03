@@ -34,8 +34,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
-                 learning_rate: float,
-
+                 d_model: int,
+                 warmup_steps: int,
                  ):
         """Initializes the model trainer.
 
@@ -47,6 +47,9 @@ class ModelTrainer(base_trainer.BaseTrainer):
         """
 
         model_components = model_provider()
+        base_optimizer = torch.optim.Adam(model_components.parameters(),
+                                          lr=2e-4,
+                                          betas=(0.9, 0.98))
 
         super().__init__(
             model_comps=model_components,
@@ -57,8 +60,9 @@ class ModelTrainer(base_trainer.BaseTrainer):
             checkpoints_handler=checkpoints_handler,
             checkpoints_interval=checkpoints_interval,
             validation_interval=validation_interval,
-            optimizer=torch.optim.Adam(model_components.parameters(), lr=learning_rate),
-        )
+            optimizer=shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                               d_model,
+                                                               warmup_steps))
 
         self._visualization_interval = self._validation_interval * 5
         self._loss = torch.nn.MSELoss()

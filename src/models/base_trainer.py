@@ -32,7 +32,7 @@ class BaseTrainer(ABC):
                  validation_interval: int,
                  checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
                  checkpoints_interval: int,
-                 optimizer: torch.optim.Optimizer):
+                 optimizer: torch.optim.Optimizer | shared_m_utils.IOptimizerWrapper):
         """Initializes the trainer.
 
         Args:

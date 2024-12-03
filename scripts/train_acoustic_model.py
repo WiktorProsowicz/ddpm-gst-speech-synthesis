@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
     },
     'training': {
         'batch_size': 64,
-        'lr': 2e-4,
+        'warmup_steps': 4000,
         'validation_interval': 100,
         'steps': 1000,
         'start_step': 0,
@@ -56,12 +56,12 @@ DEFAULT_CONFIG = {
         'dropout_rate': 0.1,
         'encoder': {
             'n_blocks': 6,
-            'fft_conv_channels': 768,
-            'embedding_dim': 256
+            'fft_conv_channels': 1536,
+            'embedding_dim': 384
         },
         'decoder': {
             'n_blocks': 6,
-            'fft_conv_channels': 768,
+            'fft_conv_channels': 1536,
             'output_channels': 80
         },
         'duration_predictor': {
@@ -70,7 +70,7 @@ DEFAULT_CONFIG = {
         'gst': {
             'use_gst': False,
             'n_tokens': 32,
-            'token_dim': 256,
+            'token_dim': 384,
             'n_attention_heads': 4,
             'n_ref_encoder_blocks': 3
         }
@@ -118,7 +118,8 @@ def _get_model_trainer(
         checkpoints_handler,
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
-        config['training']['lr'],
+        config['model']['encoder']['embedding_dim'],
+        config['training']['warmup_steps'],
         config['training']['use_gt_durations_for_visualization'],
         config['training']['use_loss_weights'])
 

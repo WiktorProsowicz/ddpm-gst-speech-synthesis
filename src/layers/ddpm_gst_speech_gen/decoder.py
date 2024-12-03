@@ -5,12 +5,15 @@ from typing import Tuple
 
 import torch
 
+from utilities import other as other_utils
+
 
 class _ResidualBlock(torch.nn.Module):
 
     def __init__(self, skip_channels: int,
                  block_input_channels: int,
                  decoder_input_channels: int,
+                 conv_kernel_size: int,
                  dropout_rate: float):
 
         super().__init__()
@@ -18,35 +21,31 @@ class _ResidualBlock(torch.nn.Module):
         self._norm = torch.nn.Sequential(torch.nn.BatchNorm1d(block_input_channels),
                                          torch.nn.Conv1d(block_input_channels,
                                                          block_input_channels,
-                                                         kernel_size=3,
+                                                         kernel_size=conv_kernel_size,
                                                          padding='same'),
                                          torch.nn.Dropout(dropout_rate))
 
         self._skip_connection = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
                                                                     skip_channels,
-                                                                    kernel_size=3,
+                                                                    kernel_size=conv_kernel_size,
                                                                     padding='same'),
-                                                    torch.nn.Tanh(),
                                                     torch.nn.Dropout(dropout_rate))
 
         self._cond_timestep_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
                                                                        block_input_channels,
                                                                        kernel_size=1),
-                                                       torch.nn.Tanh(),
                                                        torch.nn.Dropout(dropout_rate))
 
         self._cond_phonemes_conv = torch.nn.Sequential(torch.nn.Conv1d(decoder_input_channels,
                                                                        block_input_channels,
-                                                                       kernel_size=3,
+                                                                       kernel_size=conv_kernel_size,
                                                                        padding='same'),
-                                                       torch.nn.Tanh(),
                                                        torch.nn.Dropout(dropout_rate))
 
         self._output_conv = torch.nn.Sequential(torch.nn.Conv1d(block_input_channels,
                                                                 block_input_channels,
-                                                                kernel_size=3,
+                                                                kernel_size=conv_kernel_size,
                                                                 padding='same'),
-                                                torch.nn.Tanh(),
                                                 torch.nn.Dropout(dropout_rate))
 
     def forward(self, input_noise: torch.Tensor, timestep_embedding: torch.Tensor,
@@ -67,6 +66,7 @@ def _create_residual_blocks(n_blocks: int,
                             skip_connections_channels: int,
                             block_input_channels: int,
                             decoder_input_channels: int,
+                            conv_kernel_size: int,
                             dropout_rate) -> torch.nn.ModuleList:
 
     blocks = [
@@ -74,6 +74,7 @@ def _create_residual_blocks(n_blocks: int,
             skip_channels=skip_connections_channels,
             block_input_channels=block_input_channels,
             decoder_input_channels=decoder_input_channels,
+            conv_kernel_size=conv_kernel_size,
             dropout_rate=dropout_rate)
         for _ in range(n_blocks)
     ]
@@ -100,6 +101,7 @@ class Decoder(torch.nn.Module):
                  n_res_blocks: int,
                  internal_channels: int,
                  skip_connections_channels: int,
+                 conv_kernel_size: int,
                  dropout_rate: float):
         """Initializes the decoder."""
 
@@ -121,18 +123,21 @@ class Decoder(torch.nn.Module):
             skip_connections_channels,
             internal_channels,
             input_channels,
+            conv_kernel_size,
             dropout_rate)
 
         self._prenet = torch.nn.Sequential(
-            torch.nn.Conv1d(input_channels, internal_channels, kernel_size=3, padding='same'),
-            torch.nn.Tanh(),
+            torch.nn.Conv1d(input_channels,
+                            internal_channels,
+                            kernel_size=conv_kernel_size,
+                            padding='same'),
         )
 
         self._postnet = torch.nn.Sequential(
             torch.nn.Conv1d(
                 skip_connections_channels,
                 input_channels,
-                kernel_size=3,
+                kernel_size=conv_kernel_size,
                 padding='same'),
         )
 
@@ -150,7 +155,8 @@ class Decoder(torch.nn.Module):
             style_embedding: The style embedding from the GST module.
         """
 
-        time_embedding = self._create_time_embedding(diffusion_step)
+        time_embedding = other_utils.create_positional_encoding(
+            diffusion_step, self._timestep_embedding_dim)
         time_embedding = self._timestep_encoder(time_embedding)
         time_embedding = time_embedding.unsqueeze(-1)
         phoneme_representations = phoneme_representations.transpose(1, 2)
@@ -170,14 +176,3 @@ class Decoder(torch.nn.Module):
         output = self._postnet(skip_output)
 
         return output
-
-    def _create_time_embedding(self, diffusion_step: torch.Tensor) -> torch.Tensor:
-        """Creates the Sinusoidal Positional Embedding for the input time steps."""
-
-        i_steps = torch.arange(0, self._timestep_embedding_dim // 2, device=diffusion_step.device)
-        factor = 10000 ** (i_steps / (self._timestep_embedding_dim // 2))
-
-        t_embedding = diffusion_step[:, None].repeat(1, self._timestep_embedding_dim // 2)
-        t_embedding = t_embedding / factor
-
-        return torch.cat([torch.sin(t_embedding), torch.cos(t_embedding)], dim=-1)

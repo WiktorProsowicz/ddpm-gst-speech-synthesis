@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """Prepares a ready-to-use dataset with desired features.
 
-The script downloads the LJSpeech dataset and phoneme alignments. Then it converts the raw
-waveform files into spectrograms according to the provided parameters. The transcripts are
-encoded into phoneme tokens. The phoneme alignments are converted into log-scale durations
-of the particular phonemes. The dataset is serialized into a single folder for further use.
+The script downloads the LJSpeech dataset and converts each audio sample into a pair containing
+a mel-spectrogram and a linear-spectrogram.
 
 For expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
@@ -16,7 +14,6 @@ import pathlib
 import yaml  # type: ignore
 
 from data import ljspeech
-from data.preprocessing import alignments as align_prep
 from utilities import logging_utils
 from utilities import scripts_utils
 
@@ -28,13 +25,11 @@ DEFAULT_CONFIG = {
     'raw_dataset_path': scripts_utils.CfgRequired(),
     # The path where the preprocessed dataset will be stored
     'processed_dataset_path': scripts_utils.CfgRequired(),
-    # The path where the phoneme alignments will be (or have been) downloaded into
-    'phoneme_alignments_path': scripts_utils.CfgRequired(),
     'sample_rate': 22050,
     'fft_window_size': 1024,
     'fft_hop_size': 256,
-    'audio_max_length': 6.0,
-    'normalize_spectrograms': True,
+    # If not None, the audio samples will be divided into chunks of this length
+    'max_frames_in_split_spectrogram': None,
     'scale_spectrograms': False
 }
 
@@ -48,27 +43,21 @@ def main(config):
     os.makedirs(config['processed_dataset_path'], exist_ok=True)
     os.makedirs(config['raw_dataset_path'], exist_ok=True)
 
-    if not os.path.exists(config['phoneme_alignments_path']):
-
-        logging.info('Downloading phoneme alignments...')
-
-        os.makedirs(config['phoneme_alignments_path'])
-        align_prep.download_phoneme_alignments(config['phoneme_alignments_path'])
-
     logging.info('Preparing the preprocessed dataset...')
 
-    ds = ljspeech.LJSpeechDataset(config['raw_dataset_path'],
-                                  config['phoneme_alignments_path'],
-                                  config['sample_rate'],
-                                  config['fft_window_size'],
-                                  config['fft_hop_size'],
-                                  config['audio_max_length'],
-                                  config['normalize_spectrograms'],
-                                  config['scale_spectrograms'])
+    ds = ljspeech.LJSpeechSpectrogramsDs(
+        config['raw_dataset_path'],
+        config['sample_rate'],
+        config['fft_window_size'],
+        config['fft_hop_size'],
+        config['scale_spectrograms']
+    )
 
     logging.info('Serializing the dataset...')
 
-    ljspeech.serialize_ds(ds, config['processed_dataset_path'])
+    ljspeech.serialize_spectrograms_ds(ds,
+                                       config['processed_dataset_path'],
+                                       config['max_frames_in_split_spectrogram'])
 
     logging.info('Dataset preparation completed.')
 
@@ -76,7 +65,7 @@ def main(config):
 def _get_cl_args() -> argparse.Namespace:
 
     arg_parser = argparse.ArgumentParser(
-        description="Performs the model's training pipeline based on the configuration.")
+        description='Prepares a preprocessed dataset used to train the Mel-to-Linear converter.')
 
     arg_parser.add_argument(
         '--config_path',

@@ -65,26 +65,15 @@ def _get_model_trainer(
 ) -> training.ModelTrainer:
 
     checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'acoustic_model',
-        m_utils.load_model_components,
-        m_utils.save_model_components
-    )
+        config['training']['checkpoints_path'], 'mel_to_lin_converter')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model_components = m_utils.create_model_components(
         input_spectrogram_shape, output_dim, config['model'], device)
 
-    def model_provider():
-
-        if checkpoints_handler.num_checkpoints() > 0:
-            checkpoint, _ = checkpoints_handler.get_newest_checkpoint(model_components)
-            return checkpoint
-
-        return model_components
-
     return training.ModelTrainer(
-        model_provider,
+        model_components,
         train_loader,
         val_loader,
         tb_writer,

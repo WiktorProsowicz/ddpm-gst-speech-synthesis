@@ -9,25 +9,60 @@ from abc import abstractmethod
 from typing import Any
 from typing import Dict
 from typing import Iterator
+from typing import Optional
 from typing import Tuple
+from typing import Union
 
-import torch.optim.optimizer
+import torch
 
 
 class BaseModelComponents(ABC):
     """Base class for the model components."""
 
-    @abstractmethod
     def parameters(self) -> Iterator[torch.nn.Parameter]:
         """Returns the parameters of the model."""
 
-    @abstractmethod
+        for component in self.get_components().values():
+            if component is not None:
+                yield from component.parameters()
+
     def eval(self):
         """Sets the model to evaluation mode."""
 
-    @abstractmethod
+        for component in self.get_components().values():
+            if component is not None:
+                component.eval()
+
     def train(self):
         """Sets the model to training mode."""
+
+        for component in self.get_components().values():
+            if component is not None:
+                component.train()
+
+    def load_from_path(self, path: str):
+        """Loads the model components from the specified directory."""
+
+        if not os.path.exists(path):
+            logging.critical("Model components not found at '%s'.", path)
+            sys.exit(1)
+
+        for component_name, component in self.get_components().items():
+            if component is not None:
+                try_load_state_dict(component, os.path.join(path, f'{component_name}.pth'))
+
+    def save_to_path(self, path: str):
+        """Saves the model components to the specified directory."""
+
+        os.makedirs(path, exist_ok=True)
+
+        for component_name, component in self.get_components().items():
+            if component is not None:
+                torch.save(component.state_dict(), os.path.join(path, f'{component_name}.pth'))
+
+    @abstractmethod
+    def get_components(self) -> Dict[str, Optional[torch.nn.Module]]:
+        """Returns all named components possessed by the concrete class' instance."""
 
 
 def try_load_state_dict(module: torch.nn.Module, saved_module_path: str):
@@ -48,9 +83,7 @@ class ModelCheckpointHandler:
     """
 
     def __init__(self, checkpoint_dir: str,
-                 checkpoint_basename: str,
-                 loading_func: Any,
-                 saving_func: Any):
+                 checkpoint_basename: str):
         """Initializes the ModelCheckpointHandler.
 
         Args:
@@ -63,8 +96,6 @@ class ModelCheckpointHandler:
         self._checkpoint_dir = checkpoint_dir
         self._metadata_path = os.path.join(checkpoint_dir, 'metadata.json')
         self._checkpoint_basename = checkpoint_basename
-        self._loading_func = loading_func
-        self._saving_func = saving_func
 
     def num_checkpoints(self) -> int:
         """Returns the number of saved checkpoints."""
@@ -72,14 +103,20 @@ class ModelCheckpointHandler:
         return len(self._get_metadata()['checkpoints'])
 
     def get_newest_checkpoint(
-            self, model_components: Any) -> Tuple[Any, Dict[str, Any]]:
+        self,
+        model_components: BaseModelComponents,
+        optimizer: Union[torch.optim.Optimizer, 'IOptimizerWrapper']
+    ) -> Tuple[BaseModelComponents,
+               Union[torch.optim.Optimizer, 'IOptimizerWrapper'],
+               Dict[str, Any]]:
         """Loads the newest checkpoint from the checkpoint directory.
 
         Args:
             model_components: The components of the model to load the checkpoint into.
 
         Returns:
-            A tuple containing the model components and the metadata of the newest checkpoint.
+            A tuple containing the model components, optimizer and the metadata of the
+            newest checkpoint.
         """
 
         metadata = self._get_metadata()
@@ -91,23 +128,30 @@ class ModelCheckpointHandler:
         newest_checkpoint = metadata['checkpoints'][-1]
 
         checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
-        self._loading_func(model_components, checkpoint_path)
+        optim_state_path = os.path.join(checkpoint_path, 'optimizer_state.pth')
+
+        model_components.load_from_path(checkpoint_path)
+        optimizer.load_state_dict(torch.load(optim_state_path, weights_only=True))
 
         return model_components, newest_checkpoint['metadata']
 
-    def save_checkpoint(self, model_components: Any,
+    def save_checkpoint(self,
+                        model_components: BaseModelComponents,
+                        optimizer: Union[torch.optim.Optimizer, 'IOptimizerWrapper'],
                         checkpoint_metadata: Dict[str, Any]):
         """Saves the model components as a checkpoint.
 
         Args:
             model_components: The components of the model to save.
+            optimizer: The optimizer at a current training stage to be saved.
             checkpoint_metadata: The metadata of the checkpoint.
         """
 
         checkpoint_dir = os.path.join(self._checkpoint_dir,
                                       f'{self._checkpoint_basename}_{self.num_checkpoints()}')
 
-        self._saving_func(model_components, checkpoint_dir)
+        model_components.save_to_path(checkpoint_dir)
+        torch.save(optimizer.state_dict(), os.path.join(checkpoint_dir, 'optimizer_state.pth'))
 
         metadata = self._get_metadata()
 
@@ -201,9 +245,16 @@ class TransformerScheduledOptim(IOptimizerWrapper):
     def state_dict(self) -> Dict[str, Any]:
         """Returns the state of the optimizer as a dictionary."""
 
-        return self._optimizer.state_dict()
+        state_dict = self._optimizer.state_dict()
+        state_dict['wrapper_state'] = {
+            'step_num': self._step_num
+        }
+        return state_dict
 
     def load_state_dict(self, state_dict: Dict[str, Any]):
         """Loads the optimizer state from the specified state dictionary."""
+
+        wrapper_state = state_dict.pop('wrapper_state')
+        self._step_num = wrapper_state['step_num']
 
         self._optimizer.load_state_dict(state_dict)

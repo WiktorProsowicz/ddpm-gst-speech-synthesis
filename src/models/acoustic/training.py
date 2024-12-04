@@ -29,7 +29,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
     """
 
     def __init__(self,
-                 model_provider: Callable[[], model_utils.ModelComponents],
+                 model_components: model_utils.ModelComponents,
                  train_data_loader: torch.utils.data.DataLoader,
                  val_data_loader: torch.utils.data.DataLoader,
                  tb_logger: pt_tensorboard.SummaryWriter,
@@ -54,10 +54,12 @@ class ModelTrainer(base_trainer.BaseTrainer):
             use_loss_weights: Tells whether to use loss weights for the loss computation.
         """
 
-        model_components = model_provider()
         base_optimizer = torch.optim.Adam(model_components.parameters(),
                                           lr=2e-4,
                                           betas=(0.9, 0.98))
+        optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                             d_model,
+                                                             warmup_steps)
 
         super().__init__(
             model_comps=model_components,
@@ -68,9 +70,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             checkpoints_handler=checkpoints_handler,
             checkpoints_interval=checkpoints_interval,
             validation_interval=validation_interval,
-            optimizer=shared_m_utils.TransformerScheduledOptim(base_optimizer,
-                                                               d_model,
-                                                               warmup_steps))
+            optimizer=optimizer)
 
         self._use_gt_durations_for_visualization = use_gt_durations_for_visualization
         self._use_loss_weights = use_loss_weights

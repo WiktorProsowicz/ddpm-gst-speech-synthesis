@@ -11,8 +11,9 @@ from typing import Dict
 from typing import Iterator
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
-import torch.optim.optimizer
+import torch
 
 
 class BaseModelComponents(ABC):
@@ -102,14 +103,20 @@ class ModelCheckpointHandler:
         return len(self._get_metadata()['checkpoints'])
 
     def get_newest_checkpoint(
-            self, model_components: BaseModelComponents) -> Tuple[Any, Dict[str, Any]]:
+        self,
+        model_components: BaseModelComponents,
+        optimizer: Union[torch.optim.Optimizer, 'IOptimizerWrapper']
+    ) -> Tuple[BaseModelComponents,
+               Union[torch.optim.Optimizer, 'IOptimizerWrapper'],
+               Dict[str, Any]]:
         """Loads the newest checkpoint from the checkpoint directory.
 
         Args:
             model_components: The components of the model to load the checkpoint into.
 
         Returns:
-            A tuple containing the model components and the metadata of the newest checkpoint.
+            A tuple containing the model components, optimizer and the metadata of the
+            newest checkpoint.
         """
 
         metadata = self._get_metadata()
@@ -121,16 +128,22 @@ class ModelCheckpointHandler:
         newest_checkpoint = metadata['checkpoints'][-1]
 
         checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
+        optim_state_path = os.path.join(checkpoint_path, 'optimizer_state.pth')
+
         model_components.load_from_path(checkpoint_path)
+        optimizer.load_state_dict(torch.load(optim_state_path, weights_only=True))
 
         return model_components, newest_checkpoint['metadata']
 
-    def save_checkpoint(self, model_components: BaseModelComponents,
+    def save_checkpoint(self,
+                        model_components: BaseModelComponents,
+                        optimizer: Union[torch.optim.Optimizer, 'IOptimizerWrapper'],
                         checkpoint_metadata: Dict[str, Any]):
         """Saves the model components as a checkpoint.
 
         Args:
             model_components: The components of the model to save.
+            optimizer: The optimizer at a current training stage to be saved.
             checkpoint_metadata: The metadata of the checkpoint.
         """
 
@@ -138,6 +151,7 @@ class ModelCheckpointHandler:
                                       f'{self._checkpoint_basename}_{self.num_checkpoints()}')
 
         model_components.save_to_path(checkpoint_dir)
+        torch.save(optimizer.state_dict(), os.path.join(checkpoint_dir, 'optimizer_state.pth'))
 
         metadata = self._get_metadata()
 
@@ -231,9 +245,16 @@ class TransformerScheduledOptim(IOptimizerWrapper):
     def state_dict(self) -> Dict[str, Any]:
         """Returns the state of the optimizer as a dictionary."""
 
-        return self._optimizer.state_dict()
+        state_dict = self._optimizer.state_dict()
+        state_dict['wrapper_state'] = {
+            'step_num': self._step_num
+        }
+        return state_dict
 
     def load_state_dict(self, state_dict: Dict[str, Any]):
         """Loads the optimizer state from the specified state dictionary."""
+
+        wrapper_state = state_dict.pop('wrapper_state')
+        self._step_num = wrapper_state['step_num']
 
         self._optimizer.load_state_dict(state_dict)

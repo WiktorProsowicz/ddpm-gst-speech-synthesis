@@ -98,16 +98,8 @@ def _get_model_trainer(
     model_components = m_utils.create_model_components(
         input_spectrogram_shape, input_phonemes_shape, config['model'], device)
 
-    def model_provider():
-
-        if checkpoints_handler.num_checkpoints() > 0:
-            checkpoint, _ = checkpoints_handler.get_newest_checkpoint(model_components)
-            return checkpoint
-
-        return model_components
-
     return training.ModelTrainer(
-        model_provider,
+        model_components,
         train_loader,
         val_loader,
         tb_writer,

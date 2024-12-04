@@ -26,7 +26,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
     """
 
     def __init__(self,
-                 model_provider: Callable[[], m_utils.ModelComponents],
+                 model_components: m_utils.ModelComponents,
                  train_data_loader: torch.utils.data.DataLoader,
                  val_data_loader: torch.utils.data.DataLoader,
                  tb_logger: pt_tensorboard.SummaryWriter,
@@ -42,14 +42,16 @@ class ModelTrainer(base_trainer.BaseTrainer):
         See the arguments of the BaseTrainer constructor.
 
         Args:
-            learning_rate: The learning rate for the optimizer.
-
+            d_model: The embedding size of the transformer architecture.
+            warmup_steps: The number of warmup steps for the learning rate scheduler.
         """
 
-        model_components = model_provider()
         base_optimizer = torch.optim.Adam(model_components.parameters(),
                                           lr=2e-4,
                                           betas=(0.9, 0.98))
+        optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                             d_model,
+                                                             warmup_steps)
 
         super().__init__(
             model_comps=model_components,
@@ -60,9 +62,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             checkpoints_handler=checkpoints_handler,
             checkpoints_interval=checkpoints_interval,
             validation_interval=validation_interval,
-            optimizer=shared_m_utils.TransformerScheduledOptim(base_optimizer,
-                                                               d_model,
-                                                               warmup_steps))
+            optimizer=optimizer)
 
         self._visualization_interval = self._validation_interval * 5
         self._loss = torch.nn.MSELoss()

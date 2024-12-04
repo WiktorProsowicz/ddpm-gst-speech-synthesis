@@ -31,7 +31,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
     """
 
     def __init__(self,
-                 model_provider: Callable[[], model_utils.ModelComponents],
+                 model_components: model_utils.ModelComponents,
                  train_data_loader: torch.utils.data.DataLoader,
                  val_data_loader: torch.utils.data.DataLoader,
                  tb_logger: pt_tensorboard.SummaryWriter,
@@ -56,8 +56,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
                 weights are intended to guide the model to focus on the lower frequencies in
                 the generated spectrogram.
         """
-
-        model_components = model_provider()
 
         super().__init__(
             model_comps=model_components,

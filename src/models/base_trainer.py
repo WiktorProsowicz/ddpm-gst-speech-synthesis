@@ -36,7 +36,7 @@ class BaseTrainer(ABC):
         """Initializes the trainer.
 
         Args:
-            model_provider: A function that returns the model components.
+            model_comps: Components of the model to be trained.
             train_data_loader: The data loader for the training data.
             val_data_loader: The data loader for the validation data.
             tb_logger: The TensorBoard logger.
@@ -46,6 +46,10 @@ class BaseTrainer(ABC):
             checkpoints_interval: The number of steps between saving checkpoints.
             optimizer: The optimizer to use for training.
         """
+
+        if checkpoints_handler.num_checkpoints() > 0:
+            model_comps, optimizer, _ = checkpoints_handler.get_newest_checkpoint(model_comps,
+                                                                                  optimizer)
 
         self._model_comps = model_comps
         self._train_data_loader = train_data_loader
@@ -126,9 +130,12 @@ class BaseTrainer(ABC):
             if (step_idx + 1) % self._checkpoints_interval == 0:
 
                 logging.debug('Saving checkpoint after %d steps...', step_idx + 1)
-                self._checkpoints_handler.save_checkpoint(self._model_comps, {
+                meta_data = {
                     'n_training_steps': step_idx + 1,
-                })
+                }
+                self._checkpoints_handler.save_checkpoint(self._model_comps,
+                                                          self._optimizer,
+                                                          meta_data)
 
             self._on_step_end(step_idx)
 

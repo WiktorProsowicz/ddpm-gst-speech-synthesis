@@ -204,6 +204,13 @@ if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
+    WARN_MSG = """This script is related to the full acoustic model that incorporates GST and
+    DDPM in to generation process. The model is currently under development and, though it
+    theoretically can be trained etc, it is not yet ready for the production use. Additionally
+    the script is likely to be moved to the `training` directory in the future major version."""
+
+    logging.warning(WARN_MSG)
+
     args = _get_cl_args()
 
     configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)

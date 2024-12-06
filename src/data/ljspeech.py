@@ -248,8 +248,7 @@ class LJSpeechSpectrogramsDs(torch_data.Dataset):
         self._linear_spec_transform = transforms.Compose([
             audio_transforms.Resample(orig_freq=22050, new_freq=sample_rate),
             audio_transforms.Spectrogram(n_fft=fft_window_size,
-                                         hop_length=fft_hop_size,
-                                         power=1),
+                                         hop_length=fft_hop_size),
             audio_transforms.AmplitudeToDB(),
             transforms.Lambda(scaling_lambda)
         ])

@@ -133,7 +133,7 @@ class ModelCheckpointHandler:
         model_components.load_from_path(checkpoint_path)
         optimizer.load_state_dict(torch.load(optim_state_path, weights_only=True))
 
-        return model_components, newest_checkpoint['metadata']
+        return model_components, optimizer, newest_checkpoint['metadata']
 
     def save_checkpoint(self,
                         model_components: BaseModelComponents,

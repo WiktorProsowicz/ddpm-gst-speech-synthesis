@@ -338,8 +338,9 @@ def serialize_spectrograms_ds(ds: LJSpeechSpectrogramsDs,
     """
 
     debug_log_interval = 1000
+    sample_idx = 0
 
-    for sample_idx, sample in enumerate(ds):
+    for sample in ds:
 
         if max_frames_in_split_spectrogram is not None:
             for split_idx, split_sample in enumerate(_split_spectrograms(
@@ -353,3 +354,5 @@ def serialize_spectrograms_ds(ds: LJSpeechSpectrogramsDs,
 
         if (sample_idx + 1) % debug_log_interval == 0:
             logging.debug('Serialized %d samples.', sample_idx + 1)
+
+        sample_idx += 1

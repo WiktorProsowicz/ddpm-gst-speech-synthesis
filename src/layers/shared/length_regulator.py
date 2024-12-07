@@ -8,22 +8,20 @@ def _create_alignment_matrix(log_durations: torch.Tensor, max_length: int) -> to
     """Creates a matrix for stretching the input based on the predicted phoneme durations."""
 
     original_device = log_durations.device
-
-    log_durations = log_durations.cpu().numpy()
     batch_size, n_phonemes, _ = log_durations.shape
 
-    durations_mask = (log_durations > 0).astype(np.uint8)
-    durations = (np.power(2.0, log_durations) + 1e-4).astype(np.uint8) * durations_mask
+    durations_mask = (log_durations > 0).to(torch.int64)
+    durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
     durations = durations.reshape(batch_size, n_phonemes)
 
-    indexes_space = np.arange(n_phonemes).astype(np.uint16)
-    alignment_matrix = np.zeros((batch_size, max_length, n_phonemes), dtype=np.float32)
+    indexes_space = torch.arange(n_phonemes).to(torch.int64)
+    alignment_matrix = torch.zeros((batch_size, max_length, n_phonemes))
 
     for i in range(batch_size):
-        repeated_indexes = np.repeat(indexes_space, durations[i])
-        alignment_matrix[i, np.arange(len(repeated_indexes)), repeated_indexes] = 1.
+        repeated_indexes = torch.repeat_interleave(indexes_space, durations[i])
+        alignment_matrix[i, torch.arange(repeated_indexes.shape[0]), repeated_indexes] = 1.
 
-    return torch.from_numpy(alignment_matrix).to(original_device)
+    return alignment_matrix.to(original_device)
 
 
 class LengthRegulator(torch.nn.Module):

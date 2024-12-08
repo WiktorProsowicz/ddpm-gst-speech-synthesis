@@ -41,7 +41,7 @@ def decode_transcript(transcript: torch.Tensor, vocab: List[str]) -> List[str]:
 
     word_indices = transcript.argmax(dim=1)
 
-    return [vocab[i] for i in word_indices][:inference.get_transcript_length(transcript)]
+    return [vocab[i] for i in word_indices][:inference.get_transcript_length(transcript).item()]
 
 
 def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,

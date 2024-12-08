@@ -4,6 +4,8 @@ from typing import List
 
 import textgrid
 import torch
+import g2p_en
+import nltk
 
 _ENHANCED_MFA_ARP_PHO = ['AA0', 'AA1', 'AA2', 'AE0', 'AE1', 'AE2',
                          'AH0', 'AH1', 'AH2', 'AO0', 'AO1', 'AO2',
@@ -45,6 +47,41 @@ def get_phonemes_from_alignments(phoneme_alignments: textgrid.IntervalTier):
     return [interval.mark for interval in phoneme_alignments]
 
 
+class G2PTransform(torch.nn.Module):
+    """Converts the input text into a list of phonemes."""
+
+    def __init__(self):
+        super().__init__()
+
+        nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+
+        self._conv = g2p_en.G2p()
+
+        self._tokens_to_remove = [' ']
+        self._tokens_to_replace = {
+            '.': '<sil>',
+            ',': '<sil>',
+            '?': '<sil>',
+            '!': '<sil>',
+        }
+
+    def forward(self, text: str) -> List[str]:
+
+        phonemes = self._conv(text)
+
+        phonemes = [phoneme for phoneme in phonemes if phoneme not in self._tokens_to_remove]
+        phonemes = list(map(self._replace_token_if_unhandled, phonemes))
+
+        return phonemes
+
+    def _replace_token_if_unhandled(self, token: str) -> str:
+
+        if token in self._tokens_to_replace:
+            return self._tokens_to_replace[token]
+
+        return token
+
+
 class PadSequenceTransform(torch.nn.Module):
     """Pads the input sequence to the desired length."""
 
@@ -59,7 +96,7 @@ class PadSequenceTransform(torch.nn.Module):
         if len(sequence) < self._output_length:
             return sequence + (['<pad>'] * (self._output_length - len(sequence)))
 
-        return sequence
+        return sequence[:self._output_length]
 
 
 class OneHotEncodeTransform(torch.nn.Module):

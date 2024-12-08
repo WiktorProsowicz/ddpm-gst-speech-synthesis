@@ -25,14 +25,33 @@ DEFAULT_CONFIG = {
     'compiled_model_path': scripts_utils.CfgRequired(),
     'input_phonemes_length': 20,
     'input_text': scripts_utils.CfgRequired(),
-    # List of weights for the GST embeddings
-    'gst_weights': None,
-    # Path to the audio file to use as reference for GST embedding
-    'reference_audio_path': None,
-    "scale_factor": 60.0,
-    "scale_offset": -40.0,
-    'output_path': scripts_utils.CfgRequired()
+    # Can be one of ('none', 'reference', 'weights')
+    'gst_mode': 'none',
+    "scale_min": -100.0,
+    "scale_max": 41.0,
+    'output_path': scripts_utils.CfgRequired(),
+    'gst_reference_cfg': {
+        # Path to the audio file to use as reference for GST embedding
+        'reference_audio_path': None,
+        "spectrogram_window_length": 1024,
+        "spectrogram_hop_length": 256,
+        "n_mels": 80,
+        "spec_length": 200,
+        "sample_rate": 22050,
+    },
+    "gst_weights_cfg": {
+        "weights_path": None
+    }
 }
+
+
+def _scale_spec(spectrogram: torch.Tensor, target_min: float, target_max: float) -> torch.Tensor:
+    """Scales the spectrogram to the target range."""
+
+    min_val = spectrogram.min()
+    max_val = spectrogram.max()
+
+    return (spectrogram - min_val) / (max_val - min_val) * (target_max - target_min) + target_min
 
 
 def main(config):
@@ -46,6 +65,8 @@ def main(config):
 
     logging.info("Transforming the input text to phonemes...")
     all_input_phonemes = text_prep.G2PTransform()(config['input_text'])
+
+    logging.debug("Input phonemes: %s", all_input_phonemes)
 
     phonemes_transform = transforms.Compose([
         text_prep.PadSequenceTransform(config['input_phonemes_length']),
@@ -62,7 +83,7 @@ def main(config):
 
     logging.info("Running inference...")
 
-    total_output_mel_spec = None
+    total_output_lin_spec = None
 
     for run_idx in range((len(all_input_phonemes) // config['input_phonemes_length']) + 1):
         input_phonemes = all_input_phonemes[
@@ -72,23 +93,58 @@ def main(config):
 
         input_phonemes = phonemes_transform(input_phonemes).unsqueeze(0)
 
+        if config["gst_mode"] == 'reference':
+
+            cfg = config['gst_reference_cfg']
+
+            ref_audio, original_sr = torchaudio.load(cfg['reference_audio_path'])
+
+            ref_speech_transform = transforms.Compose([
+                torchaudio.transforms.Resample(original_sr, cfg['sample_rate']),
+                torchaudio.transforms.MelSpectrogram(sample_rate=cfg['sample_rate'],
+                                                     n_fft=cfg['spectrogram_window_length'],
+                                                     win_length=cfg['spectrogram_window_length'],
+                                                     hop_length=cfg['spectrogram_hop_length'],
+                                                     n_mels=cfg['n_mels']),
+                torchaudio.transforms.AmplitudeToDB(),
+                transforms.Lambda(lambda x: _scale_spec(x, 0.0, 1.0))
+            ])
+
+            ref_speech = ref_speech_transform(ref_audio)
+            ref_speech = ref_speech[:, :, :cfg['spec_length']]
+
+            model_input = (input_phonemes, ref_speech)
+
+        elif config["gst_mode"] == 'weights':
+
+            cfg = config['gst_weights_cfg']
+            gst_weights = torch.load(cfg['weights_path'], weights_only=True)
+
+            model_input = (input_phonemes, gst_weights.unsqueeze(0))
+
+        else:
+            model_input = (input_phonemes,)
+
         with torch.no_grad():
-            output_mel_spec, log_durations = compiled_model((input_phonemes,))
+            output_lin_spec, log_durations = compiled_model(model_input)
 
             durations_mask = (log_durations > 0).to(torch.int64)
             durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
             total_dur = durations.sum()
-            output_mel_spec = output_mel_spec[:, :, :total_dur]
+            output_lin_spec = output_lin_spec[:, :, :total_dur]
 
-            if total_output_mel_spec is None:
-                total_output_mel_spec = output_mel_spec
+            if total_output_lin_spec is None:
+                total_output_lin_spec = output_lin_spec
 
             else:
-                total_output_mel_spec = torch.cat([total_output_mel_spec, output_mel_spec], dim=2)
+                total_output_lin_spec = torch.cat([total_output_lin_spec, output_lin_spec], dim=2)
 
-    total_output_mel_spec = (total_output_mel_spec *
-                             config['scale_factor']) + config['scale_offset']
-    waveform = output_transform(total_output_mel_spec)
+    total_output_lin_spec = _scale_spec(
+        total_output_lin_spec,
+        config['scale_min'],
+        config['scale_max'])
+
+    waveform = output_transform(total_output_lin_spec)
 
     logging.info("Saving the output waveform to '%s'", config['output_path'])
     torchaudio.save(config['output_path'], waveform, 22050)

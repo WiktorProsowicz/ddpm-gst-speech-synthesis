@@ -111,7 +111,14 @@ def main(config):
             ])
 
             ref_speech = ref_speech_transform(ref_audio)
-            ref_speech = ref_speech[:, :, :cfg['spec_length']]
+
+            if (run_idx + 1) * cfg['spec_length'] >= ref_speech.shape[2]:
+                ref_speech = ref_speech[:, :,
+                                        run_idx * cfg['spec_length']:
+                                        (run_idx + 1) * cfg['spec_length']]
+
+            else:
+                ref_speech = ref_speech[:, :, :cfg['spec_length']]
 
             model_input = (input_phonemes, ref_speech)
 

@@ -82,17 +82,18 @@ def run_backward_diffusion(model_callable: Callable[[BackwardDiffusionModelInput
     return noised_data
 
 
-def style_embedding_from_weights(gts_tokens: torch.Tensor,
+def style_embedding_from_weights(gst_tokens: torch.Tensor,
                                  gst_weights: torch.Tensor) -> torch.Tensor:
     """Creates the style embedding from the GST weights and tokens.
 
     Args:
-        gts_tokens: The global style tokens.
+        gst_tokens: The global style tokens.
         gst_weights: The weights for the global style tokens.
     """
 
     gst_weights = torch.unsqueeze(gst_weights, dim=-1)
-    return torch.sum(gst_weights * gts_tokens, dim=0)
+    gst_tokens = torch.unsqueeze(gst_tokens, dim=0)
+    return torch.sum(gst_weights * gst_tokens, dim=1)
 
 
 class InferenceModel(torch.nn.Module):

@@ -71,6 +71,22 @@ def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,
     return fig
 
 
+def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
+                                 pred_gst: torch.Tensor) -> matplotlib.figure.Figure:
+    """Plots the predicted and ground truth GST weights."""
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    ax.scatter(np.arange(original_gst.size(0)), original_gst.cpu().numpy(), label='Ground Truth')
+    ax.scatter(np.arange(pred_gst.size(0)), pred_gst.cpu().numpy(), label='Predicted')
+    ax.set_title('Ground Truth and Predicted GST Weights')
+    ax.set_xlabel('Token index')
+    ax.set_ylabel('Weight')
+    ax.legend()
+
+    return fig
+
+
 def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
                               tb_writer: torch.utils.tensorboard.SummaryWriter):
     """Logs example data samples to TensorBoard.

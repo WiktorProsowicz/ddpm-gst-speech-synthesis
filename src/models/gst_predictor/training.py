@@ -68,15 +68,15 @@ class ModelTrainer(base_trainer.BaseTrainer):
         self._loss = torch.nn.MSELoss()
 
         self._global_mean = torch.tensor(
-            [0.0362, 0.0354, 0.0347, 0.0343, 0.0259, 0.0346, 0.0244, 0.0342, 0.0281,
-             0.0316, 0.0365, 0.0270, 0.0412, 0.0305, 0.0279, 0.0336, 0.0336, 0.0341,
-             0.0292, 0.0277, 0.0288, 0.0273, 0.0328, 0.0329, 0.0305, 0.0232, 0.0295,
-             0.0271, 0.0316, 0.0271, 0.0413, 0.0273]).to(self._device)
+            [0.0339, 0.0328, 0.0324, 0.0345, 0.0269, 0.0319, 0.0265, 0.0328, 0.0313,
+             0.0317, 0.0339, 0.0272, 0.0377, 0.0297, 0.0302, 0.0306, 0.0321, 0.0320,
+             0.0290, 0.0315, 0.0267, 0.0292, 0.0372, 0.0326, 0.0321, 0.0252, 0.0288,
+             0.0272, 0.0295, 0.0282, 0.0470, 0.0274]).to(self._device)
         self._global_stddev = torch.tensor(
-            [0.0289, 0.0285, 0.0275, 0.0289, 0.0193, 0.0269, 0.0212, 0.0265, 0.0265,
-             0.0249, 0.0389, 0.0205, 0.0345, 0.0271, 0.0283, 0.0286, 0.0286, 0.0281,
-             0.0233, 0.0227, 0.0224, 0.0250, 0.0324, 0.0276, 0.0263, 0.0215, 0.0259,
-             0.0234, 0.0255, 0.0227, 0.0366, 0.0225]).to(self._device)
+            [0.0240, 0.0230, 0.0236, 0.0274, 0.0172, 0.0208, 0.0192, 0.0220, 0.0262,
+             0.0232, 0.0347, 0.0196, 0.0283, 0.0250, 0.0266, 0.0242, 0.0242, 0.0230,
+             0.0240, 0.0240, 0.0188, 0.0242, 0.0407, 0.0242, 0.0237, 0.0195, 0.0230,
+             0.0228, 0.0212, 0.0207, 0.0439, 0.0207]).to(self._device)
 
     @property
     def model_comps(self) -> m_utils.ModelComponents:
@@ -93,7 +93,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         gst_targets = (gst_targets - self._global_mean) / self._global_stddev
         batch_size = phonemes.size(0)
 
-        noise = torch.rand_like(gst_targets)
+        noise = torch.randn_like(gst_targets)
         diff_timestep = torch.randint(
             0, self._diffusion_handler.num_steps, (batch_size,), device=self._device)
 
@@ -152,7 +152,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
             phoneme_embedding = self.model_comps.encoder(phonemes)
 
-            noised_gst = torch.rand_like(gst_targets)
+            noised_gst = torch.randn_like(gst_targets)
             noised_gst = self._diffusion_handler.add_noise(
                 gst_targets, noised_gst, torch.tensor([0], device=self._device)
             )

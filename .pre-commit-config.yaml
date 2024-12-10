@@ -68,7 +68,7 @@ repos:
           - --disable=too-few-public-methods
           - --disable=too-many-instance-attributes
           - --disable=too-many-arguments
-
+          - --disable=R0801
   # Checks whether the python import statements are properly sorted.
   - repo: https://github.com/asottile/reorder-python-imports
     rev: v3.12.0

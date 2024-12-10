@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Contains training pipeline for the model.
+"""Contains training pipeline for the acoustic model.
 
-The training pipeline is responsible for running the training process for the DDPM-GST-Speech-Gen
+The training pipeline is responsible for running the training process for the acoustic
 model. The user is supposed to provide the script with the directory containing the preprocessed
-dataset, destination directory for the checkpoints and various hyperparameters for the model,
-training and diffusion process.
+dataset, destination directory for the checkpoints and various hyperparameters for the model and
+training.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
@@ -12,7 +12,6 @@ import argparse
 import logging
 import os
 import pathlib
-import sys
 from typing import Any
 from typing import Dict
 
@@ -24,9 +23,8 @@ from torch.utils import tensorboard as torch_tb
 from data import data_loading
 from data import visualization
 from models import utils as shared_m_utils
-from models.ddpm_gst_speech_gen import training
-from models.ddpm_gst_speech_gen import utils as m_utils
-from utilities import diffusion as diff_utils
+from models.acoustic import training
+from models.acoustic import utils as m_utils
 from utilities import logging_utils
 from utilities import scripts_utils
 
@@ -43,46 +41,43 @@ DEFAULT_CONFIG = {
     },
     'training': {
         'batch_size': 64,
-        'lr': 2e-4,
+        'warmup_steps': 4000,
         'validation_interval': 100,
         'steps': 1000,
         'start_step': 0,
         'checkpoint_interval': 200,
         'checkpoints_path': scripts_utils.CfgRequired(),
 
-        'diffusion': {
-            'n_steps': 400,
-            'beta_min': 0.0001,
-            'beta_max': 0.02,
-        },
-
-        'use_gt_durations_for_backward_diff': True,
+        'use_gt_durations_for_visualization': True,
         'use_loss_weights': True
     },
     'model': {
+        'n_heads': 4,
+        'dropout_rate': 0.1,
+        'encoder': {
+            'n_blocks': 6,
+            'fft_conv_channels': 1536,
+            'embedding_dim': 384
+        },
         'decoder': {
-            'timestep_embedding_dim': 128,
-            'n_res_blocks': 12,
-            'internal_channels': 128,
-            'skip_connections_channels': 512,
-            'conv_kernel_size': 3,
+            'n_blocks': 6,
+            'fft_conv_channels': 1536,
+            'output_channels': 80
+        },
+        'duration_predictor': {
+            'n_blocks': 2
         },
         'gst': {
             'use_gst': False,
-            'embedding_dim': 256,
-            'token_count': 32
-        },
-        'duration_predictor': {
-            'n_blocks': 4
-        },
-        'encoder': {
-            'n_blocks': 2,
-            'embedding_dim': 128
-        },
-        'dropout_rate': 0.1
+            'n_tokens': 32,
+            'token_dim': 384,
+            'n_attention_heads': 4,
+            'n_ref_encoder_blocks': 3
+        }
     },
     # The name of the script run. Shall be used for the TensorBoard logging
-    'run_label': None
+    'run_label': None,
+    'use_profiler': False
 }
 
 
@@ -96,7 +91,7 @@ def _get_model_trainer(
 ) -> training.ModelTrainer:
 
     checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'ddpm_gst_speech_gen_ckpt')
+        config['training']['checkpoints_path'], 'acoustic_model')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -109,26 +104,17 @@ def _get_model_trainer(
         val_loader,
         tb_writer,
         device,
-        diff_utils.LinearScheduler(
-            config['training']['diffusion']['beta_min'],
-            config['training']['diffusion']['beta_max'],
-            config['training']['diffusion']['n_steps']
-        ),
         checkpoints_handler,
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
-        config['training']['lr'],
-        config['training']['use_gt_durations_for_backward_diff'],
-        config['training']['use_loss_weights']
-    )
+        config['model']['encoder']['embedding_dim'],
+        config['training']['warmup_steps'],
+        config['training']['use_gt_durations_for_visualization'],
+        config['training']['use_loss_weights'])
 
 
 def main(config):
     """Runs the training pipeline based on the configuration."""
-
-    if config['model']['gst']['use_gst']:
-        logging.critical('GST support is not implemented yet!')
-        sys.exit(1)
 
     logging.info('Starting training pipeline.')
     logging.info('Configuration:\n%s', yaml.dump(config))
@@ -181,7 +167,7 @@ def main(config):
 
     model_trainer.run_training(config['training']['steps'],
                                config['training']['start_step'],
-                               use_profiler=False)
+                               use_profiler=config['use_profiler'])
 
     tb_writer.close()
 
@@ -203,13 +189,6 @@ def _get_cl_args() -> argparse.Namespace:
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
-
-    WARN_MSG = """This script is related to the full acoustic model that incorporates GST and
-    DDPM in to generation process. The model is currently under development and, though it
-    theoretically can be trained etc, it is not yet ready for the production use. Additionally
-    the script is likely to be moved to the `training` directory in the future major version."""
-
-    logging.warning(WARN_MSG)
 
     args = _get_cl_args()
 

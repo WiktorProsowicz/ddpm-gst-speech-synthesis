@@ -87,7 +87,25 @@
 
 - Fixed bug related to serializing split data chunks (order of elements in serialized tuple)
 
-### 1.3.2
+#### 1.3.2
 
 - Added computing Mean Absolute Error metric to training pipeline
 - Added mask and weights to computing loss
+
+### 1.4.0
+
+- Introduced a new acoustic model based on Transformer architecture
+- Implemented the module converting reference speech into GST embedding
+- Introduced a new model converting mel-spectrograms into linear scale
+- Introduced a new model predicting GST weights from input phonemes
+- Added a new script for obtaining mel/linear spectrogram pairs from the DS
+- Added extra options to audio preprocessing (scaling spectrograms)
+- Added new parameters to DDPM-GST-Speech-Gen
+- Added new options to the script training DDPM-GST-Speech-Gen
+- Refactored classes performing models training
+- Fixed bug in computing loss of the DDPM-GST-Speech-Gen model
+- Added dynamic learning rate scheduler to transformer-based models
+- Added a new Jupyter notebook with visualization of experiments results
+- Added a new script for compiling the model into TorchScript
+- Added a enw script for running inference
+- Refactored classes responsible for serializing models' components

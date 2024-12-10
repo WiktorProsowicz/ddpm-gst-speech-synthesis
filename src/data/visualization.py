@@ -6,8 +6,9 @@ import matplotlib as mlp
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
+import torch.utils.tensorboard.summary
 
+from data.preprocessing import text
 from utilities import inference
 
 
@@ -40,7 +41,7 @@ def decode_transcript(transcript: torch.Tensor, vocab: List[str]) -> List[str]:
 
     word_indices = transcript.argmax(dim=1)
 
-    return [vocab[i] for i in word_indices][:inference.get_transcript_length(transcript)]
+    return [vocab[i] for i in word_indices][:inference.get_transcript_length(transcript).item()]
 
 
 def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,
@@ -68,3 +69,51 @@ def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,
     ax.set_ylabel('Frequency bin index')
 
     return fig
+
+
+def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
+                                 pred_gst: torch.Tensor) -> matplotlib.figure.Figure:
+    """Plots the predicted and ground truth GST weights."""
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    ax.scatter(np.arange(original_gst.size(0)), original_gst.cpu().numpy(), label='Ground Truth')
+    ax.scatter(np.arange(pred_gst.size(0)), pred_gst.cpu().numpy(), label='Predicted')
+    ax.set_title('Ground Truth and Predicted GST Weights')
+    ax.set_xlabel('Token index')
+    ax.set_ylabel('Weight')
+    ax.legend()
+
+    return fig
+
+
+def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
+                              tb_writer: torch.utils.tensorboard.SummaryWriter):
+    """Logs example data samples to TensorBoard.
+
+    Args:
+        dataset: The dataset to sample the data from. The dataset should be the output of the
+            `scripts/prepare_dataset.py` and should contain the following structure:
+            (spectrogram, transcript, durations).
+        tb_writer: The TensorBoard writer to log the data.
+    """
+
+    example_data = dataset[np.random.randint(0, len(dataset))]
+
+    spec, transcript, durations = example_data
+
+    tb_writer.add_image(
+        'Example/InputMelSpectrogram',
+        colorize_spectrogram(spec, 'viridis'))
+
+    tb_writer.add_text(
+        'Example/Transcript',
+        ' '.join(decode_transcript(transcript, text.ENHANCED_MFA_ARP_VOCAB)))
+
+    durations_mask = (durations.numpy() > 0).astype(np.uint16)
+    pow_durations = (np.power(2, durations.numpy()) +
+                     1e-4).astype(np.uint16)[:np.sum(durations_mask).item()]
+
+    tb_writer.add_figure('Example/InputSpectrogramWithPhonemeBoundaries',
+                         annotate_spectrogram_with_phoneme_durations(
+                             spec.numpy(), pow_durations))

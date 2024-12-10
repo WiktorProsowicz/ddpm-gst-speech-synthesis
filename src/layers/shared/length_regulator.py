@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Contains the length regulator layer for the DDPM-GST-Speech-Gen model."""
-import numpy as np
 import torch
 
 

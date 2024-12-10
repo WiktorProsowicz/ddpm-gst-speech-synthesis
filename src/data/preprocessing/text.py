@@ -2,10 +2,10 @@
 """Contains functions performing textual data preprocessing."""
 from typing import List
 
-import textgrid
-import torch
 import g2p_en
 import nltk
+import textgrid
+import torch
 
 _ENHANCED_MFA_ARP_PHO = ['AA0', 'AA1', 'AA2', 'AE0', 'AE1', 'AE2',
                          'AH0', 'AH1', 'AH2', 'AO0', 'AO1', 'AO2',

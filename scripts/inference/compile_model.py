@@ -1,18 +1,18 @@
+# -*- coding: utf-8 -*-
 """Creates components of the whole model and compiles a runnable version for inference.
 
 For script's configuration, see `DEFAULT_CONFIG` constant.
 """
-
 import argparse
 import logging
 
-from utilities import logging_utils
-from utilities import scripts_utils
+import torch
+
 from models.acoustic import utils as acoustic_utils
 from models.mel_to_lin_converter import utils as mel2lin_utils
 from utilities import inference
-
-import torch
+from utilities import logging_utils
+from utilities import scripts_utils
 
 DEFAULT_CONFIG = {
 
@@ -71,7 +71,7 @@ def main(config):
 
     device = torch.device('cpu')
 
-    logging.info("Loading model components...")
+    logging.info('Loading model components...')
 
     acoustic_components = acoustic_utils.create_model_components(
         (config['mel_spec_freq_bins'], config['mel_spec_time_frames']),
@@ -90,7 +90,7 @@ def main(config):
     acoustic_components.load_from_path(config['acoustic_model_checkpoint'])
     mel2lin_components.load_from_path(config['mel_to_lin_model_checkpoint'])
 
-    logging.info("Preparing the inference model...")
+    logging.info('Preparing the inference model...')
 
     inference_model = _create_inference_model(
         acoustic_components,
@@ -126,7 +126,7 @@ def main(config):
     with torch.no_grad():
         inference_model(example_input)
 
-    logging.info("Tracing the inference model...")
+    logging.info('Tracing the inference model...')
 
     torchscript = torch.jit.trace_module(inference_model, {'forward': (example_input,)})
 

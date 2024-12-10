@@ -1,6 +1,5 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains the training/validation/profiling pipeline for the GST predictor model."""
-
 import logging
 from typing import Dict
 from typing import Tuple
@@ -8,12 +7,12 @@ from typing import Tuple
 import torch
 from torch.utils import tensorboard as pt_tensorboard
 
+from data import visualization
 from models import base_trainer
 from models import utils as shared_m_utils
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import metrics
-from data import visualization
 
 
 class ModelTrainer(base_trainer.BaseTrainer):
@@ -26,8 +25,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
     - Logging the training/validation metrics
     - Visualizing the model's predictions.
 
-    The GST weights used as the input to the model are normalized to (mean=0, stddev=1) before being fed
-    to the model so that it can more accurately differentiate between the weights and the noise.
+    The GST weights used as the input to the model are normalized to (mean=0, stddev=1)
+    before being fed to the model so that it can learn the noise distribution more accurately.
     """
 
     def __init__(self,

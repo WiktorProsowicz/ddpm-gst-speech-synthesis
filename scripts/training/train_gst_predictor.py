@@ -1,4 +1,4 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains training pipeline for the GST predictor model.
 
 The training pipeline is responsible for running the training process for the GST predictor model.
@@ -8,27 +8,24 @@ diffusion process.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
-import logging
 import argparse
-import yaml  # type: ignore
-from typing import Tuple
-from typing import Dict
+import logging
 from typing import Any
+from typing import Dict
+from typing import Tuple
 
-from torch.utils import tensorboard as torch_tb
-from torch.utils import data as torch_data
 import torch
-import matplotlib
+import yaml  # type: ignore
+from torch.utils import data as torch_data
+from torch.utils import tensorboard as torch_tb
 
-
-from utilities import scripts_utils
-from utilities import logging_utils
-from utilities import diffusion as diff_utils
 from data import data_loading
+from models import utils as shared_m_utils
 from models.gst_predictor import training
 from models.gst_predictor import utils as m_utils
-from models import utils as shared_m_utils
+from utilities import diffusion as diff_utils
+from utilities import logging_utils
+from utilities import scripts_utils
 
 
 DEFAULT_CONFIG = {

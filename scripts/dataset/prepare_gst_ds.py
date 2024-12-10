@@ -1,10 +1,9 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Downloads and prepares the dataset for GST Predictor model."""
-
 import argparse
 import logging
-import subprocess
 import os
+import subprocess
 
 import gdown
 

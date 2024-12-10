@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contains the training/validation/profiling pipeline for the acoustic model."""
 import logging
-from typing import Callable
 from typing import Dict
 from typing import Tuple
 

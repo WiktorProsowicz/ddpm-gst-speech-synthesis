@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contains raining/validation/profiling pipeline for the mel-to-linear spectrogram converter."""
 import logging
-from typing import Callable
 from typing import Dict
 from typing import Tuple
 

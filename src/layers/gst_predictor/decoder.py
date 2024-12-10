@@ -1,6 +1,5 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains the definition of the decoder layer for the GST predictor."""
-
 import torch
 
 from utilities import other as other_utils

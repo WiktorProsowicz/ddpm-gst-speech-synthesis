@@ -1,4 +1,4 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Loads trained model components and runs inference on a given input.
 
 The script preprocesses and encodes the input text, loads the acoustic model
@@ -6,20 +6,16 @@ and mel2linear converter.
 
 For script's configuration, see `DEFAULT_CONFIG` constant.
 """
-
 import argparse
 import logging
 
 import torch
-import torchvision.transforms as transforms
 import torchaudio
+from torchvision import transforms
 
-from utilities import scripts_utils
-from utilities import logging_utils
-from models.acoustic import utils as acoustic_utils
-from models.mel_to_lin_converter import utils as mel2lin_utils
-from models import utils as shared_m_utils
 from data.preprocessing import text as text_prep
+from utilities import logging_utils
+from utilities import scripts_utils
 
 DEFAULT_CONFIG = {
     'compiled_model_path': scripts_utils.CfgRequired(),
@@ -27,20 +23,20 @@ DEFAULT_CONFIG = {
     'input_text': scripts_utils.CfgRequired(),
     # Can be one of ('none', 'reference', 'weights')
     'gst_mode': 'none',
-    "scale_min": -100.0,
-    "scale_max": 41.0,
+    'scale_min': -100.0,
+    'scale_max': 41.0,
     'output_path': scripts_utils.CfgRequired(),
     'gst_reference_cfg': {
         # Path to the audio file to use as reference for GST embedding
         'reference_audio_path': None,
-        "spectrogram_window_length": 1024,
-        "spectrogram_hop_length": 256,
-        "n_mels": 80,
-        "spec_length": 200,
-        "sample_rate": 22050,
+        'spectrogram_window_length': 1024,
+        'spectrogram_hop_length': 256,
+        'n_mels': 80,
+        'spec_length': 200,
+        'sample_rate': 22050,
     },
-    "gst_weights_cfg": {
-        "weights_path": None
+    'gst_weights_cfg': {
+        'weights_path': None
     }
 }
 
@@ -54,19 +50,19 @@ def _scale_spec(spectrogram: torch.Tensor, target_min: float, target_max: float)
     return (spectrogram - min_val) / (max_val - min_val) * (target_max - target_min) + target_min
 
 
-def main(config):
+def main(config):  # pylint: disable=too-many-locals
     """Loads the model and runs inference."""
 
     # if config['gst_weights'] is None and config['reference_audio_path'] is None:
     #     raise ValueError('Either `gst_weights` or `reference_audio_path` must be provided.')
 
-    logging.info("Loading the compiled model...")
+    logging.info('Loading the compiled model...')
     compiled_model = torch.jit.load(config['compiled_model_path'])
 
-    logging.info("Transforming the input text to phonemes...")
+    logging.info('Transforming the input text to phonemes...')
     all_input_phonemes = text_prep.G2PTransform()(config['input_text'])
 
-    logging.debug("Input phonemes: %s", all_input_phonemes)
+    logging.debug('Input phonemes: %s', all_input_phonemes)
 
     phonemes_transform = transforms.Compose([
         text_prep.PadSequenceTransform(config['input_phonemes_length']),
@@ -81,7 +77,7 @@ def main(config):
                                          power=1),
     ])
 
-    logging.info("Running inference...")
+    logging.info('Running inference...')
 
     total_output_lin_spec = None
 
@@ -93,7 +89,7 @@ def main(config):
 
         input_phonemes = phonemes_transform(input_phonemes).unsqueeze(0)
 
-        if config["gst_mode"] == 'reference':
+        if config['gst_mode'] == 'reference':
 
             cfg = config['gst_reference_cfg']
 
@@ -122,7 +118,7 @@ def main(config):
 
             model_input = (input_phonemes, ref_speech)
 
-        elif config["gst_mode"] == 'weights':
+        elif config['gst_mode'] == 'weights':
 
             cfg = config['gst_weights_cfg']
             gst_weights = torch.load(cfg['weights_path'], weights_only=True)

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
-from typing import Optional
-from typing import Tuple
 from dataclasses import dataclass
 from typing import Callable
+from typing import Optional
+from typing import Tuple
 
 import torch
 
@@ -139,13 +139,13 @@ class InferenceModel(torch.nn.Module):
         if self._gst_provider is None and self._reference_embedder is None:
             phoneme_representations = self._ac_encoder(input_phonemes, None)
 
-        elif self._reference_embedder is None:
+        elif self._reference_embedder is None and self._gst_provider is not None:
             gst_weights = inputs[1]
             style_embedding = style_embedding_from_weights(self._gst_provider(), gst_weights)
             phoneme_representations = self._ac_encoder(input_phonemes,
                                                        style_embedding)
 
-        else:
+        elif self._reference_embedder is not None and self._gst_provider is not None:
             reference_spec = inputs[1]
             style_embedding = self._reference_embedder(reference_spec, self._gst_provider())
             phoneme_representations = self._ac_encoder(input_phonemes,

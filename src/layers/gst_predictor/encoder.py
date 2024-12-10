@@ -1,6 +1,5 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains the definition of the encoder class for the GST predictor."""
-
 from typing import Tuple
 
 import torch

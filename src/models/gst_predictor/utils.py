@@ -1,17 +1,16 @@
-# -*- coding=utf-8 -*-
+# -*- coding: utf-8 -*-
 """Contains utilities for the GST predictor model."""
-
+from dataclasses import dataclass
+from typing import Any
 from typing import Dict
 from typing import Optional
 from typing import Tuple
-from typing import Any
-from dataclasses import dataclass
 
 import torch
 
-from models import utils as shared_m_utils
-from layers.gst_predictor import encoder as m_encoder
 from layers.gst_predictor import decoder as m_decoder
+from layers.gst_predictor import encoder as m_encoder
+from models import utils as shared_m_utils
 
 
 @dataclass
@@ -38,7 +37,8 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
         cfg: The model's configuration dictionary. The dictionary should contain the following keys:
             - encoder::embedding_size: The size of the embedding created by the encoder.
             - encoder::n_conv_blocks: The number of convolutional blocks in the encoder.
-            - decoder::timestep_embedding_size: The size of the embedding created by the timestep encoder.
+            - decoder::timestep_embedding_size: The size of the embedding created by the
+                timestep encoder.
             - decoder::internal_channels: The number of internal channels in the decoder blocks.
             - decoder::n_conv_blocks: The number of convolutional blocks in the decoder.
             - dropout_rate: The dropout rate to use in the encoder and decoder.

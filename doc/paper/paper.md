@@ -2,17 +2,161 @@
 
 ## Abstract
 
-This thesis describes the research and experiments behind a TTS system aimed at generating natural human speech with expressiveness controllability. The resulting system is an attempt to tackle problems traditional approaches struggle with, such as lack of speech naturalness, insufficient systems' flexibility and the so called "one-to-many mapping problem". The neural networks-based backbone of the system is data-driven, what allows to flexibly adjust it to either new data or different synthesis setups. The gap between the utterance's content and its style is alleviated by controlling the generated speech's style with Global Style tokens. In order to ensure diversity of the speaking style and to reduce the model's dependence on external inputs, the system is equipped with a module for style embedding prediction based on Denoising Diffusion Probabilistic Models. 
+This thesis describes the research and experiments behind a TTS system aimed at generating natural human speech with expressiveness controllability. The resulting system is an attempt to tackle problems traditional approaches struggle with, such as lack of speech naturalness, insufficient systems' flexibility and the so called *one-to-many mapping problem*. The neural networks-based backbone of the system is data-driven, what allows to flexibly adjust it to either new data or different synthesis setups. The gap between the utterance's content and its style is alleviated by controlling the generated speech's style with Global Style tokens. In order to ensure diversity of the speaking style and to reduce the model's dependence on external inputs, the system is equipped with a module for style embedding prediction based on Denoising Diffusion Probabilistic Models. 
 
 ## Introduction
 
-Text-to-Speech systems have undergone significant development over the last several years with the emerging domination of neural networks-based approaches.
+Text-to-Speech systems have undergone significant development over the last several years with the emerging dominance of neural networks-based approaches. Speech synthesis systems offer numerous potential applications, such as support for people with severe visual impairment, systems requiring convenient human-computer interfaces and, last but not least, various commercial applications like advertisements, audiobooks, computer games etc. 
+
+The essential role of Text-to-Speech systems is to create a mapping between raw input content, i.e. characters from a chosen alphabet, and the desired output speech. This requires the system to use either provided or learned knowledge to generate desired sound representations (more in chapter [acoustic-features](#acoustic-featuresn)) that resemble the ones created by human articulatory system ([human-articulatory-system](#human-articulatory-system)).
+
+### Challenges Text-to-Speech systems encounter
+
+Since text and sound have different modalities and due to significant complexity of both human written and spoken language speech generation poses several problems. These obstacles have individual characteristics and therefore require individualized approaches. Several of the aforementioned problems involve:
+
+- Complex sound representation
+    - whereas elements of the written human language are not complicated per se (though they acquire complexity when analyzed within broader context - more about textual representations in chapter [natural-language-processing](#natural-language-processing)), all commonly used ways of representing sound involve low-level inter-dependencies which are difficult to track in rule-based systems.
+- Dimensionality gap between text and speech
+    - as Text-to-Speech systems become more complex and target better control over the generated speech, the dimensionality gap between the used textual and sound representations becomes a significant obstacle. The systems struggle to create a reliable mapping between the low-dimensional text and high-dimensional speech.
+- The *One-to-Many mapping problem*
+    - since each sentence may be pronounced in an infinite number of ways and the raw textual input lacks information about the desired speaking style, even systems based on monotonous single-speaker data fail to generate natural, expressive speech and instead tend to synthesize each utterance based on learned averaged mapping between groups of characters and corresponding sound samples.
+- Dependence on hand-engineered features
+    - due to high complexity of human speech many Text-to-Speech systems require long and difficult research on either human speech production or reception process. Though the resulting knowledge allows more advanced sound processing, the obtained sound representations are often too complex to be effectively managed, yet insufficient to be used in general-purpose systems. This makes the aforementioned approaches inflexible and difficult to maintain.    
+
+Besides the problems related to the nature of speech synthesis, there are several often encountered difficulties that are related to the particular architectural solutions. These may be divided into groups as follows:  
+
+- Information flow related:
+    - Attention collapse - in systems using attention mechanism to guide the text-speech mapping it is often observed that the model fails to find the desired connection between input textual features (eg. phonemes, characters) and the output acoustic features (eg. mel-spectrogram frames). The models tend to relate respective sound representations to only a small subgroup of textual ones. This results in phenomena such as word-skipping, repeating or generating completely unintelligible speech. A comprehensive introduction to the attention mechanism can be found in chapter [attention](#attention).
+    - Entanglement of acoustic features - whereas Text-to-Speech systems without style control usually see plain textual features as input, more complex systems, which additionally process input reference speech, have to deal with disentangling various layers of sound information. This enforces the application of complex architectural solutions such as adversarial training. More information can be found in chapter [expressive-tts](#expressive-tts).
+- Performance related:
+    - Slow inference speed - both traditional as well as auto-regressive neural-based approaches suffer from slow performance, what effectively prevents them from being used in real-time systems. More information about the auto-regressive generation can be found in chapter [generative-artificial-intelligence](#generative-artificial-intelligence). 
+    - Significant memory-intensiveness - neural networks-based systems require access to large sets of parameters, which are often impossible to fit in the available RAM, especially on embedded systems. Additionally systems which are adaptable to new speakers (Adaptive Text-to-Speech) may be difficult to scale, since they require new parameters for each new user.
+
 
 ### Goals
 
-### Related work
+In this thesis I propose a system aimed at generating human speech from textual prompt. In order to alleviate the problems named in chapter [challenges-text-to-speech-systems-encounter](#challenges-text-to-speech-systems-encounter) the proposed system includes several key solutions that have already been proven in the related work to mitigate the negative influence of the aforementioned challenges on the system.  
+
+- The backbone of the system consists of neural-based modules and therefore is mostly data-driven, i.e. does not require complex hand-engineered features or solutions to guide the speech generation.
+- The system's processing pipeline includes several non-overlapping steps, which operate on different complexity of textual and sound representations. This ensures stability of training and allows a better insight into the mapping algorithms learned by the neural models. Additionally it allows to guide the parts of the system to perform specific tasks and thereby facilitates dealing with the high sound representation dimensionality.
+- In order to mitigate the gap between text and sound dimensionality the model uses **explicit length prediction** mechanism ([neural-based-systems-taxonomies](#neural-based-systems-taxonomies)) which is a commonly used technique and has been proven to reliably guide the model to match the input and output sequences.
+- The *one-to-many mapping problem* is dealt with by providing the model with the desired speaking style via **Global Style Tokens** ([global-style-tokens](#global-style-tokens)). This not only helps model's training converge faster but also allows better control over the generated speech.
+- In order to make the system more independent on the user's input, an additional module is created, whose role is to predict the best speaking style based on solely the input textual prompt. The module is trained according to the **Denoising Diffusion Probabilistic Models** approach.
+
+### Thesis' structure
+
+This paper is structured as follows:
+1) the chapter [theoretical-foundation](#theoretical-foundation) focuses on presenting the main theoretical concepts crucial to the proposed system, including comprehensive explanations of the concepts and their application, as well as the commonly used taxonomies.
+2) The chapter [related-work](#related-work) gives a comprehensive overview of various approaches to the Text-to-Speech task, focusing mainly on the neural-based systems, including both the evolution of the presented approaches and their contribution to the Speech Synthesis subject.
+3) The chapter [proposed-system](#proposed-system) describes the proposed method to deal with the thesis' goals stipulated in [goals](#goals). It includes the description of the system's modules, neural models architecture and the overall setup used to train the models.
+4) In chapter [experiments](#experiments) there's a detailed description of the system's setup, including the parameters of the neural architectures and the dataset used for training. It is followed with the system's evaluation and presentation of the obtained scores, including the Mean Opinion Score (MOS) evaluation as well as the ablation and case study.
+5) Finally, the section [conclusions](#conclusions) concludes the thesis.
+
+### List of abbreviations and acronyms
+
+If not otherwise stated, the acronyms and abbreviations used in the following chapters should be decoded as follows:
+
+- TTS - Text to Speech
+- SS - Speech Synthesis
+- GST - Global Style Tokens
+- ESS - Expressive Speech Synthesis
+- NN - Neural Networks
+- LPC - Line Spectral Pairs
+- MFCC - Mel Frequency Cepstral Coefficient
+- HMM - Hidden Markov Model
+- PCM - Pulse Code Modulation
+- MOS - Mean Opinion Score
+- ML - Machine Learning
+- DL - Deep Learning
+- NLP - Natural Language Processing
+- FFT - Fast Fourier Transform
 
 ## Theoretical foundation
+
+The system behind this thesis on various levels of its components implements concepts from the domain of Deep Learning, Natural Language Processing, Audio Signal Processing and Speech Synthesis. Therefore the following chapter provides an explanation of the those concepts and the role they play in the system. The chapter has the following structure: .
+
+### Speech signal processing
+
+The audio signal, in its simplest form after being digitalized, does not provide any valuable information on sufficiently high level to be interpreted in terms of its properties resembling those of the human speech. It is the task of the sound processing techniques to divide the raw sound form into various levels of acoustic features. 
+
+#### Digital sound coding
+
+The storage and transmission sound requires it to be converted into the digital form. The used techniques of sound coding vary in terms of the used bit-rare (i.e. the number of beats used to encode each portion of the sound), complexity of the applied algorithms and the offered quality of encoded sound. The digital sound coding techniques may be roughly grouped as follows ([ss-and-sr-2001](#ss-and-sr-2001))):
+
+- Simple waveform coders (eg. PCM, Delta-Modulation)
+  - don't analyze the sound in terms of its human speech properties
+  - usually use high bit-rate (around 16 kbits/s and above) as they encode the sound using the most primitive properties of sine-wave
+  - depending of the used algorithm's setup they can offer a good sound quality 
+- Analysis-Synthesis systems (eg. Linear Predictive Coding)
+  - often try to break down the sound into a set of parameters, which allow to discard the information that does not explicitly stand for the properties of human-speech
+  - compress the sound to lower bit-rates (4 kbits/s and below)
+  - provide the tradeoff between the sound quality and the used level of compression, since they encode only the crucial parts of the input sound 
+
+The most commonplace way of representing raw sound is called waveform, which can be obtained via technique called Pulse Code Modulation ([ss-and-sr-2001](#ss-and-sr-2001)). The PCM passes the input physical sound wave through an Analogue-to-Digital Converter (ADC) and records the sine-wave amplitude values in uniform intervals. The main parameters related to this form of sound representations are **sampling rate** and **bit depth**, which stand for respectively the number of recorded values per second and the number of bits used to encode each value. The PCM does not leverage any property of human production/reception except the limited range of frequencies human auditory system is able to process.
+
+On of the most popular examples of analysis-synthesis methods of digital sound coding is Linear Predictive Coding ([speech-prod-models](#speech-prod-models)). It is inspired by the research on the human articulatory system (more in chapter [human-articulatory-system](#human-articulatory-system)) and consists in modeling each portion of sound as a digital filter, whose role is to mimic the way the human vocal system modifies the excitation signal produced by the lungs and vocal cords (modelled as either a pulse train constructed from the obtained fundamental frequency ([acoustic-features](#acoustic-features)) or a generated noise following the normal distribution).
+
+#### Fourier Transform
+
+Fourier Transform (FT) is a signal transformation, aimed at decomposing the input signal into particular frequencies it is composed from ([tts-xu-tan-2023](#tts-xu-tan-2023)). The basic form of the Fourier Transform operates on both continuous time and frequency. For purposes of transforming digital sound, a discrete version of the algorithm is applied in order to determine the contribution of a certain set of discrete frequencies and their corresponding phases to the final form of the signal. The range of the aforementioned frequencies depends strictly on the signal's sampling rate and can contain up to **Nyquist Frequency** value, i.e. half of the sampling rate. In practice the Fast Fourier Transform (FFT) is used, which is the optimized version of the algorithm. The formulas for the classical FT and DFT are available in [formula-fourier-transform](#formula-fourier-transform) (a) and (b) respectively.   
+
+###### Formula Fourier Transform
+
+a) 
+$$X(\omega) = \sum_{n=-\infty}^\infty x[n] e^{-j\omega n}$$
+
+b)
+$$X[k] = \sum_{n=0}^{N-1} x[n] e^{-j \frac{2\pi}{N} k n}$$
+
+a) Discrete-Time Fourier Transform resulting in continuous spectrum of frequencies a discrete signal contains. The `j` is the imaginary unit in Euler's formula $$e^{j\theta} = \cos(\theta) + j\sin(\theta)$$. The $$\omega$$ is the analog radian frequency divided by the signal's sampling rate. The intuition behind the formula is that the more the input signal is in line with a given frequency, the more will it strengthen the average value of the complex sequence $$e^{-j \frac{2\pi}{N} k n}$$. The sum for every `k` is also a complex number, where its length stands for the magnitude of the given frequency and its angle for the phase.
+b) Formula of the Discrete Fourier Transform.
+
+#### Human articulatory system
+
+Some of the characteristics of human speech, also used in neural-based TTS systems, come from studies on human system of speech production. According to the model presented in [acoustic-theory-speech-prod](#acoustic-theory-speech-prod) the full process, within which the speech is produced, can be divided into four phases:
+
+1. Sound source - includes the vibrations created by vocal folds excited by the airflow from the lungs. This part accounts for the basic characteristics of the created sound, eg. whether it should be a consonant, created by a turbulent airstream, or a vowel, commonly described as one of the *voiced sounds*. 
+2. Vocal tract - describes the shape of human vocal system, which is responsible for shaping the tone created by the glottis. It acts as a filter for the regular sound created by the vocal folds.
+3. Energy losses - accounts for amplification of certain frequencies in the sound, which plays a crucial role in creating *nasal sounds*.
+4. Sound radiation - describes the properties the final speech acquires while radiating from the mouth.
+
+This description of the aforementioned process has been used to create the **source-filter** model, which allows to divide the speech production into to parts, where the first accounts for the properties of the sound leaving the glottis and the second describes the filtering process, where the glottal pulse is shaped into its final form. This process is visualized in figure [figure-source-filter-model](#figure-source-filter-model) .
+
+###### Figure Source Filter Model
+
+![](./img/fig-source-filter-model.png)
+
+Visualizations of the speech transformations within particular parts of the process of articulation. Reproduced from [ss-and-sr-2001](#ss-and-sr-2001).
+a) The dependence of the vocal cords' openness on time. The (0,b) time range stands for the rising phase, the (b, c) is the closing phase and the (b, T) is the time when the vocal cords are fully closed.
+b) The spectrum of the sound after the *glottal source* phase.
+c) The spectrum of the vocal tract filter.
+
+#### Acoustic features
+
+Since raw waveform is an extremely complex sound representation, where the dependencies between particular samples are difficult to tract, both TTS and Speech Recognition systems usually have to operate on high-level sound features. Those not only are easier to handle but also display properties specific to the way humans speak or hear. The acoustic features may be divided into groups according to the level of speech, on which they are visible and where they play their crucial role.
+
+The commonly used acoustic features are:
+
+1. Spectrogram
+   - is a 2D sound representation and consists of stacked spectra obtained by applying FFT on consecutive frames extracted from the discrete signal. Such transformation is called Short Time Fourier Transform (STFT) and is portrayed on figure [short-time-fourier-transform](#short-time-fourier-transform). Since sensitivity of human ear against frequencies is rather logarithmic than linear, in practice spectrograms in **Mel** frequency scale are used.  
+2. Mel Frequency Cepstral Coefficients
+   - are obtains by applying the Discrete Cosine Transform (DCT) on natural logarithm of the mel-spectrum of the sound. This representation is especially useful in Automatic Speech Recognition techniques, since it emphasizes the formants (i.e. the primary frequencies, whose configurations are present in vowels) in human speech.
+3. Fundamental frequency
+   - often denoted as F0 is the lowest frequency in the sound's spectrum. It is often referred to as the pitch.
+4. 
+
+###### Short Time Fourier Transform
+
+![](./img/stft.png)
+
+Visualization of the consecutive steps of the Short Time Fourier Transform.
+a) Raw waveform with a fragment marked in red, which is going to be the FFT's input.
+b) The extracted marked fragment after applying the Hann window function.
+c) Spectrum obtained from the fragment.
+d) Full spectrogram obtained from the raw waveform.
+
+
+### Natural language processing
 
 ### Neural networks-based architectures
 
@@ -22,7 +166,29 @@ Text-to-Speech systems have undergone significant development over the last seve
 
 #### Attention
 
-### 
+#### Transformers
+
+### Generative Artificial Intelligence
+
+### Classical TTS
+
+#### Traditional approaches
+
+#### TTS pipeline
+
+#### Neural-based systems taxonomies
+
+### Expressive TTS
+
+#### One-to-Many Mapping Problem
+
+#### Taxonomy of approaches
+
+#### Global Style Tokens
+
+#### Disentangling speech features
+
+## Related work
 
 ## Proposed system
 
@@ -31,3 +197,110 @@ Text-to-Speech systems have undergone significant development over the last seve
 ## Conclusions
 
 ### Further research
+
+## References
+
+###### tts-xu-tan-2023
+- [Xu Tan (2023): *Neural Text-to-Speech Synthesis*](https://link.springer.com/book/10.1007/978-981-99-0827-1)
+
+###### speech-prod-models
+
+- [A Tutorial on Speech Synthesis Models](https://www.sciencedirect.com/science/article/pii/S1877050915035097)
+
+###### acoustic-theory-speech-prod
+
+- [The Acoustic Theory of Speech Production](https://link.springer.com/chapter/10.1007/978-94-011-4657-9_3)
+
+###### ss-and-sr-2001
+
+- [John Holmes, Wendy Holmes: *Speech Synthesis and Recognition*](https://www.routledge.com/Speech-Synthesis-and-Recognition/Holmes/p/book/9780748408573?srsltid=AfmBOoqr5b8kB0bliVJhhvUbgH0_BAaCs-A5K0KjV6J2x5NIASVBx2r2)
+
+###### tts-ddpm-diff-tts
+- [Diff-TTS: A Denoising Diffusion Model for Text-to-Speech](https://arxiv.org/abs/2104.01409)
+
+###### tts-ddpm-diffwave
+- [DiffWave: A Versatile Diffusion Model for Audio Synthesis](https://arxiv.org/abs/2009.09761)
+
+###### tts-ar-wavenet
+- [WaveNet: A Generative Model for Raw Audio](https://arxiv.org/abs/1609.03499)
+
+###### tts-ar-natural-tts
+- [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884)
+
+###### tts-ar-transformer
+- [Neural Speech Synthesis with Transformer Network](https://arxiv.org/abs/1809.08895)
+
+###### tts-ar-tacotron
+- [Tacotron: Towards End-to-End Speech Synthesis](https://arxiv.org/abs/1703.10135)
+
+###### tts-parallel-deep-voice3
+- [Deep Voice 3: Scaling Text-to-Speech with Convolutional Sequence Learning](https://arxiv.org/abs/1710.07654)
+
+###### tts-parallel-deep-voice
+- [Deep Voice: Real-time Neural Text-to-Speech](https://arxiv.org/abs/1702.07825)
+
+###### tts-parallel-fastpitch
+- [FastPitch: Parallel Text-to-speech with Pitch Prediction](https://arxiv.org/abs/2006.06873)
+
+###### tts-parallel-fast-speech
+- [FastSpeech: Fast, Robust and Controllable Text to Speech](https://arxiv.org/abs/1905.09263)
+
+###### tts-parallel-fast-speech2
+- [FastSpeech 2: Fast and High-Quality End-to-End Text to Speech](https://arxiv.org/abs/2006.04558)
+
+###### tts-parallel-jdi-t
+- [JDI-T: Jointly trained Duration Informed Transformer for Text-To-Speech without Explicit Alignment](https://arxiv.org/abs/2005.07799)
+
+###### tts-parallel-wavegan
+- [Parallel WaveGAN: A fast waveform generation model based on generative adversarial networks with multi-resolution spectrogram](https://arxiv.org/abs/1910.11480)
+
+###### expressive-tts-review
+- [Deep learning-based expressive speech synthesis: a systematic review of approaches, challenges, and resources](https://asmp-eurasipjournals.springeropen.com/articles/10.1186/s13636-024-00329-7)
+
+###### expressive-tts-gst-style-tokens
+- [Style Tokens: Unsupervised Style Modeling, Control and Transfer in End-to-End Speech Synthesis](https://arxiv.org/abs/1803.09017)
+
+###### expressive-tts-gst-emotional-tts
+- [End-to-End Emotional Speech Synthesis Using Style Tokens and Semi-Supervised Training](https://arxiv.org/abs/1906.10859)
+
+###### expressive-tts-gst-enhancing-speaking-styles
+- [Enhancing Speaking Styles in Conversational Text-to-Speech Synthesis with Graph-based Multi-modal Context Modeling](https://arxiv.org/abs/2106.06233)
+
+###### expressive-tts-gst-word-level-style
+- [Extracting and Predicting Word-Level Style Variations for Speech Synthesis](https://ieeexplore.ieee.org/document/9410373)
+
+###### expressive-tts-gst-hierarchical
+- [Learning Hierarchical Representations for Expressive Speaking Style in End-to-End Speech Synthesis](https://ieeexplore.ieee.org/document/9003859)
+
+###### expressive-tts-gst-mellotron
+- [Mellotron: Multispeaker expressive voice synthesis by conditioning on rhythm, pitch and global style tokens](https://arxiv.org/abs/1910.11997)
+
+###### expressive-tts-in-context-zero-shot
+- [Neural Codec Language Models are Zero-Shot Text to Speech Synthesizers](https://arxiv.org/abs/2301.02111)
+
+###### expressive-tts-adaptive-adaspeech
+- [AdaSpeech: Adaptive Text to Speech for Custom Voice](https://arxiv.org/abs/2103.00993)
+
+###### expressive-tts-prosody-tacotron
+- [Towards End-to-End Prosody Transfer for Expressive Speech Synthesis with Tacotron](https://arxiv.org/abs/1803.09047)
+
+###### expressive-tts-prosody-hierarchical
+- [Towards Expressive Speaking Style Modelling with Hierarchical Context Information for Mandarin Speech Synthesis](https://arxiv.org/abs/2203.12201)
+
+###### expressive-tts-prosody-multi-speaker
+- [Multi-Speaker Emotional Speech Synthesis with Fine-Grained Prosody Modeling](https://ieeexplore.ieee.org/document/9413398)
+
+###### generative-models-ddpm-denoising
+- [Denoising Diffusion Probabilistic Models in Six Simple Steps](https://arxiv.org/abs/2402.04384)
+
+###### generative-models-attention-align
+- [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473)
+
+###### generative-models-attention-all-you-need
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+
+###### generative-models-auto-regressive-review
+- [A Critical Review of Recurrent Neural Networks for Sequence Learning](https://arxiv.org/abs/1506.00019)
+
+###### other-audio-compression
+- [High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438)

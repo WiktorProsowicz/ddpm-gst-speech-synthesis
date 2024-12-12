@@ -143,7 +143,8 @@ The commonly used acoustic features are:
    - are obtains by applying the Discrete Cosine Transform (DCT) on natural logarithm of the mel-spectrum of the sound. This representation is especially useful in Automatic Speech Recognition techniques, since it emphasizes the formants (i.e. the primary frequencies, whose configurations are present in vowels) in human speech.
 3. Fundamental frequency
    - often denoted as F0 is the lowest frequency in the sound's spectrum. It is often referred to as the pitch.
-4. 
+4. Energy
+   - obtained by computing the sum of signal values raised to the power of 2.
 
 ###### Short Time Fourier Transform
 
@@ -158,7 +159,21 @@ d) Full spectrogram obtained from the raw waveform.
 
 ### Natural language processing
 
-### Neural networks-based architectures
+Natural Language Processing (NLP) is an integral part of every TTS pipeline and its role is to analyze the raw input text, most of the time in form of characters belonging to a chosen alphabet, and convert it to high-level representations, more fit to the SS task. As stated in [xu-tan-survey](#xu-tan-survey), complex pre-processing of the input text was crucial in both traditional and early neural-based systems, as it allowed to properly guide the generation even without good modelling capacity, offered by the contemporary systems. With the emergence and popularization of more End-to-End TTS pipelines some of the previously used NLP techniques have largely fallen by the sideway and have been forced out by simpler, yet less effort-consuming processing.
+
+Extracting both syntactic and semantic representations from the input text leverages the knowledge on the subject of natural language. The obtained textual features may alleviate the complexity of the information conveyed by the text by providing the model with the external knowledge, what frees it from learning it on its own.
+
+#### Text Normalization
+
+#### Segmentation
+
+#### Part-of-Speech Tagging
+
+#### Grapheme-to-Phoneme Conversion
+
+
+
+### Basics of Deep Learning
 
 #### Convolutional layers
 
@@ -214,6 +229,10 @@ d) Full spectrogram obtained from the raw waveform.
 ###### ss-and-sr-2001
 
 - [John Holmes, Wendy Holmes: *Speech Synthesis and Recognition*](https://www.routledge.com/Speech-Synthesis-and-Recognition/Holmes/p/book/9780748408573?srsltid=AfmBOoqr5b8kB0bliVJhhvUbgH0_BAaCs-A5K0KjV6J2x5NIASVBx2r2)
+
+###### xu-tan-survey
+
+- [A Survey on Neural Speech Synthesis](https://arxiv.org/abs/2106.15561)
 
 ###### tts-ddpm-diff-tts
 - [Diff-TTS: A Denoising Diffusion Model for Text-to-Speech](https://arxiv.org/abs/2104.01409)

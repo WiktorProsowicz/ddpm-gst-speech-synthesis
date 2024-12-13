@@ -26,7 +26,7 @@ Since text and sound have different modalities and due to significant complexity
 Besides the problems related to the nature of speech synthesis, there are several often encountered difficulties that are related to the particular architectural solutions. These may be divided into groups as follows:  
 
 - Information flow related:
-    - Attention collapse - in systems using attention mechanism to guide the text-speech mapping it is often observed that the model fails to find the desired connection between input textual features (eg. phonemes, characters) and the output acoustic features (eg. mel-spectrogram frames). The models tend to relate respective sound representations to only a small subgroup of textual ones. This results in phenomena such as word-skipping, repeating or generating completely unintelligible speech. A comprehensive introduction to the attention mechanism can be found in chapter [attention](#attention).
+    - Attention collapse - in systems using attention mechanism to guide the text-speech mapping it is often observed that the model fails to find the desired connection between input textual features (e.g. phonemes, characters) and the output acoustic features (e.g. mel-spectrogram frames). The models tend to relate respective sound representations to only a small subgroup of textual ones. This results in phenomena such as word-skipping, repeating or generating completely unintelligible speech. A comprehensive introduction to the attention mechanism can be found in chapter [attention](#attention).
     - Entanglement of acoustic features - whereas Text-to-Speech systems without style control usually see plain textual features as input, more complex systems, which additionally process input reference speech, have to deal with disentangling various layers of sound information. This enforces the application of complex architectural solutions such as adversarial training. More information can be found in chapter [expressive-tts](#expressive-tts).
 - Performance related:
     - Slow inference speed - both traditional as well as auto-regressive neural-based approaches suffer from slow performance, what effectively prevents them from being used in real-time systems. More information about the auto-regressive generation can be found in chapter [generative-artificial-intelligence](#generative-artificial-intelligence). 
@@ -70,6 +70,7 @@ If not otherwise stated, the acronyms and abbreviations used in the following ch
 - DL - Deep Learning
 - NLP - Natural Language Processing
 - FFT - Fast Fourier Transform
+- G2P - Grapheme to Phoneme
 
 ## Theoretical foundation
 
@@ -83,11 +84,11 @@ The audio signal, in its simplest form after being digitalized, does not provide
 
 The storage and transmission sound requires it to be converted into the digital form. The used techniques of sound coding vary in terms of the used bit-rare (i.e. the number of beats used to encode each portion of the sound), complexity of the applied algorithms and the offered quality of encoded sound. The digital sound coding techniques may be roughly grouped as follows ([ss-and-sr-2001](#ss-and-sr-2001))):
 
-- Simple waveform coders (eg. PCM, Delta-Modulation)
+- Simple waveform coders (e.g. PCM, Delta-Modulation)
   - don't analyze the sound in terms of its human speech properties
   - usually use high bit-rate (around 16 kbits/s and above) as they encode the sound using the most primitive properties of sine-wave
   - depending of the used algorithm's setup they can offer a good sound quality 
-- Analysis-Synthesis systems (eg. Linear Predictive Coding)
+- Analysis-Synthesis systems (e.g. Linear Predictive Coding)
   - often try to break down the sound into a set of parameters, which allow to discard the information that does not explicitly stand for the properties of human-speech
   - compress the sound to lower bit-rates (4 kbits/s and below)
   - provide the tradeoff between the sound quality and the used level of compression, since they encode only the crucial parts of the input sound 
@@ -115,7 +116,7 @@ b) Formula of the Discrete Fourier Transform.
 
 Some of the characteristics of human speech, also used in neural-based TTS systems, come from studies on human system of speech production. According to the model presented in [acoustic-theory-speech-prod](#acoustic-theory-speech-prod) the full process, within which the speech is produced, can be divided into four phases:
 
-1. Sound source - includes the vibrations created by vocal folds excited by the airflow from the lungs. This part accounts for the basic characteristics of the created sound, eg. whether it should be a consonant, created by a turbulent airstream, or a vowel, commonly described as one of the *voiced sounds*. 
+1. Sound source - includes the vibrations created by vocal folds excited by the airflow from the lungs. This part accounts for the basic characteristics of the created sound, e.g. whether it should be a consonant, created by a turbulent airstream, or a vowel, commonly described as one of the *voiced sounds*. 
 2. Vocal tract - describes the shape of human vocal system, which is responsible for shaping the tone created by the glottis. It acts as a filter for the regular sound created by the vocal folds.
 3. Energy losses - accounts for amplification of certain frequencies in the sound, which plays a crucial role in creating *nasal sounds*.
 4. Sound radiation - describes the properties the final speech acquires while radiating from the mouth.
@@ -165,15 +166,34 @@ Extracting both syntactic and semantic representations from the input text lever
 
 #### Text Normalization
 
+Text normalization is the process of converting non-orthographic words into a form understandable by the model ([tts-xu-tan-2023](#tts-xu-tan-2023)). This applies especially to systems trained on massive amounts of data, often scraped in raw form from the Internet, which expert analysts are unable to normalize manually. Such words may include:
+
+- Acronyms (e.g. FFT may be either unwrapped into Fast Fourier Transform or be read letter by letter)
+- Abbreviations (e.g. Mr. Myers for Mister Myers)
+- Numbers in various forms (e.g. date 2005-04-02, time 9:37 pm, currency formats, ordinal numbers)
+- Mathematical and chemical formulas
+
+In order to better guide the model to learn relationships between the textual input and its corresponding sound units, all the aforementioned forms must be turned into speakable expressions, resembling the way a human would enunciate them. The same applies for systems incorporating G2P conversion ([grapheme-to-phoneme-conversion](#grapheme-to-phoneme-conversion)) into their preprocessing pipeline. As [xu-tan-survey](#xu-tan-survey) states, the available tools performing text normalization have largely undergone an evolution, often replacing the traditional rule-based approaches with the neural-based ones.
+
 #### Segmentation
+
+Word/Phrase Segmentation is especially significant in systems which operate on language without explicit separation of sentence's parts. For instance, in Chinese all characters belonging to a sentence are aligned together, one by one, and separating them requires knowledge about either the rules of words construction or about their meaning. Marking the individual words or phrases is crucial for proper determining of the pronunciation,  stress and intonation. 
 
 #### Part-of-Speech Tagging
 
+The part-of-speech (POS) tagging is significant form the perspective of phonetic analysis of the sentence, since the role a word plays with respect to the other ones has much influence on the way it should be pronounced. This applies to the proper intonation of a word as well as disambiguation between homographs (i.e. words with the same spelling but different meanings, e.g. the word "bear") and the words with different spelling depending on the context (e.g. the word "read" in present and past tenses).
+
 #### Grapheme-to-Phoneme Conversion
 
-
+G2P Conversion is the process of converting sequences of characters (graphemes) in their pronunciations (phonemes). This allows to disambiguate the proper spelling of words in languages in which it may differ, depending on both the meaning and structure of the word (e.g. the english words *recipe* and *recite*, though they have similar structures, are pronounced *R IH S AY T* and *R EH S IH P IY*). The used G2P tool largely depends on the analyzed alphabet, e.g. in order to convert Chinese characters into their corresponding phonetic transcription codes a large dictionary may be used, whereas english words need a specialized G2P model.
 
 ### Basics of Deep Learning
+
+Deep Learning has emerged from the domain of Machine Learning with the popularization of Deep Neural Networks (DNNs). DNN-based architectures are known do display strong modelling capabilities and may be used to simulate an arbitrary function that maps the given inputs to the desired output. DNNs are applied especially to tasks, where the model's inputs contains complex non-linear inter-relationships, both spatial and temporal. For this reason they are often used to tasks like image classification (i.e. mapping input image tensors to class signatures), text-to-speech synthesis, time series prediction
+
+#### Basic concepts
+
+#### Neural Networks
 
 #### Convolutional layers
 

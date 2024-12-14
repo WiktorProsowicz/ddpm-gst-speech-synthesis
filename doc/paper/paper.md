@@ -189,17 +189,75 @@ G2P Conversion is the process of converting sequences of characters (graphemes) 
 
 ### Basics of Deep Learning
 
-Deep Learning has emerged from the domain of Machine Learning with the popularization of Deep Neural Networks (DNNs). DNN-based architectures are known do display strong modelling capabilities and may be used to simulate an arbitrary function that maps the given inputs to the desired output. DNNs are applied especially to tasks, where the model's inputs contains complex non-linear inter-relationships, both spatial and temporal. For this reason they are often used to tasks like image classification (i.e. mapping input image tensors to class signatures), text-to-speech synthesis, time series prediction
+Deep Learning (DL) has emerged from the domain of Machine Learning with the popularization of Deep Neural Networks (DNNs), i.e. models defining relationships between groups of numerical parameters and transformations applied to them. DNN-based architectures are known do display strong modelling capabilities and may be used to simulate an arbitrary function that maps a given input to the desired output. DNNs are applied especially to tasks, where the model's inputs contain complex non-linear inter-relationships, either spatial and temporal. For this reason they are often used to tasks like image classification (i.e. mapping input image tensors to class signatures), text-to-speech synthesis, time series prediction.
 
 #### Basic concepts
 
+Beside various specialized neural-based architectures the DL field has developed a set of techniques, paradigms and conventions, aimed at creating effective frameworks for building DL-based systems.
+
+**Forward Pass** is the full complex transformation a neural network applies to its inputs. At the lowest level it consists of primitive mathematical operations performed between numerical values (e.g. multiplication between model's parameters and inputs), which eventually result in the possibly multivariate model's output. The exact applied transformations vary and depend on the model's architecture.   
+
+**Activation functions** are functions applied to the values flowing through a network. Their role is to provide non-linearity to the model, what allows to find complex inter-relationships between the processed values. Examples of commonly-used activation functions are available on figures [figure-activation-functions](#figure-activation-functions) a), b) and c).
+
+**Loss functions** are functions computed from the DL model's output in order to provide it with a guiding signal allowing to evaluate its performance and to estimate the desired direction of improvement with respect to the model's parameters. An example loss function used mostly for regression is Mean Squared Error (MSE), computed as the arithmetic mean of squared differences between the computed and ground-truth outputs. 
+
+**Backpropagation** is a gradient estimation algorithm, whose role is to determine the gradient of the used loss function with respect to the model's parameters. The algorithm allows to omit time-consuming computations, necessary to obtain the gradient of a complex multi-variate function by computing the limit of the difference quotient. The Backpropagation algorithm uses the **Chain Rule**, which can be expressed as $$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial a} \cdot \frac{\partial a}{\partial z} \cdot \frac{\partial z}{\partial w}$$.
+
+###### Figure activation functions
+
+![](./img/activations.png)
+
+Example activation functions used in DL models.
+a) Sigmoid: $$\sigma (x)={\frac {1}{1+e^{-x}}}$$.
+b) Rectified Linear Unit (ReLU):$$\text{ReLU}(x) = \max(0, x)$$.
+c) Hyperbolic Tangent (Tanh):$$\text{Tanh}(x) = \frac{\sinh(x)}{\cosh(x)} = \frac{e^x - e^{-x}}{e^x + e^{-x}}$$.
+
+
 #### Neural Networks
+
+The primary building blocks of NNs, called *perceptrons*, are loosely inspired by the shape and functioning of human neurons. It is an abstract structure, often depicted in graph form as a single node, with a set of parameters called *weights*. With every forward pass, the perceptron outputs a value, which is the weighted sum of all its inputs passed through a chosen activation function. First perceptrons used step functions shown below as their activations.
+
+$$f(x) =
+\begin{cases}
+1 & \text{if } x \geq 0, \\
+0 & \text{if } x < 0.
+\end{cases}$$
+
+In order to increase their modelling potential, layers of perceptrons are stacked together, resulting in Multi Layer Perceptron (MLP). In this structure every neuron of the *l+1* layer has its weights connected to every neuron from the *l* layer. For this reason MLPs are often called *Dense* or *Fully Connected* layers. The figure [figure-mlp](#figure-mlp) shows a visualization of MLP.   
+
+###### Figure mlp
+
+![](./img/mlp.png)
+
+Visualization of the Multi Layer Perceptron, borrowed from [dl-for-nlp-sr](#dl-for-nlp-sr). The orange nodes are layer's inputs together with an additional *bias* input equal to 1. The green nodes symbolize layer's neurons.
 
 #### Convolutional layers
 
+Although thanks to their modelling capacity MLPs have been successfully applied to many tasks, the offered dense connectivity has two primary disadvantages: 1) It involves a heavy computational cost. 2) The fully connected networks are unable to focus on certain low-level local relationships between input samples. For this reason a separate type of neural network has emerged ([dl-for-nlp-sr](#dl-for-nlp-sr)), which is inspired by the *convolution* operation from the field of image processing. In discrete domain the convolution may be formulated as:
+
+$$(f * g)[n] = \sum_{k=-\infty}^{\infty} f[k] \cdot g[n - k]$$
+
+where the $$f(x)$$ function is generally known as the *kernel*. In practice, inspired by the field of image processing, a finite-dimensional kernel with finite number of parameters on each axis is used and its application to the input tensor may be visualized as sliding an n-dimensional window across the input, where every output value is computed as the sum of weighted input values. The difference between MLPs and Convolutional Neural Networks (CNNs) is in *sparse connectivity* and *parameter sharing*. A visualization of the CNN forward pass is depicted on figure [figure-cnn](#figure-cnn).
+
+Convolutional layers display a good ability to find local spatial relationships between input samples. For this reason they are often applied to tasks, where patterns in the input data are to be found within local contexts, such as all kinds of tasks which involve image processing. The forward pass of the CNNs-based models can be easily parallelized. 
+
+###### Figure CNN
+
+![](./img/cnn.png)
+
+Convolutional Neural Network's forward pass, borrowed from [dl-for-nlp-sr](#dl-for-nlp-sr). The input to the layer is a tensor, which consists of three layers of 2D matrices. The convolutional layer has two 2D kernels, which are applied to each input matrix, resulting in two output matrices.
+
 #### Recurrent layers
 
+In order to find temporal relationships in the input data, Recurrent Neural Networks (RNNs) have been developed ([generative-models-auto-regressive-review](#generative-models-auto-regressive-review)). Their characteristic property is that instead of single input tensors they consume whole sequences, processing an input sample at time *t* and using the intermediate result while processing the sample *t+1*.
+
+The RNN's parameters are trained via **Backpropagation Through Time**, which involves unfolding of the whole sequence's transformation. In early recurrent architectures the training was noticeably unstable, due to the problems of *exploding gradient* and *vanishing gradient*, which are caused by repeated multiplication of the same parameters and consisted in either rapid soaring or collapsing of the computed gradient, what significantly hinders the training. For this reason new architectures have been developed, including Long Short-Term Memory (LSTM) and Gated Recurrent Unit (GRU) networks.
+
 #### Attention
+
+Early Sequence-to-Sequence mapping models, using RNNs to catch temporal dependencies, often used the Encoder-Decoder scheme for auto-regressive generation ([generative-artificial-intelligence](#generative-artificial-intelligence)), depicted on figure [](). The whole information from the encoder's input would be squashed into a single vector and then used as the first decoder's state. Such setup has been observed to fail to catch long-range dependencies, what resulted in poor generation capability.
+
+The general idea of the Attention mechanism is that the model is given the possibility to come up with the best encoder-decoder connection on its own. This involves computing the vector containing averaged encoder's hidden states individually for each decoder's step. The first version of the mechanism, so called Soft-Attention, was proposed in [generative-models-attention-align](#generative-models-attention-align). Attention allows each decoder's step to draw the 
 
 #### Transformers
 
@@ -234,6 +292,10 @@ Deep Learning has emerged from the domain of Machine Learning with the populariz
 ### Further research
 
 ## References
+
+###### dl-for-nlp-sr
+
+- [Deep Learning for NLP and Speech Recognition](https://link.springer.com/book/10.1007/978-3-030-14596-5)
 
 ###### tts-xu-tan-2023
 - [Xu Tan (2023): *Neural Text-to-Speech Synthesis*](https://link.springer.com/book/10.1007/978-981-99-0827-1)

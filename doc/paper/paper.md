@@ -27,7 +27,7 @@ Besides the problems related to the nature of speech synthesis, there are severa
 
 - Information flow related:
     - Attention collapse - in systems using attention mechanism to guide the text-speech mapping it is often observed that the model fails to find the desired connection between input textual features (e.g. phonemes, characters) and the output acoustic features (e.g. mel-spectrogram frames). The models tend to relate respective sound representations to only a small subgroup of textual ones. This results in phenomena such as word-skipping, repeating or generating completely unintelligible speech. A comprehensive introduction to the attention mechanism can be found in chapter [attention](#attention).
-    - Entanglement of acoustic features - whereas Text-to-Speech systems without style control usually see plain textual features as input, more complex systems, which additionally process input reference speech, have to deal with disentangling various layers of sound information. This enforces the application of complex architectural solutions such as adversarial training. More information can be found in chapter [expressive-tts](#expressive-tts).
+    - Entanglement of acoustic features - whereas Text-to-Speech systems without style control usually see plain textual features as input, more complex systems, which additionally process input reference speech, have to deal with disentangling various layers of sound information. This enforces the application of complex architectural solutions, such as adversarial training. More information can be found in chapter [expressive-tts](#expressive-tts).
 - Performance related:
     - Slow inference speed - both traditional as well as auto-regressive neural-based approaches suffer from slow performance, what effectively prevents them from being used in real-time systems. More information about the auto-regressive generation can be found in chapter [generative-artificial-intelligence](#generative-artificial-intelligence). 
     - Significant memory-intensiveness - neural networks-based systems require access to large sets of parameters, which are often impossible to fit in the available RAM, especially on embedded systems. Additionally systems which are adaptable to new speakers (Adaptive Text-to-Speech) may be difficult to scale, since they require new parameters for each new user.
@@ -203,6 +203,10 @@ Beside various specialized neural-based architectures the DL field has developed
 
 **Backpropagation** is a gradient estimation algorithm, whose role is to determine the gradient of the used loss function with respect to the model's parameters. The algorithm allows to omit time-consuming computations, necessary to obtain the gradient of a complex multi-variate function by computing the limit of the difference quotient. The Backpropagation algorithm uses the **Chain Rule**, which can be expressed as $$\frac{\partial L}{\partial w} = \frac{\partial L}{\partial a} \cdot \frac{\partial a}{\partial z} \cdot \frac{\partial z}{\partial w}$$.
 
+**Knowledge distillation** is a the process of moving the knowledge learned by a large model to a smaller one. In its primary form, it consists in training a smaller model, which requires less storage and computational resources, on outputs of a large pre-trained model. The success of this technique, especially in tasks involving complex training data, lies in the fact that the outputs of a trained model are less detailed and therefore easier to reproduce.
+
+**Teacher forcing** is a technique used mostly in autoregressive ([generative-models-auto-regressive-review](#generative-models-auto-regressive-review)) sequence-to-sequence models and consists in using ground-truth output data as part of the model's input during training and replacing it afterwards with the predicted data during inference. This helps the model focus on finding relationships between the data samples instead of repairing its own mistakes.
+
 ###### Figure activation functions
 
 ![](./img/activations.png)
@@ -249,17 +253,34 @@ Convolutional Neural Network's forward pass, borrowed from [dl-for-nlp-sr](#dl-f
 
 #### Recurrent layers
 
-In order to find temporal relationships in the input data, Recurrent Neural Networks (RNNs) have been developed ([generative-models-auto-regressive-review](#generative-models-auto-regressive-review)). Their characteristic property is that instead of single input tensors they consume whole sequences, processing an input sample at time *t* and using the intermediate result while processing the sample *t+1*.
+In order to find temporal relationships in the input data, Recurrent Neural Networks (RNNs) have been developed ([generative-models-auto-regressive-review](#generative-models-auto-regressive-review)). Their characteristic property is that instead of single input tensors they consume whole sequences, processing an input sample at time *t* and using the intermediate result while processing the sample *t+1*. The forward pass of a primitive recurrent network is visualized on figure []().
 
 The RNN's parameters are trained via **Backpropagation Through Time**, which involves unfolding of the whole sequence's transformation. In early recurrent architectures the training was noticeably unstable, due to the problems of *exploding gradient* and *vanishing gradient*, which are caused by repeated multiplication of the same parameters and consisted in either rapid soaring or collapsing of the computed gradient, what significantly hinders the training. For this reason new architectures have been developed, including Long Short-Term Memory (LSTM) and Gated Recurrent Unit (GRU) networks.
 
 #### Attention
 
-Early Sequence-to-Sequence mapping models, using RNNs to catch temporal dependencies, often used the Encoder-Decoder scheme for auto-regressive generation ([generative-artificial-intelligence](#generative-artificial-intelligence)), depicted on figure [](). The whole information from the encoder's input would be squashed into a single vector and then used as the first decoder's state. Such setup has been observed to fail to catch long-range dependencies, what resulted in poor generation capability.
+Early Sequence-to-Sequence mapping models, using RNNs to catch temporal dependencies, often used the Encoder-Decoder scheme for auto-regressive ([generative-artificial-intelligence](#generative-artificial-intelligence)) generation, depicted on figure [figure-soft-attention](#figure-soft-attention) a). The whole information from the encoder's input would be squashed into a single vector and then used as the first decoder's state. Such setup has been observed to fail to catch long-range dependencies, what resulted in poor generation capability.
 
-The general idea of the Attention mechanism is that the model is given the possibility to come up with the best encoder-decoder connection on its own. This involves computing the vector containing averaged encoder's hidden states individually for each decoder's step. The first version of the mechanism, so called Soft-Attention, was proposed in [generative-models-attention-align](#generative-models-attention-align). Attention allows each decoder's step to draw the 
+The general idea of the Attention mechanism is that the model is given the possibility to come up with the best encoder-decoder connection on its own. This involves computing the vector containing averaged encoder's hidden states individually for each decoder's step. The first version of the mechanism, so called Soft-Attention, was proposed in [generative-models-attention-align](#generative-models-attention-align). Attention allows each decoder's step to prioritize particular encoder's states based on trainable similarity metric, what can be considered an analogy to "paying attention" to specified elements of the input prompt, depending on the previously generated samples. The soft-attention mechanism within a classical encoder-decoder setup is visualized on figure [figure-soft-attention](#figure-soft-attention) b).
+
+###### Figure soft attention
+
+![](./img/seq-seq.png)
+
+Visualization of traditional encoder-decoder setups used for autoregressive sequence-to-sequence tasks, such as machine translation. The figures a) and b) are borrowed from [dl-for-nlp-sr](#dl-for-nlp-sr).
+a) An encoder-decoder setup without the attention mechanism. The encoder first compresses the input information into a single vector, which is than used as the first decoder's state. The inputs to the decoder are not shown.
+b) Architecture using soft-attention, where the first decoder step, based on its input and hidden state, computes similarity score between itself and each encoder's hidden state in order to create an individual context vector, which is than used to generate the output on the current step.
 
 #### Transformers
+
+Transformer architecture is considered to be the next step in evolution of sequence-to-sequence architectures after the soft-attention mechanism ([attention](#attention)). It has been proposed in [generative-models-attention-all-you-need](#generative-models-attention-all-you-need) and its success relies on replacing the formerly-used recurrent layers with so called Feed Forward Transformer Blocks (FFT).
+
+Each building block of the Transformer architecture uses 
+
+
+###### Figure scale dot product attention
+
+![](./img/transformers.png)
 
 ### Generative Artificial Intelligence
 

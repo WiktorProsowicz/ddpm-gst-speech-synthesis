@@ -207,6 +207,12 @@ Beside various specialized neural-based architectures the DL field has developed
 
 **Teacher forcing** is a technique used mostly in autoregressive ([generative-models-auto-regressive-review](#generative-models-auto-regressive-review)) sequence-to-sequence models and consists in using ground-truth output data as part of the model's input during training and replacing it afterwards with the predicted data during inference. This helps the model focus on finding relationships between the data samples instead of repairing its own mistakes.
 
+**One-Hot encoding** is a way to encode objects belonging to a defined set, such as words from a fixed dictionary or categorical values describing a certain property of data sample. It consists in representing each object as a vector of the same length as the size of the set, where all values are zeros except the value on the index corresponding to the position of the element in the set. Such form of representation is effective due to the fact that it does not imply any artificial distance between the elements, in contrast to representing the elements with e.g. natural numbers.
+
+**Distributed representations** are a way to represent distinct objects in a meaningful way using dense vectors. This usually consists in passing a one-hot encoded vector through a fully connected layer. The learned representation is intended to contain significant information about the represented object depending on the performed task. An example of distributed representations (in NLP tasks called *word embeddings*) is **word2vec**, proposed in [word2vec](#word2vec). In the proposed setup the dense representations of one-hot encoded words are learned within a simple model trained to predict a word from its context. As a result, the learned embeddings display a correlation between the semantic link between words and their relative spatial position. 
+
+**Batch/Layer Normalization** are techniques (proposed in [batch-normal](#batch-normal) and [layer-normal](#layer-normal) respectively) used to reduce the **Internal Covariate Shift**, which consists in the distributions of inputs to each network's layer being constantly changed during training. This impedes the training process insofar, as it prevents each layer from focusing on finding relationships between input values, whose mean and variance is modified with each training step. The Batch Normalization deals with it by scaling all values in the training batch, separately for each position, so that they have mean 0 and variance 1. Since the technique is difficult to use for recurrent layers and its effectiveness strongly depends on the used batch size, its modified version has emerged, which is Layer Normalization. Instead of normalizing values found across elements in batch, it does it separately for each data sample.
+
 ###### Figure activation functions
 
 ![](./img/activations.png)
@@ -273,16 +279,62 @@ b) Architecture using soft-attention, where the first decoder step, based on its
 
 #### Transformers
 
-Transformer architecture is considered to be the next step in evolution of sequence-to-sequence architectures after the soft-attention mechanism ([attention](#attention)). It has been proposed in [generative-models-attention-all-you-need](#generative-models-attention-all-you-need) and its success relies on replacing the formerly-used recurrent layers with so called Feed Forward Transformer Blocks (FFT).
+Transformer architecture is considered to be the next step in evolution of sequence-to-sequence architectures after the soft-attention mechanism ([attention](#attention)). It has been proposed in [generative-models-attention-all-you-need](#generative-models-attention-all-you-need) and its success relies on replacing the formerly-used recurrent layers with so called Feed Forward Transformer (FFT) Blocks.
 
-Each building block of the Transformer architecture uses 
+Each building block of the Transformer (visualized on figure [figure-transformer-block](#figure-transformer-block)) architecture uses **Multi-Head Attention** mechanism. It consists in splitting the input sequences into equal parts along the embedding axis and passing each resulting sequence through an individual **Dot-Product Scaled Attention** module ([figure-scale-dot-product-attention](#figure-scale-dot-product-attention)). Since in the proposed attention mechanism each decoder's step is compared to all elements of the encoder's input sequence without taking into account the previous decoder's steps, the FFT blocks are equipped with **Masked Self-Attention**. This mechanism enables the sequence of decoder's steps to attend to itself, while preventing the particular elements to attend to future steps.
 
 
 ###### Figure scale dot product attention
 
 ![](./img/transformers.png)
 
+Attention mechanisms used on Transformer architecture, borrowed from [generative-models-attention-all-you-need](#generative-models-attention-all-you-need).
+a) Scaled Dot-Product Attention. The Q stands for Query and symbolizes the "decoder" sequence, each element from is going to be compared to the whole "encoder" sequence, denoted by K (Key). The computed weights are then applied to the provided V (Value) sequence, which is usually the same as Query.
+b) Multi-Head Attention. Each of the `h` heads allows to compute the similarity between sequence's elements separately for their distinct parts.
+
+###### Figure transformer block
+
+![](./img/transformer-block.png)
+
+Feed-Forward Transformer Block. Both sections are equipped with residual connections and use Layer Normalization for each element in the sequence. The Self-Attention part of the block, present only in decoder, is not shown on the figure.
+
 ### Generative Artificial Intelligence
+
+The goal of generative tasks, in contrast to traditional ones, such as regression and classification, which consist in predicting numerical values or labels from the given input, is to create data samples resembling those of the training set. The generative models try to learn the probability distribution of the tensors available in the training data and than sample from it. They do it by finding the optimal parameters, for which the likelihood of the generated data is maximal, what can be formulated as:
+
+$$\hat{\theta} = \arg\max_{\theta} \, p(x ; \theta)$$
+
+#### Autoregressive models
+
+Models performing Autoregressive (AR) tasks treat their input data as sequences and with every forward pass are supposed predict the next element of the sequence, given the previous ones. This means that given the parameters $$\theta$$ the likelihood the likelihood of the sequence $$x = \{x_1, ..., x_n\}$$ is broken down into a product of likelihoods and can be formulated as:
+
+$$p(x; \theta) = \prod_{t=1}^T p(x_t \mid x_1, x_2, \dots, x_{t-1}; \theta)$$
+
+Usually the resulting likelihoods are maximized by training a regression model to predict the most probable next element based on the given previous elements. Although regression itself does not try to model the likelihood, the deconstructed smaller likelihood functions are less complex and therefore easier to maximize using the aforementioned method.  
+
+Due to the fact that sentences, which are building blocks of every natural language, may be represented as sequences of words, where each word is related at least to the previous ones, such models have been successfully applied to NLP tasks (for a case in point lets consider the setup of the original Transformer model used for the experiments in [generative-models-attention-all-you-need](#generative-models-attention-all-you-need)). Another successful application of this approach to a generative task are various autoregressive TTS models, such as those proposed in [tts-ar-tacotron](#tts-ar-tacotron), [tts-ar-tacotron2](#tts-ar-tacotron2), [tts-ar-wavenet](#tts-ar-wavenet), [tts-parallel-deep-voice](#tts-parallel-deep-voice). 
+
+#### Expectation Maximization, Variational Inference and Evidence Lower Bound 
+
+A commonly used approach to generative tasks leverages the concept of **Latent Variables**, i.e. variables not present in the dataset which are used by the probabilistic model to model the data distribution. This approach relies on the belief that each sample of the input data may be attributed to its hidden representation belonging to a certain distribution. The inference in such model can be formulated as:
+
+$$z^i \sim P(Z), x^i \sim P(X | Z = z^i)$$
+
+or
+
+$$(x^i, z^i) \sim p_{model}(x, z)$$
+
+where $$p_{model}(x, z)$$ is the joint distribution of the data and latent variables, which expresses the relationship between the data samples and their hidden representations. If the dataset contained for each data sample its hidden representation, the model could be optimized using the standard Maximum Likelihood Estimation:
+
+$$L(\theta) = \prod_{x^i,z^i \sim Dataset}{p_{model}(x^i, z^i; \theta)}$$
+
+where $$p_{model}(x^i, z^i; \theta)$$ is in this context the likelihood of the data, expressed as the probability of the ground-truth data samples having been generated by the model.
+
+Since the true hidden representations of the data samples are not available in the dataset, they must found by computing the expected value belonging to a certain sample:
+
+$$z^i = \EX()$$
+
+#### Denoising Diffusion Probabilistic Models
 
 ### Classical TTS
 
@@ -346,7 +398,7 @@ Each building block of the Transformer architecture uses
 ###### tts-ar-wavenet
 - [WaveNet: A Generative Model for Raw Audio](https://arxiv.org/abs/1609.03499)
 
-###### tts-ar-natural-tts
+###### tts-ar-tacotron2
 - [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884)
 
 ###### tts-ar-transformer
@@ -426,3 +478,14 @@ Each building block of the Transformer architecture uses
 
 ###### other-audio-compression
 - [High Fidelity Neural Audio Compression](https://arxiv.org/abs/2210.13438)
+
+###### word2vec
+- [Efficient Estimation of Word Representations in Vector Space](https://arxiv.org/abs/1301.3781)
+
+###### batch-normal
+
+- [Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](https://arxiv.org/abs/1502.03167)
+
+###### layer-normal
+
+- [Layer Normalization](https://arxiv.org/pdf/1607.06450)

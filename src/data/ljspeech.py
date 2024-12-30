@@ -4,19 +4,15 @@
 The dataset's details is available at https://keithito.com/LJ-Speech-Dataset/.
 """
 import csv
-import json
 import logging
 import math
 import os
-from typing import Callable
-from typing import Optional
-from typing import Tuple
 
 import torch
 from torch.utils import data as torch_data
 from torchaudio import datasets  # type: ignore
-from torchaudio import transforms as audio_transforms
 from torchvision.transforms import transforms
+from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
 
 from data.preprocessing import alignments
 from data.preprocessing import audio as audio_prep
@@ -29,12 +25,7 @@ class LJSpeechDataset(torch_data.Dataset):
     def __init__(self,
                  ds_path: str,
                  alignments_path: str,
-                 sample_rate: int,
-                 fft_window_size: int,
-                 fft_hop_size: int,
-                 audio_max_length: float,
-                 normalize_spectrograms: bool,
-                 scale_spectrograms: bool) -> None:
+                 audio_max_length: float) -> None:
         """Initializes the dataset.
 
         Args:
@@ -42,8 +33,6 @@ class LJSpeechDataset(torch_data.Dataset):
                 torchaudio.datasets.LJSPEECH generated structure.
             alignments_path: Path to a directory containing output of the Montreal Forced
                 Aligner tool. See data.preprocessing.alignments.
-            normalize_spectrograms: If True, the spectrograms are normalized to have zero
-                mean and unit variance.
             scale_spectrograms: If True, the spectrograms are scaled to [0, 1].
         """
         super().__init__()
@@ -54,12 +43,6 @@ class LJSpeechDataset(torch_data.Dataset):
         with open(metadata_path, 'r', encoding='utf-8') as file:
             self._metadata = list(csv.reader(
                 file, delimiter='|', quoting=csv.QUOTE_NONE))
-
-        self._sample_rate = sample_rate
-        self._audio_max_length = audio_max_length
-        self._fft_window_size = fft_window_size
-        self._fft_hop_size = fft_hop_size
-        self._scale_spectrograms = scale_spectrograms
 
         logging.debug('Loading alignments...')
         self._alignments = alignments.load_alignments(alignments_path)
@@ -77,6 +60,9 @@ class LJSpeechDataset(torch_data.Dataset):
         self._alignments = {file_id: alignment[:n_phonemes_for_alignments[file_id]]
                             for file_id, alignment in self._alignments.items()}
 
+        fft_hop_size = 256
+        sample_rate = 22050
+
         waveform_length = int(audio_max_length * sample_rate)
         output_spectrogram_length = math.ceil(waveform_length / fft_hop_size)
 
@@ -91,19 +77,10 @@ class LJSpeechDataset(torch_data.Dataset):
             text.OneHotEncodeTransform(text.ENHANCED_MFA_ARP_VOCAB)
         ])
 
-        self._global_spec_mean, self._global_spec_std = None, None
-
-        if normalize_spectrograms:
-            logging.debug('Calculating global spectrogram mean and stddev...')
-            self._global_spec_mean, self._global_spec_std = self._get_global_spec_stats()
-
-            self._audio_transform = transforms.Compose([
-                self._create_base_audio_transform(),
-                transforms.Lambda(lambda x: (
-                    x - self._global_spec_mean) / self._global_spec_std)
-            ])
-        else:
-            self._audio_transform = self._create_base_audio_transform()
+        self._audio_transform = transforms.Compose([
+            audio_prep.AudioClippingTransform(audio_max_length, sample_rate),
+            hifigan_bundle.get_mel_transform()
+        ])
 
     def __getitem__(self, idx: int):
         """Returns a single item from the dataset.
@@ -139,77 +116,6 @@ class LJSpeechDataset(torch_data.Dataset):
         """Returns the sample ID for the given index."""
         return self._metadata[idx][0]
 
-    def get_spectrogram_stats(self) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
-        """Returns the global mean and standard deviation of the preprocessed spectrograms."""
-
-        if self._global_spec_mean is None or self._global_spec_std is None:
-            return None
-
-        return self._global_spec_mean, self._global_spec_std
-
-    def _create_base_audio_transform(self) -> Callable:
-        """Composes the basic transform for the audio data.
-
-        The transform does not contain the normalization step.
-        """
-
-        if self._scale_spectrograms:
-            def scaling_lambda(x):
-                return (x - x.min()) / (x.max() - x.min())
-        else:
-            def scaling_lambda(x):
-                return x
-
-        return transforms.Compose([
-            audio_transforms.Resample(
-                orig_freq=22050, new_freq=self._sample_rate),
-            audio_prep.AudioClippingTransform(
-                self._audio_max_length, self._sample_rate),
-            audio_transforms.MelSpectrogram(sample_rate=self._sample_rate,
-                                            n_fft=self._fft_window_size,
-                                            n_mels=80,
-                                            hop_length=self._fft_hop_size),
-            audio_transforms.AmplitudeToDB(),
-            transforms.Lambda(scaling_lambda)
-        ])
-
-    def _get_global_spec_stats(self) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Calculates the global mean and standard deviation of the spectrograms.
-
-        The stats are created with respect to the output spectrograms, i.e. the
-        outputs of the audio transforms.
-        """
-
-        spec_mean = None
-
-        transform = self._create_base_audio_transform()
-
-        for audio, _, _, _ in self._dataset:
-
-            audio = transform(audio)
-
-            if spec_mean is None:
-                spec_mean = torch.zeros_like(audio)
-
-            spec_mean += audio
-
-        spec_mean /= len(self._dataset)  # type: ignore
-
-        spec_std = None
-
-        for audio, _, _, _ in self._dataset:
-
-            audio = transform(audio)
-
-            if spec_std is None:
-                spec_std = torch.zeros_like(audio)
-
-            spec_std += (audio - spec_mean) ** 2
-
-        spec_std /= len(self._dataset)  # type: ignore
-
-        return spec_mean, spec_std
-
 
 def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     """Serializes the dataset to a file.
@@ -221,26 +127,9 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
 
     debug_log_interval = 1000
 
-    global_spec = ds.get_spectrogram_stats()
-
-    if global_spec is not None:
-
-        global_spec_mean, global_spec_std = global_spec
-
-        metadata = {
-            'global_spec_mean': global_spec_mean.tolist(),
-            'global_spec_std': global_spec_std.tolist()
-        }
-
-    else:
-        metadata = {}
-
     for sample_idx, sample in enumerate(ds):
         sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')
         torch.save(sample, sample_path)
 
         if (sample_idx + 1) % debug_log_interval == 0:
             logging.debug('Serialized %d samples.', sample_idx + 1)
-
-    with open(os.path.join(path, 'metadata.json'), 'w', encoding='utf-8') as file:
-        json.dump(metadata, file)

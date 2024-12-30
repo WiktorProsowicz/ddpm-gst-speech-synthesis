@@ -24,17 +24,11 @@ SCRIPT_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
 HOME_PATH = pathlib.Path(__file__).absolute().parent.parent.parent.as_posix()
 
 DEFAULT_CONFIG = {
-    # The path where the raw dataset will be (or is already) stored
-    'raw_dataset_path': scripts_utils.CfgRequired(),
-    # The path where the preprocessed dataset will be stored
-    'processed_dataset_path': scripts_utils.CfgRequired(),
-    # The path where the phoneme alignments will be (or have been) downloaded into
-    'phoneme_alignments_path': scripts_utils.CfgRequired(),
-    'sample_rate': 22050,
-    'fft_window_size': 1024,
-    'fft_hop_size': 256,
+    # The path where the dataset will be (or is already) stored
+    'dataset_path': scripts_utils.CfgRequired(),
+    # Length (in seconds) of the output audio clips
     'audio_max_length': 6.0,
-    'normalize_spectrograms': True,
+    # Whether to scale the output spectrograms to [0, 1] range
     'scale_spectrograms': False
 }
 
@@ -45,30 +39,29 @@ def main(config):
     logging.info('Running dataset preparation pipeline...')
     logging.info('Configuration:\n%s', yaml.dump(config))
 
-    os.makedirs(config['processed_dataset_path'], exist_ok=True)
-    os.makedirs(config['raw_dataset_path'], exist_ok=True)
+    os.makedirs(config['dataset_path'], exist_ok=True)
 
-    if not os.path.exists(config['phoneme_alignments_path']):
+    raw_dataset_path = os.path.join(config['dataset_path'], 'raw')
+    phoneme_alignments_path = os.path.join(config['dataset_path'], 'phoneme_alignments')
+    processed_dataset_path = os.path.join(config['dataset_path'], 'processed')
+
+    if not os.path.exists(phoneme_alignments_path):
 
         logging.info('Downloading phoneme alignments...')
 
-        os.makedirs(config['phoneme_alignments_path'])
-        align_prep.download_phoneme_alignments(config['phoneme_alignments_path'])
+        os.makedirs(phoneme_alignments_path, exist_ok=True)
+        align_prep.download_phoneme_alignments(phoneme_alignments_path)
 
     logging.info('Preparing the preprocessed dataset...')
 
-    ds = ljspeech.LJSpeechDataset(config['raw_dataset_path'],
-                                  config['phoneme_alignments_path'],
-                                  config['sample_rate'],
-                                  config['fft_window_size'],
-                                  config['fft_hop_size'],
-                                  config['audio_max_length'],
-                                  config['normalize_spectrograms'],
-                                  config['scale_spectrograms'])
+    ds = ljspeech.LJSpeechDataset(raw_dataset_path,
+                                  phoneme_alignments_path,
+                                  config['audio_max_length'])
 
     logging.info('Serializing the dataset...')
 
-    ljspeech.serialize_ds(ds, config['processed_dataset_path'])
+    os.makedirs(processed_dataset_path, exist_ok=True)
+    ljspeech.serialize_ds(ds, processed_dataset_path)
 
     logging.info('Dataset preparation completed.')
 

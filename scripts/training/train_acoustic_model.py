@@ -90,10 +90,12 @@ def _get_model_trainer(
         tb_writer: torch_tb.SummaryWriter
 ) -> training.ModelTrainer:
 
-    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'acoustic_model')
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
+        config['training']['checkpoints_path'],
+        'acoustic_model',
+        device)
 
     model_components = m_utils.create_model_components(
         input_spectrogram_shape, input_phonemes_shape, config['model'], device)

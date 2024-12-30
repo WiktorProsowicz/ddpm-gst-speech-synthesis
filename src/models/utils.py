@@ -40,7 +40,7 @@ class BaseModelComponents(ABC):
             if component is not None:
                 component.train()
 
-    def load_from_path(self, path: str):
+    def load_from_path(self, path: str, device: torch.device):
         """Loads the model components from the specified directory."""
 
         if not os.path.exists(path):
@@ -49,7 +49,7 @@ class BaseModelComponents(ABC):
 
         for component_name, component in self.get_components().items():
             if component is not None:
-                try_load_state_dict(component, os.path.join(path, f'{component_name}.pth'))
+                try_load_state_dict(component, os.path.join(path, f'{component_name}.pth'), device)
 
     def save_to_path(self, path: str):
         """Saves the model components to the specified directory."""
@@ -65,14 +65,14 @@ class BaseModelComponents(ABC):
         """Returns all named components possessed by the concrete class' instance."""
 
 
-def try_load_state_dict(module: torch.nn.Module, saved_module_path: str):
+def try_load_state_dict(module: torch.nn.Module, saved_module_path: str, device: torch.device):
     """Attempts to load the state dict of the module from the specified path."""
 
     if not os.path.exists(saved_module_path):
         logging.critical("Module state dict not found at '%s'.", saved_module_path)
         sys.exit(1)
 
-    module.load_state_dict(torch.load(saved_module_path, weights_only=True))
+    module.load_state_dict(torch.load(saved_module_path, weights_only=True, map_location=device))
 
 
 class ModelCheckpointHandler:
@@ -83,19 +83,20 @@ class ModelCheckpointHandler:
     """
 
     def __init__(self, checkpoint_dir: str,
-                 checkpoint_basename: str):
+                 checkpoint_basename: str,
+                 device: torch.device):
         """Initializes the ModelCheckpointHandler.
 
         Args:
             checkpoint_dir: The directory to store the model checkpoints.
             checkpoint_basename: The base name of the checkpoints.
-            loading_func: The function to load the model components.
-            saving_func: The function to save the model components.
+            device: The device to load the model components to.
         """
 
         self._checkpoint_dir = checkpoint_dir
         self._metadata_path = os.path.join(checkpoint_dir, 'metadata.json')
         self._checkpoint_basename = checkpoint_basename
+        self._device = device
 
     def num_checkpoints(self) -> int:
         """Returns the number of saved checkpoints."""
@@ -130,7 +131,7 @@ class ModelCheckpointHandler:
         checkpoint_path = os.path.join(self._checkpoint_dir, newest_checkpoint['directory_name'])
         optim_state_path = os.path.join(checkpoint_path, 'optimizer_state.pth')
 
-        model_components.load_from_path(checkpoint_path)
+        model_components.load_from_path(checkpoint_path, self._device)
         optimizer.load_state_dict(torch.load(optim_state_path, weights_only=True))
 
         return model_components, optimizer, newest_checkpoint['metadata']

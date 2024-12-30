@@ -75,12 +75,13 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
                        val_loader: torch_data.DataLoader,
                        tb_writer: torch_tb.SummaryWriter) -> training.ModelTrainer:
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
         config['training']['checkpoints_path'],
         'gst_predictor_ckpt',
+        device
     )
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model_components = m_utils.create_model_components(
         input_phonemes_shape,

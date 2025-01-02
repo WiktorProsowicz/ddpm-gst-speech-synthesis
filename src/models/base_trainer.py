@@ -160,7 +160,7 @@ class BaseTrainer(ABC):
         losses_and_metrics = self._compute_losses(batch)
 
         for name, value in losses_and_metrics.items():
-            self._tb_logger.add_scalar(f'Training/{name}', value.item(), step_idx)
+            self._tb_logger.add_scalar(f'{name}/training', value.item(), step_idx)
 
         total_loss = losses_and_metrics['total_loss']
 
@@ -196,7 +196,7 @@ class BaseTrainer(ABC):
             for name in avg_losses_and_metrics:
                 avg_losses_and_metrics[name] /= len(self._val_data_loader)
 
-                self._tb_logger.add_scalar(f'Validation/{name}',
+                self._tb_logger.add_scalar(f'{name}/validation',
                                            avg_losses_and_metrics[name].item(),
                                            step_idx)
 

@@ -71,7 +71,6 @@ DEFAULT_CONFIG = {
             'use_gst': False,
             'n_tokens': 32,
             'token_dim': 384,
-            'n_attention_heads': 4,
             'n_ref_encoder_blocks': 3
         }
     },

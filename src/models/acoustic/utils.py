@@ -99,7 +99,6 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
             reference_spectrogram_shape=output_spectrogram_shape,
             gst_shape=(cfg['gst']['n_tokens'], cfg['gst']['token_dim']),
             n_ref_encoder_blocks=cfg['gst']['n_ref_encoder_blocks'],
-            n_attention_heads=cfg['gst']['n_attention_heads'],
             dropout_rate=cfg['dropout_rate']
         ).to(device)
 

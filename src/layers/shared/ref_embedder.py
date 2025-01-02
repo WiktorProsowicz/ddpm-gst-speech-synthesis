@@ -60,7 +60,6 @@ class ReferenceEmbedder(torch.nn.Module):
                  reference_spectrogram_shape: Tuple[int, int],
                  gst_shape: Tuple[int, int],
                  n_ref_encoder_blocks: int,
-                 n_attention_heads: int,
                  dropout_rate: float):
         """Initializes the reference embedder."""
 
@@ -89,10 +88,11 @@ class ReferenceEmbedder(torch.nn.Module):
             torch.nn.Linear(gst_size, gst_size),
             torch.nn.ReLU())
 
+        self._gst_att = torch.nn.attention
+
         self._gst_att = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
-            num_heads=n_attention_heads,
-            dropout=dropout_rate,
+            num_heads=1,
             batch_first=True)
 
     def forward(self, reference_audio: torch.Tensor, gst: torch.Tensor) -> torch.Tensor:

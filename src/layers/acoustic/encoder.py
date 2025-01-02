@@ -33,10 +33,10 @@ class Encoder(torch.nn.Module):
 
         self._phoneme_embedding = torch.nn.Sequential(
             torch.nn.Linear(input_channels, embedding_dim),
-            torch.nn.ReLU(),
+            torch.nn.SiLU(),
             torch.nn.Dropout(dropout_rate),
             torch.nn.Linear(embedding_dim, embedding_dim),
-            torch.nn.ReLU(),
+            torch.nn.SiLU(),
             torch.nn.Dropout(dropout_rate),
         )
 

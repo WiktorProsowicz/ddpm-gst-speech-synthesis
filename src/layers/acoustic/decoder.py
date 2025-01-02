@@ -48,10 +48,7 @@ class Decoder(torch.nn.Module):
               for _ in range(n_blocks)]
         )
 
-        self._postnet = torch.nn.Sequential(
-            torch.nn.Linear(input_channels, output_channels),
-            torch.nn.Sigmoid()
-        )
+        self._postnet = torch.nn.Linear(input_channels, output_channels)
 
     def forward(self, input_phonemes: torch.Tensor) -> torch.Tensor:
         """Decodes the stretched phoneme representations into spectrogram frames.

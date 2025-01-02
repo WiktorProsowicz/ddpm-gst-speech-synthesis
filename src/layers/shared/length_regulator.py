@@ -13,7 +13,7 @@ def _create_alignment_matrix(log_durations: torch.Tensor, max_length: int) -> to
     durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
     durations = durations.reshape(batch_size, n_phonemes)
 
-    indexes_space = torch.arange(n_phonemes).to(torch.int64)
+    indexes_space = torch.arange(n_phonemes).to(torch.int64).to(original_device)
     alignment_matrix = torch.zeros((batch_size, max_length, n_phonemes))
 
     for i in range(batch_size):

@@ -183,11 +183,15 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
             batch = next(iter(data_loader))
             spectrogram, phonemes, durations = batch
+            durations = torch.unsqueeze(durations, -1)
+
             spectrogram = spectrogram[0:1]
             phonemes = phonemes[0:1]
+            durations = durations[0:1]
 
             spectrogram = spectrogram.to(self._device)
             phonemes = phonemes.to(self._device)
+            durations = durations.to(self._device)
 
             if self.model_comps.gst and self.model_comps.embedder:
 
@@ -202,7 +206,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
             durations_mask = torch.reshape(durations_mask, (1, -1, 1))
 
-            if self._use_gt_durations_for_visualization:
+            if not self._use_gt_durations_for_visualization:
                 phoneme_durations = self.model_comps.duration_predictor(phoneme_representations)
                 phoneme_durations = inf_utils.sanitize_predicted_durations(phoneme_durations,
                                                                            spectrogram.shape[2])

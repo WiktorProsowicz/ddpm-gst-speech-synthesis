@@ -22,3 +22,12 @@ The architecture of the backbone of the model is largely inspired by the [FastSp
 ### 1.0.0
 
 Both the model training pipeline and components are implemented. The model supports GST conditioning.
+
+### 1.1.0
+
+The GST Provider has abandoned Multi-Head attention in favor of a single Scaled Dot-Product attention block. The attention block has no dropout.
+
+The Sigmoid activation has been removed from the postnet.
+
+The ReLU activations in the Encoder have been replaced with SILU.
+ 

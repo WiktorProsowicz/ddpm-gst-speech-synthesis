@@ -108,7 +108,6 @@ class InferenceModel(torch.nn.Module):
                  duration_predictor: torch.nn.Module,
                  length_regulator: torch.nn.Module,
                  output_spec_length: int,
-                 mel_to_lin_converter: torch.nn.Module,
                  gst_provider: Optional[torch.nn.Module],
                  reference_embedder: Optional[torch.nn.Module]):
 
@@ -121,7 +120,6 @@ class InferenceModel(torch.nn.Module):
         self._expected_output_length = output_spec_length
         self._gst_provider = gst_provider
         self._reference_embedder = reference_embedder
-        self._mel_to_lin_converter = torch.jit.script(mel_to_lin_converter)
 
     def forward(self, inputs: Tuple[torch.Tensor, ...]):
         """Runs the full inference pass.
@@ -165,4 +163,4 @@ class InferenceModel(torch.nn.Module):
 
         mel_spec = self._ac_decoder(stretched_phoneme_repr)
 
-        return self._mel_to_lin_converter(mel_spec), phoneme_durations
+        return mel_spec, phoneme_durations

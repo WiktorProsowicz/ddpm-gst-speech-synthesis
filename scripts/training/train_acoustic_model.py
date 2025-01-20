@@ -173,25 +173,12 @@ def main(config):
     tb_writer.close()
 
 
-def _get_cl_args() -> argparse.Namespace:
-
-    arg_parser = argparse.ArgumentParser(
-        description="Performs the model's training pipeline based on the configuration.")
-
-    arg_parser.add_argument(
-        '--config_path',
-        type=str,
-        help='Path to the folder containing configuration files.'
-    )
-
-    return arg_parser.parse_args()
-
-
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
-    args = _get_cl_args()
+    configuration = scripts_utils.try_obtain_cfg_from_cl(
+        'Performs the model\'s training pipeline.',
+        DEFAULT_CONFIG)
 
-    configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
     main(configuration)

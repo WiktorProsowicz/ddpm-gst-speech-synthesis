@@ -153,20 +153,6 @@ def main(config):  # pylint: disable=too-many-locals
     torchaudio.save(config['output_path'], waveform, 22050)
 
 
-def _get_cl_args() -> argparse.Namespace:
-
-    arg_parser = argparse.ArgumentParser(
-        description="Performs the model's training pipeline based on the configuration.")
-
-    arg_parser.add_argument(
-        '--config_path',
-        type=str,
-        help='Path to the folder containing configuration files.'
-    )
-
-    return arg_parser.parse_args()
-
-
 if __name__ == '__main__':
 
     logging_utils.setup_logging()

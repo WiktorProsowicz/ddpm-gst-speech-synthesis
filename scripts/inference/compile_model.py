@@ -29,13 +29,13 @@ DEFAULT_CONFIG = {
     # Should be one of ('none', 'weights', 'reference', 'predicted')
     'gst_mode': 'weights',
     # If 'gst_mode' is 'predicted', this should contain the gst predictor's configuration.
-    'gst_predictor_cfg': {
-        'checkpoint_path': None,
-        'model_cfg': None,
+    'gst_predictor_cfg': scripts_utils.CfgOptional({
+        'checkpoint_path': scripts_utils.CfgRequired(),
+        'model_cfg': scripts_utils.CfgRequired(),
         'diff_beta_min': 0.0001,
         'diff_beta_max': 0.02,
         'diff_timesteps': 200,
-    },
+    }),
     # Directory where the compiled model's components will be saved.
     'output_path': scripts_utils.CfgRequired()
 }
@@ -197,26 +197,12 @@ def main(config):
     logging.info("Inference model has been saved to '%s'.", config['output_path'])
 
 
-def _get_cl_args() -> argparse.Namespace:
-
-    arg_parser = argparse.ArgumentParser(
-        description="Performs the model's training pipeline based on the configuration.")
-
-    arg_parser.add_argument(
-        '--config_path',
-        type=str,
-        help='Path to the folder containing configuration files.'
-    )
-
-    return arg_parser.parse_args()
-
-
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
-    args = _get_cl_args()
-
-    configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
+    configuration = scripts_utils.try_obtain_cfg_from_cl(
+        'Compiles the system models and metadata for inference.',
+        DEFAULT_CONFIG)
 
     main(configuration)

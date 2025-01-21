@@ -51,37 +51,6 @@ def sanitize_predicted_durations(log_durations: torch.Tensor,
     return log_durations * durations_mask
 
 
-@dataclass
-class BackwardDiffusionModelInput:
-    """Contains the input data for a single backward diffusion step.
-
-    The input data shape is supposed to contain the batch_size dimension equal to 1.
-    """
-
-    noised_data: torch.Tensor
-    timestep: torch.Tensor
-
-
-def run_backward_diffusion(model_callable: Callable[[BackwardDiffusionModelInput], torch.Tensor],
-                           diffusion_handler: diff_utils.DiffusionHandler,
-                           input_initial_noise: torch.Tensor) -> torch.Tensor:
-    """Performs a full backward diffusion process with the given model and data."""
-
-    noised_data = input_initial_noise
-
-    for diff_step in reversed(range(diffusion_handler.num_steps)):
-
-        model_input = BackwardDiffusionModelInput(
-            noised_data=noised_data,
-            timestep=torch.tensor([diff_step], device=noised_data.device))
-
-        predicted_noise = model_callable(model_input)
-
-        noised_data = diffusion_handler.remove_noise(noised_data, predicted_noise, diff_step)
-
-    return noised_data
-
-
 def style_embedding_from_weights(gst_tokens: torch.Tensor,
                                  gst_weights: torch.Tensor) -> torch.Tensor:
     """Creates the style embedding from the GST weights and tokens.

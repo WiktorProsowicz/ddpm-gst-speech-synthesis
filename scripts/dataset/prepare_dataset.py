@@ -27,9 +27,7 @@ DEFAULT_CONFIG = {
     # The path where the dataset will be (or is already) stored
     'dataset_path': scripts_utils.CfgRequired(),
     # Length (in seconds) of the output audio clips
-    'audio_max_length': 6.0,
-    # Whether to scale the output spectrograms to [0, 1] range
-    'scale_spectrograms': False
+    'audio_max_length': 6.0
 }
 
 

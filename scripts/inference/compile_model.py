@@ -3,7 +3,6 @@
 
 For script's configuration, see `DEFAULT_CONFIG` constant.
 """
-import argparse
 import os
 import logging
 import json
@@ -13,6 +12,7 @@ import torch
 
 from models.acoustic import utils as acoustic_utils
 from models.gst_predictor import utils as gst_predictor_utils
+from data.preprocessing import text as text_prep
 from utilities import inference
 from utilities import logging_utils
 from utilities import scripts_utils
@@ -21,21 +21,18 @@ DEFAULT_CONFIG = {
     'acoustic_model_checkpoint': scripts_utils.CfgRequired(),
     # Should be the configuration of the acoustic model used during the training
     'acoustic_model_cfg': scripts_utils.CfgRequired(),
-    'phonemes_encoding_size': 73,
     'phonemes_length': 20,
-    'mel_spec_freq_bins': 80,
     'mel_spec_time_frames': 200,
     # Specifies the way the output model should use the Global Style Tokens.
-    # Should be one of ('none', 'weights', 'reference', 'predicted')
-    'gst_mode': 'weights',
-    # If 'gst_mode' is 'predicted', this should contain the gst predictor's configuration.
-    'gst_predictor_cfg': scripts_utils.CfgOptional({
+    'use_gst': True,
+    # If use_gst is true this should contain the gst predictor's configuration.
+    'gst_predictor_cfg': {
         'checkpoint_path': scripts_utils.CfgRequired(),
         'model_cfg': scripts_utils.CfgRequired(),
         'diff_beta_min': 0.0001,
         'diff_beta_max': 0.02,
         'diff_timesteps': 200,
-    }),
+    },
     # Directory where the compiled model's components will be saved.
     'output_path': scripts_utils.CfgRequired()
 }
@@ -77,8 +74,8 @@ def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
     logging.info('Loading acoustic model components...')
 
     acoustic_components = acoustic_utils.create_model_components(
-        (config['mel_spec_freq_bins'], config['mel_spec_time_frames']),
-        (config['phonemes_length'], config['phonemes_encoding_size']),
+        (80, config['mel_spec_time_frames']),
+        (config['phonemes_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
         config['acoustic_model_cfg'],
         device)
 
@@ -92,11 +89,11 @@ def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
                                               config['gst_mode'])
     inference_model.eval()
 
-    example_phonemes = torch.randint(0, config['phonemes_encoding_size'],
+    example_phonemes = torch.randint(0, len(text_prep.ENHANCED_MFA_ARP_VOCAB),
                                      (1, config['phonemes_length']))
     example_phonemes = torch.nn.functional.one_hot(  # pylint: disable=not-callable
         example_phonemes,
-        config['phonemes_encoding_size'])
+        len(text_prep.ENHANCED_MFA_ARP_VOCAB)).to(torch.float)
 
     if config['gst_mode'] == 'none':
         example_input = (
@@ -112,7 +109,7 @@ def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
     elif config['gst_mode'] == 'reference':
         example_input = (
             example_phonemes,
-            torch.randn(1, config['mel_spec_freq_bins'], config['mel_spec_time_frames'])
+            torch.randn(1, 80, config['mel_spec_time_frames'])
         )
 
     with torch.no_grad():
@@ -130,7 +127,7 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
     logging.info("Loading the GST predictor components...")
 
     gst_predictor = gst_predictor_utils.create_model_components(
-        (config['phonemes_length'], config['phonemes_encoding_size']),
+        (config['phonemes_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
         config['gst_predictor_cfg']['model_cfg'],
         device)
 
@@ -139,11 +136,11 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
 
     logging.info("Tracing the GST predictor...")
 
-    example_phonemes = torch.randint(0, config['phonemes_encoding_size'],
+    example_phonemes = torch.randint(0, len(text_prep.ENHANCED_MFA_ARP_VOCAB),
                                      (1, config['phonemes_length']))
     example_phonemes = torch.nn.functional.one_hot(  # pylint: disable=not-callable
         example_phonemes,
-        config['phonemes_encoding_size'])
+        len(text_prep.ENHANCED_MFA_ARP_VOCAB)).to(torch.float)
 
     example_noise = torch.randn(1, config['gst_predictor_cfg']['model_cfg']['n_tokens'])
 
@@ -176,8 +173,8 @@ def main(config):
         }
 
     compiled_model_metadata = {
-        'input_phonemes_shape': (config['phonemes_length'], config['phonemes_encoding_size']),
-        'output_spec_shape': (config['mel_spec_freq_bins'], config['mel_spec_time_frames']),
+        'input_phonemes_shape': (config['phonemes_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
+        'output_spec_shape': (80, config['mel_spec_time_frames']),
         'gst_mode': config['gst_mode'],
         'gst_predictor_cfg': gst_predictor_metadata
     }

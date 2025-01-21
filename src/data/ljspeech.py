@@ -7,6 +7,8 @@ import csv
 import logging
 import math
 import os
+import json
+from typing import Dict
 
 import torch
 from torch.utils import data as torch_data
@@ -64,11 +66,11 @@ class LJSpeechDataset(torch_data.Dataset):
         sample_rate = 22050
 
         waveform_length = int(audio_max_length * sample_rate)
-        output_spectrogram_length = math.ceil(waveform_length / fft_hop_size)
+        self._output_spectrogram_length = int(waveform_length / fft_hop_size)
 
         self._alignments_transform = alignments.PhonemeDurationsExtractingTransform(
             self._phonemes_sequence_length,
-            output_spectrogram_length,
+            self._output_spectrogram_length,
             audio_max_length
         )
 
@@ -116,6 +118,14 @@ class LJSpeechDataset(torch_data.Dataset):
         """Returns the sample ID for the given index."""
         return self._metadata[idx][0]
 
+    def get_dataset_metadata(self) -> Dict:
+        """Returns metadata of the dataset."""
+
+        return {
+            'phonemes_sequence_length': self._phonemes_sequence_length,
+            'output_spectrogram_length': self._output_spectrogram_length
+        }
+
 
 def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     """Serializes the dataset to a file.
@@ -126,6 +136,11 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
     """
 
     debug_log_interval = 1000
+
+    metadata = ds.get_dataset_metadata()
+    metadata_path = os.path.join(path, 'metadata.json')
+    with open(metadata_path, 'w', encoding='utf-8') as metadata_file:
+        json.dump(metadata, metadata_file, ensure_ascii=False, indent=4)
 
     for sample_idx, sample in enumerate(ds):
         sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')

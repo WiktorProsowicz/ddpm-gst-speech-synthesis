@@ -22,7 +22,7 @@ class Encoder(torch.nn.Module):
     def __init__(self,
                  input_phonemes_shape: Tuple[int, int],
                  n_blocks: int,
-                 embedding_dim: int,
+                 d_model: int,
                  n_heads: int,
                  dropout_rate: float,
                  fft_conv_channels: int
@@ -32,24 +32,24 @@ class Encoder(torch.nn.Module):
         input_length, input_channels = input_phonemes_shape
 
         self._phoneme_embedding = torch.nn.Sequential(
-            torch.nn.Linear(input_channels, embedding_dim),
+            torch.nn.Linear(input_channels, d_model),
             torch.nn.SiLU(),
             torch.nn.Dropout(dropout_rate),
-            torch.nn.Linear(embedding_dim, embedding_dim),
+            torch.nn.Linear(d_model, d_model),
             torch.nn.SiLU(),
             torch.nn.Dropout(dropout_rate),
         )
 
         self._positional_encoding = torch.nn.Parameter(
             other_utils.create_positional_encoding(torch.arange(0, input_length),
-                                                   embedding_dim),
+                                                   d_model),
             requires_grad=False
         )
 
         self._gst_cond_layer = torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
 
         self._fft_blocks = torch.nn.ModuleList(
-            [fft_block.FFTBlock(input_shape=(input_length, embedding_dim),
+            [fft_block.FFTBlock(input_shape=(input_length, d_model),
                                 n_heads=n_heads,
                                 dropout_rate=dropout_rate,
                                 conv_channels=fft_conv_channels)

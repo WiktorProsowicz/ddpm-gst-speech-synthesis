@@ -54,23 +54,21 @@ DEFAULT_CONFIG = {
     'model': {
         'n_heads': 4,
         'dropout_rate': 0.1,
+        'd_model': 384,
+        'fft_conv_channels': 1536,
         'encoder': {
-            'n_blocks': 6,
-            'fft_conv_channels': 1536,
-            'embedding_dim': 384
+            'n_blocks': 6
         },
         'decoder': {
             'n_blocks': 6,
-            'fft_conv_channels': 1536,
             'output_channels': 80
         },
         'duration_predictor': {
             'n_blocks': 2
         },
         'gst': {
-            'use_gst': False,
+            'use_gst': True,
             'n_tokens': 32,
-            'token_dim': 384,
             'n_ref_encoder_blocks': 3
         }
     },
@@ -108,7 +106,7 @@ def _get_model_trainer(
         checkpoints_handler,
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
-        config['model']['encoder']['embedding_dim'],
+        config['model']['d_model'],
         config['training']['warmup_steps'],
         config['training']['use_gt_durations_for_visualization'],
         config['training']['use_loss_weights'])

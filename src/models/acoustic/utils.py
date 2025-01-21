@@ -50,31 +50,32 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         cfg: The internal configuration of the model. It contains the following keys:
             - n_heads: The number of attention heads to use in the FFT blocks.
             - dropout_rate: The dropout rate to use in the FFT blocks.
+            - d_model: The dimension of the embeddings in the encoder and decoder.
+            - fft_conv_channels: The number of convolutional channels in the FFT blocks.
             - encoder::n_blocks: The number of residual blocks to use in the encoder.
-            - encoder::embedding_dim: The dimension of the embeddings in the encoder.
-            - encoder::fft_conv_channels: The number of convolutional channels in the FFT blocks.
             - decoder::n_blocks: The number of FFT blocks to use in the decoder.
-            - decoder::fft_conv_channels: The number of convolutional channels in the FFT blocks.
             - decoder::output_channels: The number of output channels in the decoder.
             - duration_predictor::n_blocks: The number of convolutional blocks to use in
                 the duration predictor.
             - gst::use_gst: Whether to use the global style tokens.
+            - gst::n_tokens: Number of Global Style Tokens to use.
+            - gst::n_ref_encoder_blocks: Number of residual blocks to use in the reference encoder.
     """
 
     encoder = m_encoder.Encoder(
         input_phonemes_shape=input_phonemes_shape,
         n_blocks=cfg['encoder']['n_blocks'],
-        embedding_dim=cfg['encoder']['embedding_dim'],
+        d_model=cfg['d_model'],
         n_heads=cfg['n_heads'],
         dropout_rate=cfg['dropout_rate'],
-        fft_conv_channels=cfg['encoder']['fft_conv_channels']
+        fft_conv_channels=cfg['fft_conv_channels']
     ).to(device)
 
     decoder = m_decoder.Decoder(
-        input_phonemes_shape=(output_spectrogram_shape[1], cfg['encoder']['embedding_dim']),
+        input_phonemes_shape=(output_spectrogram_shape[1], cfg['d_model']),
         output_channels=cfg['decoder']['output_channels'],
         n_blocks=cfg['decoder']['n_blocks'],
-        fft_conv_channels=cfg['decoder']['fft_conv_channels'],
+        fft_conv_channels=cfg['fft_conv_channels'],
         n_heads=cfg['n_heads'],
         dropout_rate=cfg['dropout_rate']
     ).to(device)
@@ -84,20 +85,20 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
     ).to(device)
 
     duration_predictor = m_dp.DurationPredictor(
-        input_shape=(input_phonemes_shape[0], cfg['encoder']['embedding_dim']),
+        input_shape=(input_phonemes_shape[0], cfg['d_model']),
         n_conv_blocks=cfg['duration_predictor']['n_blocks'],
         dropout_rate=cfg['dropout_rate']
     ).to(device)
 
     if cfg['gst']['use_gst']:
         gst = m_gst.GSTProvider(
-            gst_embedding_dim=cfg['gst']['token_dim'],
+            gst_embedding_dim=cfg['d_model'],
             gst_token_count=cfg['gst']['n_tokens']
         ).to(device)
 
         embedder = ref_embedder.ReferenceEmbedder(
             reference_spectrogram_shape=output_spectrogram_shape,
-            gst_shape=(cfg['gst']['n_tokens'], cfg['gst']['token_dim']),
+            gst_shape=(cfg['gst']['n_tokens'], cfg['d_model']),
             n_ref_encoder_blocks=cfg['gst']['n_ref_encoder_blocks'],
             dropout_rate=cfg['dropout_rate']
         ).to(device)

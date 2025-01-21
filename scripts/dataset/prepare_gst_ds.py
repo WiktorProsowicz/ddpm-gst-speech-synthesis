@@ -1,61 +1,70 @@
 # -*- coding: utf-8 -*-
 """Downloads and prepares the dataset for GST Predictor model."""
-import argparse
 import logging
 import os
-import subprocess
+import json
 
-import gdown
+import torch
 
 from utilities import logging_utils
+from utilities import scripts_utils
+from models.acoustic import utils as acoustic_utils
+from data.preprocessing import text as text_prep
+
+DEFAULT_CONFIG = {
+    'processed_ds_path': scripts_utils.CfgRequired(),
+    'output_path': scripts_utils.CfgRequired(),
+    'acoustic_model_checkpoint': scripts_utils.CfgRequired(),
+    'acoustic_model_cfg': scripts_utils.CfgRequired(),
+}
 
 
-GST_URL = 'https://drive.google.com/uc?id=1VMJnPZokbjHGPP5Fv5dmKOi59UDlPLKB'
-
-
-def main(output_path: str):
+def main(config):
     """Downloads the dataset."""
 
-    if os.path.exists(output_path):
-        logging.info('Output path %s already exists.', output_path)
-        return
+    metadata_path = os.path.join(config['processed_ds_path'], 'metadata.json')
+    with open(metadata_path, 'r', encoding='utf-8') as cfg_f:
+        metadata = json.load(cfg_f)
 
-    os.makedirs(output_path, exist_ok=True)
+    logging.info('Loading the acoustic model.')
 
-    logging.info('Downloading the dataset...')
+    acoustic_model_comps = acoustic_utils.create_model_components(
+        (80, metadata['output_spectrogram_length']),
+        (metadata['phonemes_sequence_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
+        config['acoustic_model_cfg'],
+        torch.device('cpu'))
 
-    output_arch = os.path.join(output_path, 'ljpseech_1.1_gst_32_phonemes_20x73.tar.bz2')
-    gdown.download(GST_URL, output_arch, quiet=False)
+    assert (acoustic_model_comps.gst is not None) and (acoustic_model_comps.embedder is not None)
 
-    subprocess.run(['bzip2', '-d', output_arch], check=True)
+    acoustic_model_comps.eval()
 
-    tar_path = output_arch[:-4]
+    logging.info('Serializing the GST Predictor\'s dataset.')
 
-    subprocess.run(['tar', '-xf', tar_path, '-C', output_path], check=True)
+    sample_names = filter(lambda path: '.pt' in path, os.listdir(config['processed_ds_path']))
 
-    subprocess.run(['rm', tar_path], check=True)
+    for sample_idx, sample_name in enumerate(sample_names):
+        data_sample_path = os.path.join(config['processed_ds_path'], sample_name)
+        spectrogram, phonemes, _ = torch.load(data_sample_path, weights_only=True)
 
-    logging.info('Dataset written to %s', output_path)
+        spectrogram = torch.unsqueeze(spectrogram, dim=0)
+        phonemes = torch.unsqueeze(phonemes, dim=0)
 
+        enhanced_phonemes = acoustic_model_comps.encoder.run_basic_blocks(phonemes)
+        gst_embedding = acoustic_model_comps.embedder(spectrogram, acoustic_model_comps.gst())
 
-def _get_cl_args() -> argparse.Namespace:
+        output_path = os.path.join(config['output_path'], sample_name)
+        torch.save((enhanced_phonemes, gst_embedding), output_path)
 
-    arg_parser = argparse.ArgumentParser(
-        description='Downloads the dataset for GST Predictor model.')
-
-    arg_parser.add_argument(
-        '--output_path',
-        type=str,
-        help='Directory the dataset shall be written to.'
-    )
-
-    return arg_parser.parse_args()
+        if (sample_idx + 1) % 1000 == 0:
+            logging.debug('Processed %d samples.', sample_idx + 1)
 
 
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
-    args = _get_cl_args()
+    configuration = scripts_utils.try_obtain_cfg_from_cl(
+        "Prepares the dataset for GST Predictor model.",
+        DEFAULT_CONFIG)
 
-    main(args.output_path)
+    main(configuration)

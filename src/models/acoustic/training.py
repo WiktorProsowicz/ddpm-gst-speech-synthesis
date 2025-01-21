@@ -85,7 +85,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
         assert isinstance(self._model_comps, model_utils.ModelComponents)
         return self._model_comps
 
-    def _compute_losses(self, input_batch: Tuple[torch.Tensor, ...]  # pylint: disable=too-many-locals
+    def _compute_losses(self,  # pylint: disable=too-many-locals
+                        input_batch: Tuple[torch.Tensor, ...]
                         ) -> Dict[str, torch.Tensor]:
         """Overrides BaseTrainer::_compute_losses."""
 
@@ -94,7 +95,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
         if self.model_comps.gst and self.model_comps.embedder:
 
-            style_embedding: torch.Tensor = self.model_comps.embedder(
+            style_embedding = self.model_comps.embedder(
                 spectrogram, self.model_comps.gst())
 
         else:
@@ -195,7 +196,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
             if self.model_comps.gst and self.model_comps.embedder:
 
-                style_embedding: torch.Tensor = self.model_comps.embedder(
+                style_embedding = self.model_comps.embedder(
                     spectrogram, self.model_comps.gst())
 
             else:

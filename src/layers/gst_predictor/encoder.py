@@ -25,7 +25,7 @@ class _ConvBlock(torch.nn.Module):
 
 
 class Encoder(torch.nn.Module):
-    """Encodes input phonemes into an embedding.
+    """Encodes input phoneme representations into an embedding.
 
     The created embedding is used to condition the noise generation in the decoder.
     """
@@ -51,8 +51,8 @@ class Encoder(torch.nn.Module):
 
         self._postnet = torch.nn.LSTM(embedding_size, embedding_size, batch_first=True)
 
-    def forward(self, input_phonemes: torch.Tensor) -> torch.Tensor:
-        """Encodes input phonemes into an embedding.
+    def forward(self, phoneme_representations: torch.Tensor) -> torch.Tensor:
+        """Encodes input phoneme representations into an embedding.
 
         Args:
             input_phonemes: Tensor of shape (batch_size, seq_len, input_dim).
@@ -61,7 +61,7 @@ class Encoder(torch.nn.Module):
             Embedding of shape (batch_size, embedding_size).
         """
 
-        prenet_output = self._prenet(input_phonemes)
+        prenet_output = self._prenet(phoneme_representations)
         prenet_output = prenet_output.transpose(1, 2)
 
         conv_blocks_output = self._conv_blocks(prenet_output)

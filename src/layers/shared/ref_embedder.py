@@ -88,8 +88,6 @@ class ReferenceEmbedder(torch.nn.Module):
             torch.nn.Linear(gst_size, gst_size),
             torch.nn.ReLU())
 
-        self._gst_att = torch.nn.attention
-
         self._gst_att = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
             num_heads=1,

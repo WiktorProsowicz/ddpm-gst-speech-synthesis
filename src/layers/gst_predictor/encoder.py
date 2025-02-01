@@ -32,7 +32,6 @@ class Encoder(torch.nn.Module):
 
     def __init__(self,
                  input_phonemes_shape: Tuple[int, int],
-                 embedding_size: int,
                  n_conv_blocks: int,
                  dropout_rate: float):
 
@@ -41,15 +40,15 @@ class Encoder(torch.nn.Module):
         input_length, input_dim = input_phonemes_shape
 
         self._prenet = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, embedding_size),
+            torch.nn.Linear(input_dim, input_dim),
             torch.nn.SiLU(),
         )
 
         self._conv_blocks = torch.nn.Sequential(
-            *[_ConvBlock(embedding_size, input_length, dropout_rate) for _ in range(n_conv_blocks)]
+            *[_ConvBlock(input_dim, input_length, dropout_rate) for _ in range(n_conv_blocks)]
         )
 
-        self._postnet = torch.nn.LSTM(embedding_size, embedding_size, batch_first=True)
+        self._postnet = torch.nn.LSTM(input_dim, input_dim, batch_first=True)
 
     def forward(self, phoneme_representations: torch.Tensor) -> torch.Tensor:
         """Encodes input phoneme representations into an embedding.

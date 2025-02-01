@@ -10,9 +10,7 @@ class _ConvBlock(torch.nn.Module):
 
     def __init__(self,
                  internal_channels: int,
-                 dropout_rate: float,
-                 timestep_embedding_dim: int,
-                 phoneme_embedding_size: int):
+                 dropout_rate: float,):
         super().__init__()
 
         self._conv1 = torch.nn.Sequential(
@@ -22,26 +20,6 @@ class _ConvBlock(torch.nn.Module):
                 out_channels=internal_channels,
                 kernel_size=3,
                 padding='same'
-            ),
-            torch.nn.SiLU(),
-            torch.nn.Dropout1d(dropout_rate),
-        )
-
-        self._phoneme_cond = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                in_channels=phoneme_embedding_size,
-                out_channels=internal_channels,
-                kernel_size=1
-            ),
-            torch.nn.SiLU(),
-            torch.nn.Dropout1d(dropout_rate),
-        )
-
-        self._timestep_cond = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                in_channels=timestep_embedding_dim,
-                out_channels=internal_channels,
-                kernel_size=1,
             ),
             torch.nn.SiLU(),
             torch.nn.Dropout1d(dropout_rate),
@@ -62,8 +40,8 @@ class _ConvBlock(torch.nn.Module):
                 phoneme_embedding: torch.Tensor) -> torch.Tensor:
 
         output = self._conv1(input_tensor)
-        output = output + self._phoneme_cond(phoneme_embedding)
-        output = output + self._timestep_cond(timestep_embedding)
+        output = output + phoneme_embedding
+        output = output + timestep_embedding
         output = self._conv2(output)
 
         return output + input_tensor
@@ -73,8 +51,8 @@ class Decoder(torch.nn.Module):
     """Predicts the diffusion noise based on the encoded phonemes and diffusion timestep."""
 
     def __init__(self,
+                 input_gst_size: int,
                  timestep_embedding_size: int,
-                 phoneme_embedding_size: int,
                  internal_channels: int,
                  n_conv_blocks: int,
                  dropout_rate: float):
@@ -84,7 +62,7 @@ class Decoder(torch.nn.Module):
         self._timestep_embedding_dim = timestep_embedding_size
 
         self._timestep_encoder = torch.nn.Sequential(
-            torch.nn.Linear(timestep_embedding_size, timestep_embedding_size),
+            torch.nn.Linear(timestep_embedding_size, input_gst_size),
             torch.nn.SiLU(),
         )
 
@@ -93,11 +71,29 @@ class Decoder(torch.nn.Module):
             torch.nn.SiLU()
         )
 
+        self._phoneme_cond = torch.nn.Sequential(
+            torch.nn.Conv1d(
+                in_channels=1,
+                out_channels=1,
+                kernel_size=1
+            ),
+            torch.nn.SiLU(),
+            torch.nn.Dropout1d(dropout_rate),
+        )
+
+        self._timestep_cond = torch.nn.Sequential(
+            torch.nn.Conv1d(
+                in_channels=1,
+                out_channels=1,
+                kernel_size=1,
+            ),
+            torch.nn.SiLU(),
+            torch.nn.Dropout1d(dropout_rate),
+        )
+
         self._conv_blocks = torch.nn.ModuleList(
             [_ConvBlock(internal_channels,
-                        dropout_rate,
-                        timestep_embedding_size,
-                        phoneme_embedding_size)
+                        dropout_rate)
              for _ in range(n_conv_blocks)]
         )
 
@@ -124,9 +120,12 @@ class Decoder(torch.nn.Module):
         time_embedding = other_utils.create_positional_encoding(
             diffusion_step, self._timestep_embedding_dim)
         time_embedding = self._timestep_encoder(time_embedding)
-        time_embedding = time_embedding.unsqueeze(-1)
 
-        phoneme_embedding = phoneme_embedding.unsqueeze(-1)
+        time_embedding = time_embedding.unsqueeze(1)
+        phoneme_embedding = phoneme_embedding.unsqueeze(1)
+
+        time_embedding = self._timestep_cond(time_embedding)
+        phoneme_embedding = self._phoneme_cond(phoneme_embedding)
 
         prenet_output = self._prenet(input_gst)
 

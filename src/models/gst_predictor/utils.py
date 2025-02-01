@@ -35,7 +35,6 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
     Args:
         input_phonemes_shape: The shape of the input phonemes.
         cfg: The model's configuration dictionary. The dictionary should contain the following keys:
-            - encoder::embedding_size: The size of the embedding created by the encoder.
             - encoder::n_conv_blocks: The number of convolutional blocks in the encoder.
             - decoder::timestep_embedding_size: The size of the embedding created by the
                 timestep encoder.
@@ -48,12 +47,11 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
     return ModelComponents(
         encoder=m_encoder.Encoder(
             input_phonemes_shape=input_phonemes_shape,
-            embedding_size=cfg['encoder']['embedding_size'],
             n_conv_blocks=cfg['encoder']['n_conv_blocks'],
             dropout_rate=cfg['dropout_rate']).to(device),
         decoder=m_decoder.Decoder(
+            input_gst_size=input_phonemes_shape[1],
             timestep_embedding_size=cfg['decoder']['timestep_embedding_size'],
-            phoneme_embedding_size=cfg['encoder']['embedding_size'],
             internal_channels=cfg['decoder']['internal_channels'],
             n_conv_blocks=cfg['decoder']['n_conv_blocks'],
             dropout_rate=cfg['dropout_rate']).to(device)

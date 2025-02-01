@@ -54,12 +54,11 @@ DEFAULT_CONFIG = {
     'model': {
         'decoder': {
             'timestep_embedding_size': 128,
-            'internal_channels': 64,
+            'internal_channels': 32,
             'n_conv_blocks': 6,
         },
         'encoder': {
             'n_conv_blocks': 6,
-            'embedding_size': 128,
         },
         'dropout_rate': 0.1
     },

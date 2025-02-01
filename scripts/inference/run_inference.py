@@ -157,8 +157,8 @@ if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
-    args = _get_cl_args()
-
-    configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
+    configuration = scripts_utils.try_obtain_cfg_from_cl(
+        'Runs inference of the system.',
+        DEFAULT_CONFIG)
 
     main(configuration)

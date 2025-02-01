@@ -11,7 +11,7 @@ from torch.utils import data as torch_data
 
 
 class _ProcessedDataset(torch_data.Dataset):
-    """Contains processed LJSpeech dataset samples."""
+    """Contains processed dataset samples."""
 
     def __init__(self, dataset_path: str, file_ids: List[str]):
         """Initializes dataset.
@@ -37,7 +37,7 @@ class _ProcessedDataset(torch_data.Dataset):
             idx: Index of the sample to return.
 
         Returns:
-            Tuple containing the mel spectrogram, transcript, and phoneme durations.
+            Tuple containing the elements of the requested data sample.
         """
 
         file_id = self._file_ids[idx]
@@ -49,7 +49,7 @@ def get_datasets(processed_dataset_path: str,
                  train_split_ratio: float,
                  n_test_files: int
                  ) -> Tuple[torch_data.Dataset, torch_data.Dataset, torch_data.Dataset]:
-    """Returns train/validation/test sets for processed LJSpeech dataset.
+    """Returns train/validation/test sets for processed dataset.
 
     Args:
         dataset_path: Path to the processed dataset.

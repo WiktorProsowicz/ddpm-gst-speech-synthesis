@@ -8,11 +8,12 @@ diffusion process.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-import argparse
+
 import logging
 from typing import Any
 from typing import Dict
 from typing import Tuple
+import os
 
 import torch
 import yaml  # type: ignore
@@ -72,6 +73,7 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
                        config: Dict[str, Any],
                        train_loader: torch_data.DataLoader,
                        val_loader: torch_data.DataLoader,
+                       global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
                        tb_writer: torch_tb.SummaryWriter) -> training.ModelTrainer:
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -88,10 +90,13 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
         device
     )
 
+    global_ds_stats = (global_ds_stats[0].to(device), global_ds_stats[1].to(device))
+
     return training.ModelTrainer(
         model_components,
         train_loader,
         val_loader,
+        global_ds_stats,
         tb_writer,
         device,
         checkpoints_handler,
@@ -123,6 +128,9 @@ def main(config):
         config['data']['n_test_files']
     )
 
+    ds_stats_path = os.path.join(config['data']['dataset_path'], 'stats', 'gst_embedding_stats.pt')
+    global_ds_stats = torch.load(ds_stats_path, weights_only=True)
+
     logging.info('Dataset loaded.')
 
     train_loader = torch_data.DataLoader(
@@ -148,6 +156,7 @@ def main(config):
         config,
         train_loader,
         val_loader,
+        global_ds_stats,
         tb_writer
     )
 

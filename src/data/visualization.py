@@ -77,8 +77,14 @@ def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
-    ax.scatter(np.arange(original_gst.size(0)), original_gst.cpu().numpy(), label='Ground Truth')
-    ax.scatter(np.arange(pred_gst.size(0)), pred_gst.cpu().numpy(), label='Predicted')
+    ax.plot(np.arange(original_gst.size(0)),
+            original_gst.cpu().numpy(),
+            label='Ground Truth',
+            alpha=0.5)
+    ax.plot(np.arange(pred_gst.size(0)),
+            pred_gst.cpu().numpy(),
+            label='Predicted',
+            alpha=0.5)
     ax.set_title('Ground Truth and Predicted GST Weights')
     ax.set_xlabel('Token index')
     ax.set_ylabel('Weight')

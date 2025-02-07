@@ -33,6 +33,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  model_components: m_utils.ModelComponents,
                  train_data_loader: torch.utils.data.DataLoader,
                  val_data_loader: torch.utils.data.DataLoader,
+                 global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
                  checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
@@ -47,6 +48,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         Args:
             learning_rate: The learning rate to use in the optimizer.
             diff_params_scheduler: The scheduler for the diffusion parameters.
+            global_ds_stats: The global mean and stddev of the dataset.
         """
 
         super().__init__(
@@ -66,16 +68,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         self._backward_diff_interval = self._validation_interval * 5
         self._loss = torch.nn.MSELoss()
 
-        self._global_mean = torch.tensor(
-            [0.0339, 0.0328, 0.0324, 0.0345, 0.0269, 0.0319, 0.0265, 0.0328, 0.0313,
-             0.0317, 0.0339, 0.0272, 0.0377, 0.0297, 0.0302, 0.0306, 0.0321, 0.0320,
-             0.0290, 0.0315, 0.0267, 0.0292, 0.0372, 0.0326, 0.0321, 0.0252, 0.0288,
-             0.0272, 0.0295, 0.0282, 0.0470, 0.0274]).to(self._device)
-        self._global_stddev = torch.tensor(
-            [0.0240, 0.0230, 0.0236, 0.0274, 0.0172, 0.0208, 0.0192, 0.0220, 0.0262,
-             0.0232, 0.0347, 0.0196, 0.0283, 0.0250, 0.0266, 0.0242, 0.0242, 0.0230,
-             0.0240, 0.0240, 0.0188, 0.0242, 0.0407, 0.0242, 0.0237, 0.0195, 0.0230,
-             0.0228, 0.0212, 0.0207, 0.0439, 0.0207]).to(self._device)
+        self._global_mean, self._global_stddev = global_ds_stats
 
     @property
     def model_comps(self) -> m_utils.ModelComponents:
@@ -144,7 +137,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
             batch = tuple(t.to(self._device) for t in batch)
 
             phonemes, gst_targets = batch
-            gst_targets = (gst_targets - self._global_mean) / self._global_stddev
 
             phonemes = phonemes[:1]
             gst_targets = gst_targets[:1]
@@ -152,9 +144,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
             phoneme_embedding = self.model_comps.encoder(phonemes)
 
             noised_gst = torch.randn_like(gst_targets)
-            noised_gst = self._diffusion_handler.add_noise(
-                gst_targets, noised_gst, torch.tensor([0], device=self._device)
-            )
 
             for diff_step in reversed(range(self._diffusion_handler.num_steps)):
 
@@ -167,6 +156,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
                     noised_gst, predicted_noise, diff_step)
 
         return (
-            (gst_targets[0] * self._global_stddev) + self._global_mean,
+            gst_targets[0],
             (noised_gst[0] * self._global_stddev) + self._global_mean
         )

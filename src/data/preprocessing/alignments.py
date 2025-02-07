@@ -62,11 +62,6 @@ def load_alignments(alignments_path: str) -> Dict[str, List[textgrid.Interval]]:
     textgrids_path = os.path.join(alignments_path, 'textgrids')
     alignments_dict = {}
 
-    phone_mark_replacing = {
-        'spn': '<unk>',
-        '': '<sil>'
-    }
-
     for alignment_file_name in os.listdir(textgrids_path):
 
         file_path = os.path.join(textgrids_path, alignment_file_name)
@@ -74,10 +69,6 @@ def load_alignments(alignments_path: str) -> Dict[str, List[textgrid.Interval]]:
 
         dict_key = alignment_file_name.split('.')[0]
         phones = text_grid.tiers[1]
-
-        for phone in phones:
-            if phone.mark in phone_mark_replacing:
-                phone.mark = phone_mark_replacing[phone.mark]
 
         alignments_dict[dict_key] = phones
 

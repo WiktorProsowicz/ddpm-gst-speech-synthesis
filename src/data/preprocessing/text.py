@@ -20,6 +20,11 @@ _ENHANCED_MFA_ARP_PHO = ['AA0', 'AA1', 'AA2', 'AE0', 'AE1', 'AE2',
 
 ENHANCED_MFA_ARP_VOCAB = ['<pad>', '<unk>', '<sil>'] + _ENHANCED_MFA_ARP_PHO
 
+MFA_TOKENS_REPLACEMENT = {
+    'spn': '<unk>',
+    '': '<sil>'
+}
+
 
 def get_n_phonemes_for_audio_length(
         phoneme_alignments: textgrid.IntervalTier, audio_length: float):
@@ -44,7 +49,9 @@ def get_phonemes_from_alignments(phoneme_alignments: textgrid.IntervalTier):
         List of phonemes.
     """
 
-    return [interval.mark for interval in phoneme_alignments]
+    extracted_tokens = [interval.mark for interval in phoneme_alignments]
+
+    return [MFA_TOKENS_REPLACEMENT.get(token, token) for token in extracted_tokens]
 
 
 class G2PTransform(torch.nn.Module):

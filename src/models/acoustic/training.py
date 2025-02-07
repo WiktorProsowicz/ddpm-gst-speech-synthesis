@@ -90,7 +90,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                         ) -> Dict[str, torch.Tensor]:
         """Overrides BaseTrainer::_compute_losses."""
 
-        spectrogram, phonemes, durations = input_batch
+        spectrogram, phonemes, durations, p_mask, s_mask = input_batch
         durations = torch.unsqueeze(durations, -1)
 
         if self.model_comps.gst and self.model_comps.embedder:
@@ -101,7 +101,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         else:
             style_embedding = None
 
-        encoder_output: torch.Tensor = self.model_comps.encoder(phonemes, style_embedding)
+        encoder_output: torch.Tensor = self.model_comps.encoder(phonemes, style_embedding, p_mask)
 
         predicted_durations: torch.Tensor = self.model_comps.duration_predictor(
             encoder_output.detach())
@@ -109,33 +109,33 @@ class ModelTrainer(base_trainer.BaseTrainer):
         stretched_encoder_output: torch.Tensor = self.model_comps.length_regulator(
             encoder_output, durations)
 
-        decoder_output: torch.Tensor = self.model_comps.decoder(stretched_encoder_output)
+        decoder_output: torch.Tensor = self.model_comps.decoder(stretched_encoder_output, s_mask)
 
         spec_prediction_loss = self._spec_prediction_loss(decoder_output, spectrogram)
         duration_loss = self._duration_loss(predicted_durations, durations)
 
-        dur_mask, dur_mask_sum = other_utils.create_loss_mask_for_durations(durations)
-        duration_loss = torch.sum(duration_loss * dur_mask) / dur_mask_sum
+        l_dur_mask, l_dur_mask_sum = other_utils.create_loss_mask_for_durations(durations)
+        duration_loss = torch.sum(duration_loss * l_dur_mask) / l_dur_mask_sum
 
-        spec_mask, spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(spectrogram,
-                                                                                durations,
-                                                                                dur_mask)
+        l_spec_mask, l_spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(spectrogram,
+                                                                                    durations,
+                                                                                    l_dur_mask)
         if self._use_loss_weights:
             spec_weights = other_utils.create_loss_weight_for_spectrogram(spectrogram)
-            spec_prediction_loss = torch.sum(spec_prediction_loss * spec_mask * spec_weights)
+            spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask * spec_weights)
 
         else:
-            spec_prediction_loss = torch.sum(spec_prediction_loss * spec_mask)
+            spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
 
-        spec_prediction_loss /= spec_mask_sum
+        spec_prediction_loss /= l_spec_mask_sum
 
         return {
             'spec_pred_loss': spec_prediction_loss,
             'duration_loss': duration_loss,
             'duration_pred_mae': metrics.mean_absolute_error(
-                predicted_durations, durations, dur_mask, dur_mask_sum),
+                predicted_durations, durations, l_dur_mask, l_dur_mask_sum),
             'spec_pred_mae': metrics.mean_absolute_error(
-                decoder_output, spectrogram, spec_mask, spec_mask_sum),
+                decoder_output, spectrogram, l_spec_mask, l_spec_mask_sum),
             'total_loss': spec_prediction_loss + duration_loss
         }
 
@@ -183,16 +183,17 @@ class ModelTrainer(base_trainer.BaseTrainer):
         with torch.no_grad():
 
             batch = next(iter(data_loader))
-            spectrogram, phonemes, durations = batch
+
+            batch = [elem.to(self._device) for elem in batch]
+
+            spectrogram, phonemes, durations, p_mask, s_mask = batch
             durations = torch.unsqueeze(durations, -1)
 
             spectrogram = spectrogram[0:1]
             phonemes = phonemes[0:1]
             durations = durations[0:1]
-
-            spectrogram = spectrogram.to(self._device)
-            phonemes = phonemes.to(self._device)
-            durations = durations.to(self._device)
+            p_mask = p_mask[0:1]
+            s_mask = s_mask[0:1]
 
             if self.model_comps.gst and self.model_comps.embedder:
 
@@ -202,7 +203,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             else:
                 style_embedding = None
 
-            phoneme_representations = self.model_comps.encoder(phonemes, style_embedding)
+            phoneme_representations = self.model_comps.encoder(phonemes, style_embedding, p_mask)
 
             durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
             durations_mask = torch.reshape(durations_mask, (1, -1, 1))
@@ -220,6 +221,6 @@ class ModelTrainer(base_trainer.BaseTrainer):
                 phoneme_representations, phoneme_durations)
 
             decoder_output = self.model_comps.decoder(
-                stretched_phoneme_representations)
+                stretched_phoneme_representations, s_mask)
 
             return spectrogram, decoder_output

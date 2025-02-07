@@ -57,34 +57,32 @@ class Encoder(torch.nn.Module):
         )
 
     def forward(self, input_phonemes: torch.Tensor,
-                style_embedding: Optional[torch.Tensor]) -> torch.Tensor:
+                style_embedding: Optional[torch.Tensor],
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Encodes the input phonemes into enriched representations.
 
         Args:
             input_phonemes: The input one-hot encoded phonemes.
             style_embedding: The style embedding to condition the generation on.
+            mask: Indicates which input sequence elements are not padding.
 
         Returns:
             The enriched representations of the input phonemes.
         """
 
-        output = self._phoneme_embedding(input_phonemes)
-        output += self._positional_encoding
-
-        for block in self._fft_blocks:
-            output = block(output)
-
         if style_embedding is not None:
-            style_embedding = style_embedding.unsqueeze(1)
-            output = output + self._gst_cond_layer(style_embedding)
+            return self.apply_gst_conditioning(self.run_basic_blocks(input_phonemes, mask),
+                                               style_embedding)
 
-        return output
+        return self.run_basic_blocks(input_phonemes, mask)
 
-    def run_basic_blocks(self, input_phonemes: torch.Tensor) -> torch.Tensor:
+    def run_basic_blocks(self,
+                         input_phonemes: torch.Tensor,
+                         mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Runs the basic blocks of the encoder.
 
         This method is intended to be used outside of the basic forward pass of the acoustic model.
-        For example, it can be used to obtain enriched phoneme representations for the GST 
+        For example, it can be used to obtain enriched phoneme representations for the GST
         Predictor model.
 
         Args:
@@ -95,7 +93,7 @@ class Encoder(torch.nn.Module):
         output += self._positional_encoding
 
         for block in self._fft_blocks:
-            output = block(output)
+            output = block(output, mask)
 
         return output
 

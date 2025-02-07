@@ -100,7 +100,7 @@ def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
 
     example_data = dataset[np.random.randint(0, len(dataset))]
 
-    spec, transcript, durations = example_data
+    spec, transcript, durations, _, _ = example_data
 
     tb_writer.add_image(
         'Example/InputMelSpectrogram',

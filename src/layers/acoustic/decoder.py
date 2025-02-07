@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains the encoder for the acoustic model."""
 from typing import Tuple
+from typing import Optional
 
 import torch
 
@@ -40,26 +41,32 @@ class Decoder(torch.nn.Module):
             requires_grad=False
         )
 
-        self._fft_blocks = torch.nn.Sequential(
-            *[fft_block.FFTBlock(input_shape=(input_length, input_channels),
-                                 n_heads=n_heads,
-                                 dropout_rate=dropout_rate,
-                                 conv_channels=fft_conv_channels)
-              for _ in range(n_blocks)]
+        self._fft_blocks = torch.nn.ModuleList(
+            [fft_block.FFTBlock(input_shape=(input_length, input_channels),
+                                n_heads=n_heads,
+                                dropout_rate=dropout_rate,
+                                conv_channels=fft_conv_channels)
+             for _ in range(n_blocks)]
         )
 
         self._postnet = torch.nn.Linear(input_channels, output_channels)
 
-    def forward(self, input_phonemes: torch.Tensor) -> torch.Tensor:
+    def forward(self,
+                input_phonemes: torch.Tensor,
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Decodes the stretched phoneme representations into spectrogram frames.
 
         Args:
             input_phonemes: The stretched phoneme representations.
+            mask: Indicates which input sequence elements are not padding.
 
         Returns:
             The generated spectrogram frames.
         """
 
         output = input_phonemes + self._positional_encoding
-        output = self._fft_blocks(output)
+
+        for fft_b in self._fft_blocks:
+            output = fft_b(output, mask)
+
         return self._postnet(output).transpose(1, 2)

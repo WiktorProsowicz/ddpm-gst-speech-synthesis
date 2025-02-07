@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains definition of Feed Forward Transformer Block."""
 from typing import Tuple
+from typing import Optional
 
 import torch
 
@@ -55,11 +56,14 @@ class FFTBlock(torch.nn.Module):
 
         self._layer_norm2 = torch.nn.LayerNorm(input_embedding_dim)
 
-    def forward(self, input_sequence: torch.Tensor):
+    def forward(self,
+                input_sequence: torch.Tensor,
+                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Runs the input sequence through the block.
 
         Args:
             input_sequence: The input sequence of representations.
+            mask: Indicates which input sequence elements are not padding.
 
         Returns:
             The output sequence of representations.
@@ -68,7 +72,8 @@ class FFTBlock(torch.nn.Module):
         attention_output, _ = self._attention(
             query=input_sequence,
             key=input_sequence,
-            value=input_sequence)
+            value=input_sequence,
+            key_padding_mask=mask)
 
         attention_output = self._layer_norm1(attention_output + input_sequence)
 

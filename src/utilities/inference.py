@@ -1,36 +1,46 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
-from dataclasses import dataclass
-from typing import Callable
 from typing import Optional
 from typing import Tuple
 
 import torch
-
-from utilities import diffusion as diff_utils
 
 
 def get_transcript_length(transcript: torch.Tensor) -> torch.Tensor:
     """Returns the actual length of the one-hot encoded transcript.
 
     Args:
-        transcript: The one-hot encoded transcript without the batch_size dimension.
+        transcript: The one-hot encoded transcript.
     """
 
-    return torch.sum(transcript, dtype=torch.int)
+    if len(transcript.shape) == 2:
+        return torch.sum(transcript, dtype=torch.int)
+
+    output = torch.sum(transcript, dim=1)
+    return torch.sum(output, dtype=torch.int, dim=1)
 
 
 def create_transcript_mask(transcript: torch.Tensor) -> torch.Tensor:
     """Creates a mask for the transcript based on the actual length.
 
     Args:
-        transcript: The one-hot encoded transcript without the batch_size dimension.
+        transcript: The one-hot encoded transcript.
     """
 
-    transcript_length = get_transcript_length(transcript)
+    return (torch.sum(transcript, dim=-1) > 0).to(torch.float32)
 
-    return torch.cat((torch.ones(transcript_length),
-                     torch.zeros(transcript.shape[1] - transcript_length)))
+
+def create_spectrogram_mask(spectrogram: torch.Tensor) -> torch.Tensor:
+    """Creates a mask for the spectrogram based on the actual length.
+
+    Args:
+        spectrogram: The spectrogram without the batch_size dimension.
+    """
+
+    if len(spectrogram.shape) == 2:
+        return torch.sum(spectrogram == torch.min(spectrogram), dim=0) != spectrogram.shape[0]
+
+    return torch.sum(spectrogram == torch.min(spectrogram), dim=1) != spectrogram.shape[1]
 
 
 def sanitize_predicted_durations(log_durations: torch.Tensor,

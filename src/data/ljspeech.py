@@ -5,7 +5,6 @@ The dataset's details is available at https://keithito.com/LJ-Speech-Dataset/.
 """
 import csv
 import logging
-import math
 import os
 import json
 from typing import Dict
@@ -19,6 +18,7 @@ from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifiga
 from data.preprocessing import alignments
 from data.preprocessing import audio as audio_prep
 from data.preprocessing import text
+from utilities import inference
 
 
 class LJSpeechDataset(torch_data.Dataset):
@@ -91,9 +91,8 @@ class LJSpeechDataset(torch_data.Dataset):
             idx: Index of the item to return.
 
         Returns:
-            A tuple containing the preprocessed spectrogram, the transcript and the
-                phoneme durations. The spectrogram's values are normalized to [0, 1].
-                Each individual spectrogram's element has mean 0 and std 1 across the dataset.
+            A tuple containing the preprocessed spectrogram, transcript, phoneme durations and
+            attention masks for the phonemes and spectrogram.
         """
 
         audio, _, _, _ = self._dataset[idx]
@@ -102,13 +101,19 @@ class LJSpeechDataset(torch_data.Dataset):
         transcript = text.get_phonemes_from_alignments(
             self._alignments[audio_file_id])
 
-        audio = self._audio_transform(audio)
+        audio = self._audio_transform(audio)[0, :]
         transcript = self._text_transform(transcript)
 
         phoneme_durations = self._alignments_transform(
             self._alignments[audio_file_id])
 
-        return audio[0, :], transcript, phoneme_durations
+        phoneme_mask = inference.create_transcript_mask(transcript).to(torch.bool)
+        spectrogram_mask = inference.create_spectrogram_mask(audio).to(torch.bool)
+
+        phoneme_mask = torch.logical_not(phoneme_mask)
+        spectrogram_mask = torch.logical_not(spectrogram_mask)
+
+        return audio, transcript, phoneme_durations, phoneme_mask, spectrogram_mask
 
     def __len__(self) -> int:
         """Returns the number of items in the dataset."""

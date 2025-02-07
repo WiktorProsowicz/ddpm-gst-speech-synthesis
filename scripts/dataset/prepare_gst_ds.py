@@ -28,11 +28,13 @@ def main(config):
 
     logging.info('Loading the acoustic model.')
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     acoustic_model_comps = acoustic_utils.create_model_components(
         (80, metadata['output_spectrogram_length']),
         (metadata['phonemes_sequence_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
         config['acoustic_model_cfg'],
-        torch.device('cpu'))
+        device)
 
     assert (acoustic_model_comps.gst is not None) and (acoustic_model_comps.embedder is not None)
 
@@ -45,17 +47,17 @@ def main(config):
 
     for sample_idx, sample_name in enumerate(sample_names):
         data_sample_path = os.path.join(config['processed_ds_path'], sample_name)
-        spectrogram, phonemes, _ = torch.load(data_sample_path, weights_only=True)
+        spectrogram, phonemes, _, _, _ = torch.load(data_sample_path, weights_only=True)
 
-        spectrogram = torch.unsqueeze(spectrogram, dim=0)
-        phonemes = torch.unsqueeze(phonemes, dim=0)
+        spectrogram = torch.unsqueeze(spectrogram, dim=0).to(device)
+        phonemes = torch.unsqueeze(phonemes, dim=0).to(device)
 
         with torch.no_grad():
             enhanced_phonemes = acoustic_model_comps.encoder.run_basic_blocks(phonemes)
             gst_embedding = acoustic_model_comps.embedder(spectrogram, acoustic_model_comps.gst())
 
-        enhanced_phonemes = enhanced_phonemes.squeeze(dim=0)
-        gst_embedding = gst_embedding.squeeze(dim=0)
+        enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
+        gst_embedding = gst_embedding.squeeze(dim=0).to('cpu')
 
         output_path = os.path.join(config['output_path'], sample_name)
         torch.save((enhanced_phonemes, gst_embedding), output_path)
@@ -83,6 +85,7 @@ def main(config):
         gst_embedding_std += (embedding - gst_embedding_mean) ** 2
 
     gst_embedding_std /= len(sample_names)
+    gst_embedding_std = torch.sqrt(gst_embedding_std)
 
     os.makedirs(os.path.join(config['output_path'], 'stats'), exist_ok=True)
     stats_path = os.path.join(config['output_path'], 'stats', 'gst_embedding_stats.pt')

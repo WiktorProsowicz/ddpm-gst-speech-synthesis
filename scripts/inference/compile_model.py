@@ -38,35 +38,6 @@ DEFAULT_CONFIG = {
 }
 
 
-def _create_inference_model(acoustic_components: acoustic_utils.ModelComponents,
-                            mel_spec_frames: int,
-                            gst_mode: str):
-
-    if gst_mode == 'none':
-
-        gst = None
-        embedder = None
-
-    elif gst_mode == 'weights':
-
-        gst = acoustic_components.gst
-        embedder = None
-
-    elif gst_mode == 'reference':
-
-        gst = acoustic_components.gst
-        embedder = acoustic_components.embedder
-
-    return inference.InferenceModel(
-        acoustic_components.encoder,
-        acoustic_components.decoder,
-        acoustic_components.duration_predictor,
-        acoustic_components.length_regulator,
-        mel_spec_frames,
-        gst,
-        embedder)
-
-
 def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
 
     device = torch.device('cpu')
@@ -84,9 +55,13 @@ def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
 
     logging.info('Preparing the acoustic inference model...')
 
-    inference_model = _create_inference_model(acoustic_components,
-                                              config['mel_spec_time_frames'],
-                                              config['gst_mode'])
+    inference_model = inference.InferenceModel(
+        acoustic_components.encoder,
+        acoustic_components.decoder,
+        acoustic_components.duration_predictor,
+        acoustic_components.length_regulator,
+        config['mel_spec_time_frames'])
+
     inference_model.eval()
 
     example_phonemes = torch.randint(0, len(text_prep.ENHANCED_MFA_ARP_VOCAB),
@@ -95,21 +70,15 @@ def _compile_acoustic_model(config) -> torch.jit.ScriptModule:
         example_phonemes,
         len(text_prep.ENHANCED_MFA_ARP_VOCAB)).to(torch.float)
 
-    if config['gst_mode'] == 'none':
+    if not config['use_gst']:
         example_input = (
             example_phonemes,
         )
 
-    elif config['gst_mode'] in ('weights', 'predicted'):
+    else:
         example_input = (
             example_phonemes,
-            torch.randn(1, config['acoustic_model_cfg']['gst']['n_tokens'])
-        )
-
-    elif config['gst_mode'] == 'reference':
-        example_input = (
-            example_phonemes,
-            torch.randn(1, 80, config['mel_spec_time_frames'])
+            torch.randn(1, config['acoustic_model_cfg']['d_model'])
         )
 
     with torch.no_grad():
@@ -127,7 +96,7 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
     logging.info("Loading the GST predictor components...")
 
     gst_predictor = gst_predictor_utils.create_model_components(
-        (config['phonemes_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
+        (config['phonemes_length'], config['acoustic_model_cfg']['d_model']),
         config['gst_predictor_cfg']['model_cfg'],
         device)
 
@@ -136,20 +105,19 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
 
     logging.info("Tracing the GST predictor...")
 
-    example_phonemes = torch.randint(0, len(text_prep.ENHANCED_MFA_ARP_VOCAB),
-                                     (1, config['phonemes_length']))
-    example_phonemes = torch.nn.functional.one_hot(  # pylint: disable=not-callable
-        example_phonemes,
-        len(text_prep.ENHANCED_MFA_ARP_VOCAB)).to(torch.float)
+    example_phonemes = torch.randn(1,
+                                   config['phonemes_length'],
+                                   config['acoustic_model_cfg']['d_model'])
 
-    example_noise = torch.randn(1, config['gst_predictor_cfg']['model_cfg']['n_tokens'])
+    encoder = torch.jit.trace_module(gst_predictor.encoder, {'forward': (example_phonemes,)})
+
+    example_noise = torch.randn(1, config['acoustic_model_cfg']['d_model'])
 
     example_phoneme_embedding = torch.randn(
-        1, config['gst_predictor_cfg']['model_cfg']['embedding_size'])
+        1, config['acoustic_model_cfg']['d_model'])
 
     example_diff_timestep = torch.randint(0, config['gst_predictor_cfg']['diff_timesteps'], (1,))
 
-    encoder = torch.jit.trace_module(gst_predictor.encoder, {'forward': (example_phonemes,)})
     decoder = torch.jit.trace_module(gst_predictor.decoder,
                                      {'forward': (example_noise,
                                                   example_diff_timestep,
@@ -165,7 +133,7 @@ def main(config):
 
     gst_predictor_metadata = None
 
-    if config['gst_mode'] == 'predicted':
+    if config['use_gst']:
         gst_predictor_metadata = {
             'diff_beta_min': config['gst_predictor_cfg']['diff_beta_min'],
             'diff_beta_max': config['gst_predictor_cfg']['diff_beta_max'],
@@ -175,16 +143,18 @@ def main(config):
     compiled_model_metadata = {
         'input_phonemes_shape': (config['phonemes_length'], len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
         'output_spec_shape': (80, config['mel_spec_time_frames']),
-        'gst_mode': config['gst_mode'],
         'gst_predictor_cfg': gst_predictor_metadata
     }
 
     acoustic_torchscript = _compile_acoustic_model(config)
     torch.jit.save(acoustic_torchscript, os.path.join(config['output_path'], 'inference_model.pt'))
 
-    gst_pred_enc, gst_pred_dec = _compile_gst_predictor(config)
-    torch.jit.save(gst_pred_enc, os.path.join(config['output_path'], 'gst_predictor_encoder.pt'))
-    torch.jit.save(gst_pred_dec, os.path.join(config['output_path'], 'gst_predictor_decoder.pt'))
+    if config['use_gst']:
+        gst_pred_enc, gst_pred_dec = _compile_gst_predictor(config)
+        torch.jit.save(gst_pred_enc,
+                       os.path.join(config['output_path'], 'gst_predictor_encoder.pt'))
+        torch.jit.save(gst_pred_dec,
+                       os.path.join(config['output_path'], 'gst_predictor_decoder.pt'))
 
     with open(os.path.join(config['output_path'], 'metadata.json'),
               'w',

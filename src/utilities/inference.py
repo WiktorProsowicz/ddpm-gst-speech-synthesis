@@ -61,20 +61,6 @@ def sanitize_predicted_durations(log_durations: torch.Tensor,
     return log_durations * durations_mask
 
 
-def style_embedding_from_weights(gst_tokens: torch.Tensor,
-                                 gst_weights: torch.Tensor) -> torch.Tensor:
-    """Creates the style embedding from the GST weights and tokens.
-
-    Args:
-        gst_tokens: The global style tokens.
-        gst_weights: The weights for the global style tokens.
-    """
-
-    gst_weights = torch.unsqueeze(gst_weights, dim=-1)
-    gst_tokens = torch.unsqueeze(gst_tokens, dim=0)
-    return torch.sum(gst_weights * gst_tokens, dim=1)
-
-
 class InferenceModel(torch.nn.Module):
     """Contains all the components of the model required for inference.
 
@@ -86,9 +72,7 @@ class InferenceModel(torch.nn.Module):
                  ac_decoder: torch.nn.Module,
                  duration_predictor: torch.nn.Module,
                  length_regulator: torch.nn.Module,
-                 output_spec_length: int,
-                 gst_provider: Optional[torch.nn.Module],
-                 reference_embedder: Optional[torch.nn.Module]):
+                 output_spec_length: int):
 
         super().__init__()
 
@@ -97,8 +81,6 @@ class InferenceModel(torch.nn.Module):
         self._duration_predictor = duration_predictor
         self._length_regulator = length_regulator
         self._expected_output_length = output_spec_length
-        self._gst_provider = gst_provider
-        self._reference_embedder = reference_embedder
 
     def forward(self, inputs: Tuple[torch.Tensor, ...]):
         """Runs the full inference pass.
@@ -112,21 +94,10 @@ class InferenceModel(torch.nn.Module):
         """
 
         input_phonemes = inputs[0]
+        style_embedding = None if len(inputs) == 1 else inputs[1]
 
-        if self._gst_provider is None and self._reference_embedder is None:
-            phoneme_representations = self._ac_encoder(input_phonemes, None)
-
-        elif self._reference_embedder is None and self._gst_provider is not None:
-            gst_weights = inputs[1]
-            style_embedding = style_embedding_from_weights(self._gst_provider(), gst_weights)
-            phoneme_representations = self._ac_encoder(input_phonemes,
-                                                       style_embedding)
-
-        elif self._reference_embedder is not None and self._gst_provider is not None:
-            reference_spec = inputs[1]
-            style_embedding = self._reference_embedder(reference_spec, self._gst_provider())
-            phoneme_representations = self._ac_encoder(input_phonemes,
-                                                       style_embedding)
+        phoneme_representations = self._ac_encoder(input_phonemes,
+                                                   style_embedding)
 
         phoneme_durations = self._duration_predictor(phoneme_representations)
 

@@ -5,6 +5,14 @@ from typing import Tuple
 
 import torch
 
+import layers
+import layers.acoustic
+import layers.acoustic.decoder
+import layers.acoustic.encoder
+import layers.shared
+import layers.shared.duration_predictor
+import layers.shared.length_regulator
+
 
 def get_transcript_length(transcript: torch.Tensor) -> torch.Tensor:
     """Returns the actual length of the one-hot encoded transcript.
@@ -31,16 +39,25 @@ def create_transcript_mask(transcript: torch.Tensor) -> torch.Tensor:
 
 
 def create_spectrogram_mask(spectrogram: torch.Tensor) -> torch.Tensor:
-    """Creates a mask for the spectrogram based on the actual length.
-
-    Args:
-        spectrogram: The spectrogram without the batch_size dimension.
-    """
+    """Creates a mask for the spectrogram based on the actual length."""
 
     if len(spectrogram.shape) == 2:
         return torch.sum(spectrogram == torch.min(spectrogram), dim=0) != spectrogram.shape[0]
 
     return torch.sum(spectrogram == torch.min(spectrogram), dim=1) != spectrogram.shape[1]
+
+
+def create_mask_from_durations(durations: torch.Tensor,
+                               expected_output_length: int) -> torch.Tensor:
+    """Creates a mask for the stretched phoneme representations based on the predicted durations."""
+
+    cum_length = torch.sum(durations, dim=1).to(torch.int64)
+    mask = torch.zeros((durations.shape[0], expected_output_length), dtype=torch.bool)
+
+    for i in range(durations.shape[0]):
+        mask[i, :cum_length[i]] = 1
+
+    return mask.to(torch.bool).to(durations.device)
 
 
 def sanitize_predicted_durations(log_durations: torch.Tensor,
@@ -61,56 +78,88 @@ def sanitize_predicted_durations(log_durations: torch.Tensor,
     return log_durations * durations_mask
 
 
-class InferenceModel(torch.nn.Module):
-    """Contains all the components of the model required for inference.
+class InferenceAcousticEnc(torch.nn.Module):
+    """Contains the acoustic encoder required for inference.
+
+    The module performs the encoding of the input phonemes and returns their enriched
+    representations. The module does not use any style information.
+
+    The model is convertible to a TorchScript.
+    """
+
+    def __init__(self, acoustic_encoder: layers.acoustic.encoder.Encoder):
+        super().__init__()
+
+        self._acoustic_encoder = acoustic_encoder
+
+    def forward(self, input_phonemes):
+        """Runs the acoustic encoder.
+
+        Args:
+            input_phonemes: The one-hot encoded phonemes.
+        """
+
+        mask = torch.logical_not(create_transcript_mask(input_phonemes))
+
+        return self._acoustic_encoder.run_basic_blocks(input_phonemes, mask)
+
+
+class InferenceAcousticDec(torch.nn.Module):
+    """Contains the acoustic decoder required fot the inference.
+
+    The module applies the style embedding, if supported, to input phoneme representations,
+    performs explicit duration prediction, stretches the input and runs the acoustic decoder.
 
     The model is convertible to a TorchScript.
     """
 
     def __init__(self,
-                 ac_encoder: torch.nn.Module,
-                 ac_decoder: torch.nn.Module,
-                 duration_predictor: torch.nn.Module,
-                 length_regulator: torch.nn.Module,
+                 ac_encoder: layers.acoustic.encoder.Encoder,
+                 ac_decoder: layers.acoustic.decoder.Decoder,
+                 duration_predictor: layers.shared.duration_predictor.DurationPredictor,
+                 length_regulator: layers.shared.length_regulator.LengthRegulator,
                  output_spec_length: int):
 
         super().__init__()
 
-        self._ac_encoder = torch.jit.script(ac_encoder)
+        self._ac_encoder = ac_encoder
         self._ac_decoder = torch.jit.script(ac_decoder)
         self._duration_predictor = duration_predictor
         self._length_regulator = length_regulator
         self._expected_output_length = output_spec_length
 
-    def forward(self, inputs: Tuple[torch.Tensor, ...]):
-        """Runs the full inference pass.
-
-        The data flow depends on the internal module configuration, yet the control-flow allows to
-        create a traced TorchScript from the model.
+    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
+        """Runs the acoustic decoder.
 
         Args:
-            inputs: The input data for the inference. The expected number of elements depends
-            on the model's configuration.
+            inputs: The input phoneme representations, transcript mask and the style embedding,
+            if supported.
         """
 
-        input_phonemes = inputs[0]
-        style_embedding = None if len(inputs) == 1 else inputs[1]
+        phoneme_representations = inputs[0]
 
-        phoneme_representations = self._ac_encoder(input_phonemes,
-                                                   style_embedding)
+        if len(inputs) == 3:
+            style_embedding = inputs[2]
 
-        phoneme_durations = self._duration_predictor(phoneme_representations)
+            phoneme_representations = self._ac_encoder.apply_gst_conditioning(
+                phoneme_representations, style_embedding)
 
-        durations_mask = create_transcript_mask(input_phonemes)
-        durations_mask = torch.reshape(durations_mask, (1, -1, 1))
+        log_durations = self._duration_predictor(phoneme_representations)
 
-        phoneme_durations = sanitize_predicted_durations(phoneme_durations,
+        transcript_mask = inputs[1]
+        transcript_mask = torch.reshape(transcript_mask, (1, -1, 1))
+
+        phoneme_durations = sanitize_predicted_durations(log_durations,
                                                          self._expected_output_length)
-        phoneme_durations = phoneme_durations * durations_mask
+        phoneme_durations = phoneme_durations * transcript_mask
 
         stretched_phoneme_repr = self._length_regulator(phoneme_representations,
                                                         phoneme_durations)
 
-        mel_spec = self._ac_decoder(stretched_phoneme_repr)
+        decoder_mask = create_mask_from_durations(phoneme_durations.reshape(1, -1),
+                                                  self._expected_output_length)
+        decoder_mask = torch.logical_not(decoder_mask)
+
+        mel_spec = self._ac_decoder(stretched_phoneme_repr, decoder_mask)
 
         return mel_spec, phoneme_durations

@@ -52,6 +52,7 @@ def main(config):
 
     logging.info('Preparing the preprocessed dataset...')
 
+    os.makedirs(raw_dataset_path, exist_ok=True)
     ds = ljspeech.LJSpeechDataset(raw_dataset_path,
                                   phoneme_alignments_path,
                                   config['audio_max_length'])

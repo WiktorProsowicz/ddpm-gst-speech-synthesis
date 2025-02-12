@@ -67,9 +67,6 @@ def main(config):
         if (sample_idx + 1) % 1000 == 0:
             logging.debug('Processed %d samples.', sample_idx + 1)
 
-        if sample_idx == 3:
-            exit(0)
-
     logging.info('Calculating the dataset statistics.')
 
     gst_embedding_mean = torch.zeros((config['acoustic_model_cfg']['d_model']))

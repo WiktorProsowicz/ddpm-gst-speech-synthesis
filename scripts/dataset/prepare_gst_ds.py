@@ -36,6 +36,8 @@ def main(config):
         config['acoustic_model_cfg'],
         device)
 
+    acoustic_model_comps.load_from_path(config['acoustic_model_checkpoint'], device)
+
     assert (acoustic_model_comps.gst is not None) and (acoustic_model_comps.embedder is not None)
 
     acoustic_model_comps.eval()
@@ -64,6 +66,9 @@ def main(config):
 
         if (sample_idx + 1) % 1000 == 0:
             logging.debug('Processed %d samples.', sample_idx + 1)
+
+        if sample_idx == 3:
+            exit(0)
 
     logging.info('Calculating the dataset statistics.')
 

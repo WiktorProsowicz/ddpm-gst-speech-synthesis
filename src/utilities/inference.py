@@ -104,17 +104,37 @@ class InferenceAcousticEnc(torch.nn.Module):
         return self._acoustic_encoder.run_basic_blocks(input_phonemes, mask)
 
 
+class InferenceVarianceReg(torch.nn.Module):
+    """Contains the variance regulator required for inference."""
+
+    def __init__(self, acoustic_encoder: layers.acoustic.encoder.Encoder):
+        super().__init__()
+
+        self._acoustic_encoder = acoustic_encoder
+
+    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor]):
+        """Runs the variance regulator.
+
+        Args:
+            inputs: The phoneme representations and the style embedding.
+        """
+
+        phoneme_representations, style_embedding = inputs
+
+        return self._acoustic_encoder.apply_gst_conditioning(phoneme_representations,
+                                                             style_embedding)
+
+
 class InferenceAcousticDec(torch.nn.Module):
     """Contains the acoustic decoder required fot the inference.
 
-    The module applies the style embedding, if supported, to input phoneme representations,
-    performs explicit duration prediction, stretches the input and runs the acoustic decoder.
+    The module performs explicit duration prediction, stretches the input and runs the acoustic
+    decoder.
 
     The model is convertible to a TorchScript.
     """
 
     def __init__(self,
-                 ac_encoder: layers.acoustic.encoder.Encoder,
                  ac_decoder: layers.acoustic.decoder.Decoder,
                  duration_predictor: layers.shared.duration_predictor.DurationPredictor,
                  length_regulator: layers.shared.length_regulator.LengthRegulator,
@@ -122,13 +142,12 @@ class InferenceAcousticDec(torch.nn.Module):
 
         super().__init__()
 
-        self._ac_encoder = ac_encoder
-        self._ac_decoder = torch.jit.script(ac_decoder)
+        self._ac_decoder = ac_decoder
         self._duration_predictor = duration_predictor
         self._length_regulator = length_regulator
         self._expected_output_length = output_spec_length
 
-    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
+    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor]):
         """Runs the acoustic decoder.
 
         Args:
@@ -136,18 +155,10 @@ class InferenceAcousticDec(torch.nn.Module):
             if supported.
         """
 
-        phoneme_representations = inputs[0]
-
-        if len(inputs) == 3:
-            style_embedding = inputs[2]
-
-            phoneme_representations = self._ac_encoder.apply_gst_conditioning(
-                phoneme_representations, style_embedding)
+        phoneme_representations, transcript_mask = inputs
+        transcript_mask = torch.reshape(transcript_mask, (1, -1, 1))
 
         log_durations = self._duration_predictor(phoneme_representations)
-
-        transcript_mask = inputs[1]
-        transcript_mask = torch.reshape(transcript_mask, (1, -1, 1))
 
         phoneme_durations = sanitize_predicted_durations(log_durations,
                                                          self._expected_output_length)

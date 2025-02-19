@@ -87,15 +87,18 @@ def main(config):  # pylint: disable=too-many-locals
 
         encoder_path = os.path.join(config['compiled_model_path'], 'gst_predictor_encoder.pt')
         decoder_path = os.path.join(config['compiled_model_path'], 'gst_predictor_decoder.pt')
+        variance_reg_path = os.path.join(config['compiled_model_path'], 'acoustic_var_reg.pt')
 
         gst_predictor_encoder = torch.jit.load(encoder_path).to(device)
         gst_predictor_decoder = torch.jit.load(decoder_path).to(device)
+        variance_reg = torch.jit.load(variance_reg_path).to(device)
 
         gst_predictor_encoder.eval()
         gst_predictor_decoder.eval()
+        variance_reg.eval()
 
-        def get_style_emb(phoneme_representations):
-            return _obtain_style_embedding(
+        def apply_style_emb(phoneme_representations):
+            embedding = _obtain_style_embedding(
                 phoneme_representations,
                 gst_predictor_encoder,
                 gst_predictor_decoder,
@@ -103,9 +106,11 @@ def main(config):  # pylint: disable=too-many-locals
                 device
             )
 
+            return variance_reg((phoneme_representations, embedding))
+
     else:
-        def get_style_emb(_):
-            return None
+        def apply_style_emb(phoneme_representations):
+            return phoneme_representations
 
     logging.info('Logging HiFi-GAN vocoder...')
     vocoder = hifigan_bundle.get_vocoder().to(device)
@@ -136,16 +141,10 @@ def main(config):  # pylint: disable=too-many-locals
             transcript_mask = inference.create_transcript_mask(input_phonemes)
             phoneme_representations = acoustic_encoder(input_phonemes)
 
-            style_embedding = get_style_emb(phoneme_representations)
+            phoneme_representations = apply_style_emb(phoneme_representations)
 
-            if style_embedding is not None:
-                output_spec, log_durations = acoustic_decoder((phoneme_representations,
-                                                              transcript_mask,
-                                                              style_embedding))
-
-            else:
-                output_spec, log_durations = acoustic_decoder((phoneme_representations,
-                                                              transcript_mask))
+            output_spec, log_durations = acoustic_decoder((phoneme_representations,
+                                                           transcript_mask))
 
             durations_mask = (log_durations > 0).to(torch.int64)
             durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask

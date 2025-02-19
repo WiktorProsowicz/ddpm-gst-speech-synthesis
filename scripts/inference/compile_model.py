@@ -38,7 +38,9 @@ DEFAULT_CONFIG = {
 }
 
 
-def _compile_acoustic_model(config) -> Tuple[torch.jit.ScriptModule, torch.jit.ScriptModule]:
+def _compile_acoustic_model(config) -> Tuple[torch.jit.ScriptModule,
+                                             torch.jit.ScriptModule,
+                                             torch.jit.ScriptModule]:
 
     device = torch.device('cpu')
 
@@ -59,14 +61,18 @@ def _compile_acoustic_model(config) -> Tuple[torch.jit.ScriptModule, torch.jit.S
         acoustic_components.encoder
     )
 
+    inference_var_reg = inference.InferenceVarianceReg(
+        acoustic_components.encoder
+    )
+
     inference_decoder = inference.InferenceAcousticDec(
-        acoustic_components.encoder,
         acoustic_components.decoder,
         acoustic_components.duration_predictor,
         acoustic_components.length_regulator,
         config['mel_spec_time_frames'])
 
     inference_encoder.eval()
+    inference_var_reg.eval()
     inference_decoder.eval()
 
     example_phonemes = torch.randint(0, len(text_prep.ENHANCED_MFA_ARP_VOCAB),
@@ -85,24 +91,19 @@ def _compile_acoustic_model(config) -> Tuple[torch.jit.ScriptModule, torch.jit.S
     with torch.no_grad():
         phoneme_representations = inference_encoder(example_phonemes)
 
-    if not config['use_gst']:
+    traced_decoder = torch.jit.script(inference_decoder,
+                                      example_inputs={'forward': (
+                                          phoneme_representations,
+                                          transcript_mask)})
 
-        traced_decoder = torch.jit.script(inference_decoder,
-                                          example_inputs={'forward': (
-                                              phoneme_representations,
-                                              transcript_mask)})
+    example_style_embedding = torch.randn(
+        1, config['acoustic_model_cfg']['d_model'])
 
-    else:
+    traced_var_reg = torch.jit.script(inference_var_reg,
+                                      example_inputs={'forward': (phoneme_representations,
+                                                                  example_style_embedding)})
 
-        traced_decoder = torch.jit.script(inference_decoder,
-                                          example_inputs={'forward': (
-                                              phoneme_representations,
-                                              transcript_mask,
-                                              torch.randn(
-                                                  1, config['acoustic_model_cfg']['d_model'])
-                                          )})
-
-    return traced_encoder, traced_decoder
+    return traced_encoder, traced_var_reg, traced_decoder
 
 
 def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.ScriptModule]:
@@ -163,7 +164,7 @@ def main(config):
         'gst_predictor_cfg': gst_predictor_metadata
     }
 
-    acoustic_enc, acoustic_dec = _compile_acoustic_model(config)
+    acoustic_enc, acoustic_var_reg, acoustic_dec = _compile_acoustic_model(config)
     torch.jit.save(acoustic_enc, os.path.join(config['output_path'], 'acoustic_encoder.pt'))
     torch.jit.save(acoustic_dec, os.path.join(config['output_path'], 'acoustic_decoder.pt'))
 
@@ -173,6 +174,8 @@ def main(config):
                        os.path.join(config['output_path'], 'gst_predictor_encoder.pt'))
         torch.jit.save(gst_pred_dec,
                        os.path.join(config['output_path'], 'gst_predictor_decoder.pt'))
+
+        torch.jit.save(acoustic_var_reg, os.path.join(config['output_path'], 'acoustic_var_reg.pt'))
 
     with open(os.path.join(config['output_path'], 'metadata.json'),
               'w',

@@ -21,9 +21,7 @@ class GSTProvider(torch.nn.Module):
         super().__init__()
 
         self._gst = torch.nn.Parameter(
-            torch.randn(
-                gst_token_count,
-                gst_embedding_dim),
+            torch.randn((gst_token_count, gst_embedding_dim)),
             requires_grad=False)
 
     def forward(self) -> torch.Tensor:

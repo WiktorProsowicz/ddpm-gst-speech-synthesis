@@ -151,7 +151,7 @@ def main(config):  # pylint: disable=too-many-locals
             total_dur = durations.sum()
             output_spec = output_spec[:, :, :total_dur]
 
-            waveform = vocoder(output_spec)
+            waveform = vocoder(output_spec)  # pylint: disable=not-callable
 
             if total_output_waveform is None:
                 total_output_waveform = waveform[0]

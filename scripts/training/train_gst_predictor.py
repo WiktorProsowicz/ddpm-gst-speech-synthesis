@@ -50,6 +50,7 @@ DEFAULT_CONFIG = {
             'n_steps': 400,
             'beta_min': 0.0001,
             'beta_max': 0.02,
+            'guidance_scale': None,
         },
     },
     'model': {
@@ -107,7 +108,8 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
             config['training']['diffusion']['beta_min'],
             config['training']['diffusion']['beta_max'],
             config['training']['diffusion']['n_steps']
-        )
+        ),
+        config['training']['diffusion']['guidance_scale']
     )
 
 

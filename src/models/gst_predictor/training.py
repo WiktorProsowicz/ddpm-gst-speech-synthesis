@@ -3,6 +3,7 @@
 import logging
 from typing import Dict
 from typing import Tuple
+from typing import Optional
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -40,7 +41,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
-                 diff_params_scheduler: diff_utils.ParametrizationScheduler):
+                 diff_params_scheduler: diff_utils.ParametrizationScheduler,
+                 guidance_scale: Optional[float]):
         """Initializes the model trainer.
 
         See the arguments of the BaseTrainer constructor.
@@ -60,13 +62,16 @@ class ModelTrainer(base_trainer.BaseTrainer):
             checkpoints_handler=checkpoints_handler,
             checkpoints_interval=checkpoints_interval,
             validation_interval=validation_interval,
-            optimizer=torch.optim.Adam(model_components.parameters(), lr=learning_rate),
+            optimizer=torch.optim.Adam(model_components.parameters(),
+                                       lr=learning_rate,
+                                       weight_decay=0.01),
         )
 
         self._diffusion_handler = diff_utils.DiffusionHandler(diff_params_scheduler,
                                                               self._device)
         self._backward_diff_interval = self._validation_interval * 5
         self._loss = torch.nn.MSELoss()
+        self._guidance_scale = guidance_scale
 
         self._global_mean, self._global_stddev = global_ds_stats
 
@@ -93,6 +98,14 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
         encoder_output = self.model_comps.encoder(phonemes)
         pred_noise = self.model_comps.decoder(noised_gst, diff_timestep, encoder_output)
+
+        if self._guidance_scale is not None:
+
+            pred_noise_uncond = self.model_comps.decoder(
+                noised_gst, diff_timestep, None)
+
+            pred_noise = (1 + self._guidance_scale) * pred_noise
+            pred_noise -= self._guidance_scale * pred_noise_uncond
 
         return {
             'total_loss': self._loss(pred_noise, noise),
@@ -147,10 +160,22 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
             for diff_step in reversed(range(self._diffusion_handler.num_steps)):
 
+                timestep = torch.tensor([diff_step], device=self._device)
+
                 predicted_noise = self.model_comps.decoder(
                     noised_gst,
-                    torch.tensor([diff_step], device=self._device),
+                    timestep,
                     phoneme_embedding)
+
+                if self._guidance_scale is not None:
+
+                    pred_noise_uncond = self.model_comps.decoder(
+                        noised_gst,
+                        timestep,
+                        None)
+
+                    predicted_noise = (self._guidance_scale + 1) * predicted_noise
+                    predicted_noise -= self._guidance_scale * pred_noise_uncond
 
                 noised_gst = self._diffusion_handler.remove_noise(
                     noised_gst, predicted_noise, diff_step)

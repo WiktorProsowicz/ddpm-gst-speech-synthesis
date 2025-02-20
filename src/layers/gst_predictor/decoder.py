@@ -47,11 +47,17 @@ class _ConvBlock(torch.nn.Module):
             padding='same'
         )
 
-    def forward(self, input_tensor: torch.Tensor, timestep_embedding: torch.Tensor,
-                phoneme_embedding: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self,
+                input_tensor: torch.Tensor,
+                timestep_embedding: torch.Tensor,
+                phoneme_embedding: Optional[torch.Tensor]
+                ) -> Tuple[torch.Tensor, torch.Tensor]:
 
         output = self._conv1(input_tensor)
-        output = output + phoneme_embedding
+
+        if phoneme_embedding is not None:
+            output = output + phoneme_embedding
+
         output = output + timestep_embedding
         output = self._conv2(output)
 
@@ -125,10 +131,11 @@ class Decoder(torch.nn.Module):
         time_embedding = self._timestep_encoder(time_embedding)
 
         time_embedding = self._timestep_cond(time_embedding)
-        phoneme_embedding = self._phoneme_cond(phoneme_embedding)
-
         time_embedding = time_embedding.unsqueeze(1)
-        phoneme_embedding = phoneme_embedding.unsqueeze(1)
+
+        if phoneme_embedding is not None:
+            phoneme_embedding = self._phoneme_cond(phoneme_embedding)
+            phoneme_embedding = phoneme_embedding.unsqueeze(1)
 
         output = self._prenet(input_gst)
         total_skip_output = None

@@ -75,17 +75,22 @@ def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
                                  pred_gst: torch.Tensor) -> matplotlib.figure.Figure:
     """Plots the predicted and ground truth GST weights."""
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(20, 5))
 
-    ax.plot(np.arange(original_gst.size(0)),
-            original_gst.cpu().numpy(),
+    original_gst = original_gst.cpu().numpy()
+    pred_gst = pred_gst.cpu().numpy()
+
+    mae = np.mean(np.abs(original_gst - pred_gst))
+
+    ax.plot(np.arange(original_gst.size),
+            original_gst,
             label='Ground Truth',
-            alpha=0.5)
-    ax.plot(np.arange(pred_gst.size(0)),
-            pred_gst.cpu().numpy(),
+            alpha=0.8)
+    ax.plot(np.arange(pred_gst.size),
+            pred_gst,
             label='Predicted',
             alpha=0.5)
-    ax.set_title('Ground Truth and Predicted GST Weights')
+    ax.set_title(f'Ground Truth and Predicted GST Weights. MAE = {mae:.2f}')
     ax.set_xlabel('Token index')
     ax.set_ylabel('Weight')
     ax.legend()

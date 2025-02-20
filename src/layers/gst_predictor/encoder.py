@@ -15,8 +15,8 @@ class _ConvBlock(torch.nn.Module):
 
         self._layers = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels, in_channels, kernel_size=3, padding='same'),
+            torch.nn.LayerNorm(input_length),
             torch.nn.SiLU(),
-            torch.nn.LayerNorm((in_channels, input_length)),
             torch.nn.Dropout(dropout_rate)
         )
 
@@ -48,7 +48,12 @@ class Encoder(torch.nn.Module):
             *[_ConvBlock(input_dim, input_length, dropout_rate) for _ in range(n_conv_blocks)]
         )
 
-        self._postnet = torch.nn.LSTM(input_dim, input_dim, batch_first=True)
+        self._attention_query = torch.nn.Parameter(torch.rand(input_dim) * 2 - 1)
+
+        self._attention = torch.nn.MultiheadAttention(input_dim,
+                                                      4,
+                                                      dropout=dropout_rate,
+                                                      batch_first=True)
 
     def forward(self, phoneme_representations: torch.Tensor) -> torch.Tensor:
         """Encodes input phoneme representations into an embedding.
@@ -66,6 +71,10 @@ class Encoder(torch.nn.Module):
         conv_blocks_output = self._conv_blocks(prenet_output)
         conv_blocks_output = conv_blocks_output.transpose(1, 2)
 
-        _, (_, final_lstm_state) = self._postnet(conv_blocks_output)
+        attention_query = self._attention_query.unsqueeze(0).unsqueeze(0).expand(
+            conv_blocks_output.size(0), -1, -1)
+        attention_output, _ = self._attention(attention_query,
+                                              conv_blocks_output,
+                                              conv_blocks_output)
 
-        return final_lstm_state.squeeze(0)
+        return attention_output.squeeze(1)

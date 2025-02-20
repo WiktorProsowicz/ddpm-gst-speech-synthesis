@@ -26,6 +26,8 @@
 	},
 	"runArgs": [
 		"--gpus",
-		"all"
+		"all",
+		"--shm-size",
+		"512m"
 	]
 }

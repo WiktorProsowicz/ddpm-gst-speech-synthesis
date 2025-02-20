@@ -11,7 +11,6 @@ import torch
 from layers.acoustic import decoder as m_decoder
 from layers.acoustic import encoder as m_encoder
 from layers.shared import duration_predictor as m_dp
-from layers.shared import gst as m_gst
 from layers.shared import length_regulator as m_lr
 from layers.shared import ref_embedder
 from models import utils as shared_m_utils
@@ -24,7 +23,6 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
     decoder: m_decoder.Decoder
     length_regulator: m_lr.LengthRegulator
     duration_predictor: m_dp.DurationPredictor
-    gst: Optional[m_gst.GSTProvider]
     embedder: Optional[ref_embedder.ReferenceEmbedder]
 
     def get_components(self) -> Dict[str, Optional[torch.nn.Module]]:
@@ -33,7 +31,6 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
             'decoder': self.decoder,
             'length_regulator': self.length_regulator,
             'duration_predictor': self.duration_predictor,
-            'gst': self.gst,
             'embedder': self.embedder
         }
 
@@ -91,10 +88,6 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
     ).to(device)
 
     if cfg['gst']['use_gst']:
-        gst = m_gst.GSTProvider(
-            gst_embedding_dim=cfg['d_model'],
-            gst_token_count=cfg['gst']['n_tokens']
-        ).to(device)
 
         embedder = ref_embedder.ReferenceEmbedder(
             reference_spectrogram_shape=output_spectrogram_shape,
@@ -104,7 +97,6 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         ).to(device)
 
     else:
-        gst = None
         embedder = None
 
     return ModelComponents(
@@ -112,6 +104,5 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         decoder=decoder,
         length_regulator=length_regulator,
         duration_predictor=duration_predictor,
-        gst=gst,
         embedder=embedder
     )

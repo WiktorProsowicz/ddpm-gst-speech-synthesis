@@ -52,7 +52,7 @@ class ReferenceEmbedder(torch.nn.Module):
     """Converts the reference audio into GST-based style embedding.
 
     The reference embedder encodes the reference audio and converts it into the style embedding
-    with use of the provided Global Style Tokens. This way the one-to-many mapping between the
+    with use of the Global Style Tokens. This way the one-to-many mapping between the
     input phonemes and the expected audio is mitigated.
     """
 
@@ -66,7 +66,11 @@ class ReferenceEmbedder(torch.nn.Module):
         super().__init__()
 
         spec_channels, _ = reference_spectrogram_shape
-        _, gst_size = gst_shape
+        gst_count, gst_size = gst_shape
+
+        self._gst = torch.nn.Parameter(
+            torch.randn((gst_count, gst_size)),
+            requires_grad=False)
 
         # Calculate the most suitable number of channels for the downsampling
         # blocks so that the out_channels * downsampled_height is close to the
@@ -93,12 +97,11 @@ class ReferenceEmbedder(torch.nn.Module):
             num_heads=1,
             batch_first=True)
 
-    def forward(self, reference_audio: torch.Tensor, gst: torch.Tensor) -> torch.Tensor:
+    def forward(self, reference_audio: torch.Tensor) -> torch.Tensor:
         """Converts the reference audio into the style embedding.
 
         Args:
             reference_audio: The reference spectrogram.
-            gst: The Global Style Tokens.
 
         Returns:
             The style embedding.
@@ -117,7 +120,7 @@ class ReferenceEmbedder(torch.nn.Module):
         encoded_ref = self._post_enc(final_state.squeeze(0))
         encoded_ref = encoded_ref.unsqueeze(1)
 
-        gst = gst.unsqueeze(0).expand(batch_size, -1, -1)
+        gst = self._gst.unsqueeze(0).expand(batch_size, -1, -1)
         att_out, _ = self._gst_att(encoded_ref, gst, gst)
 
         return att_out.squeeze(1)

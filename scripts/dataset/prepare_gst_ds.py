@@ -38,7 +38,7 @@ def main(config):
 
     acoustic_model_comps.load_from_path(config['acoustic_model_checkpoint'], device)
 
-    assert (acoustic_model_comps.gst is not None) and (acoustic_model_comps.embedder is not None)
+    assert acoustic_model_comps.embedder is not None
 
     acoustic_model_comps.eval()
 
@@ -56,7 +56,7 @@ def main(config):
 
         with torch.no_grad():
             enhanced_phonemes = acoustic_model_comps.encoder.run_basic_blocks(phonemes)
-            gst_embedding = acoustic_model_comps.embedder(spectrogram, acoustic_model_comps.gst())
+            gst_embedding = acoustic_model_comps.embedder(spectrogram)
 
         enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
         gst_embedding = gst_embedding.squeeze(dim=0).to('cpu')

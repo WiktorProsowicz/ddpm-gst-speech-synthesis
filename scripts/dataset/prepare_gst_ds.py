@@ -49,14 +49,15 @@ def main(config):
 
     for sample_idx, sample_name in enumerate(sample_names):
         data_sample_path = os.path.join(config['processed_ds_path'], sample_name)
-        spectrogram, phonemes, _, _, _ = torch.load(data_sample_path, weights_only=True)
+        spectrogram, phonemes, _, _, s_mask = torch.load(data_sample_path, weights_only=True)
 
         spectrogram = torch.unsqueeze(spectrogram, dim=0).to(device)
         phonemes = torch.unsqueeze(phonemes, dim=0).to(device)
+        s_mask = torch.unsqueeze(s_mask, dim=0).to(device)
 
         with torch.no_grad():
             enhanced_phonemes = acoustic_model_comps.encoder.run_basic_blocks(phonemes)
-            gst_embedding = acoustic_model_comps.embedder(spectrogram)
+            gst_embedding = acoustic_model_comps.embedder(spectrogram, s_mask)
 
         enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
         gst_embedding = gst_embedding.squeeze(dim=0).to('cpu')

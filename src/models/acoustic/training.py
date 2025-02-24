@@ -94,7 +94,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         durations = torch.unsqueeze(durations, -1)
 
         if self.model_comps.embedder:
-            style_embedding = self.model_comps.embedder(spectrogram)
+            style_embedding = self.model_comps.embedder(spectrogram, s_mask)
 
         else:
             style_embedding = None
@@ -194,7 +194,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
             s_mask = s_mask[0:1]
 
             if self.model_comps.embedder:
-                style_embedding = self.model_comps.embedder(spectrogram)
+                style_embedding = self.model_comps.embedder(spectrogram, s_mask)
 
             else:
                 style_embedding = None
@@ -218,5 +218,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
             decoder_output = self.model_comps.decoder(
                 stretched_phoneme_representations, s_mask)
+
+            decoder_output *= inf_utils.create_mask_from_durations(phoneme_durations,
+                                                                   spectrogram.shape[2])
 
             return spectrogram, decoder_output

@@ -6,6 +6,7 @@ from typing import Optional
 import torch
 
 from layers.shared import fft_block
+from utilities import other as other_utils
 
 
 class ReferenceEmbedder(torch.nn.Module):
@@ -31,6 +32,12 @@ class ReferenceEmbedder(torch.nn.Module):
         self._gst = torch.nn.Parameter(
             torch.randn((gst_count, gst_size)),
             requires_grad=False)
+
+        self._positional_encoding = torch.nn.Parameter(
+            other_utils.create_positional_encoding(torch.arange(0, spec_length),
+                                                   spec_channels),
+            requires_grad=False
+        )
 
         self._fft_blocks = torch.nn.ModuleList([
             fft_block.FFTBlock((spec_length, spec_channels),
@@ -65,6 +72,7 @@ class ReferenceEmbedder(torch.nn.Module):
 
         batch_size = reference_spectrogram.size(0)
         output = reference_spectrogram.transpose(1, 2)
+        output = output + self._positional_encoding
 
         for fft_b in self._fft_blocks:
             output = fft_b(output, spectrogram_mask)

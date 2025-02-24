@@ -47,10 +47,12 @@ def create_spectrogram_mask(spectrogram: torch.Tensor) -> torch.Tensor:
     return torch.sum(spectrogram == torch.min(spectrogram), dim=1) != spectrogram.shape[1]
 
 
-def create_mask_from_durations(durations: torch.Tensor,
+def create_mask_from_durations(log_durations: torch.Tensor,
                                expected_output_length: int) -> torch.Tensor:
     """Creates a mask for the stretched phoneme representations based on the predicted durations."""
 
+    durations_mask = (log_durations > 0).to(torch.int64)
+    durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
     cum_length = torch.sum(durations, dim=1).to(torch.int64)
     mask = torch.zeros((durations.shape[0], expected_output_length), dtype=torch.bool)
 

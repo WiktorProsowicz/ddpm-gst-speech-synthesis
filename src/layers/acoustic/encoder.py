@@ -92,7 +92,7 @@ class Encoder(torch.nn.Module):
         reverse_mask = None
 
         if mask is not None:
-            reverse_mask = torch.logical_not(mask)
+            reverse_mask = torch.logical_not(mask).unsqueeze(-1)
 
         output = self._phoneme_embedding(input_phonemes)
         output += self._positional_encoding

@@ -67,7 +67,7 @@ class Decoder(torch.nn.Module):
         reverse_mask = None
 
         if mask is not None:
-            reverse_mask = torch.logical_not(mask)
+            reverse_mask = torch.logical_not(mask).unsqueeze(-1)
 
         output = input_phonemes + self._positional_encoding
 

@@ -89,11 +89,16 @@ class Encoder(torch.nn.Module):
             input_phonemes: The input one-hot encoded phonemes.
         """
 
+        reverse_mask = None
+
+        if mask is not None:
+            reverse_mask = torch.logical_not(mask)
+
         output = self._phoneme_embedding(input_phonemes)
         output += self._positional_encoding
 
         for block in self._fft_blocks:
-            output = block(output, mask)
+            output = block(output, mask, reverse_mask)
 
         return output
 

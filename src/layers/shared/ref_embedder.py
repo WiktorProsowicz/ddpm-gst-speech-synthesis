@@ -71,11 +71,16 @@ class ReferenceEmbedder(torch.nn.Module):
         """Converts the reference audio into the style embedding."""
 
         batch_size = reference_spectrogram.size(0)
+        reverse_mask = None
+
+        if spectrogram_mask is not None:
+            reverse_mask = torch.logical_not(spectrogram_mask).unsqueeze(-1)
+
         output = reference_spectrogram.transpose(1, 2)
         output = output + self._positional_encoding
 
         for fft_b in self._fft_blocks:
-            output = fft_b(output, spectrogram_mask)
+            output = fft_b(output, spectrogram_mask, reverse_mask)
 
         output = self._post_enc(output)
 

@@ -55,7 +55,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
         base_optimizer = torch.optim.Adam(model_components.parameters(),
                                           lr=2e-4,
-                                          betas=(0.9, 0.98))
+                                          betas=(0.9, 0.98),
+                                          weight_decay=2e-6)
         optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
                                                              d_model,
                                                              warmup_steps)

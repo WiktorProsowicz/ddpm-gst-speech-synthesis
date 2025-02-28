@@ -64,10 +64,11 @@ class Decoder(torch.nn.Module):
             The generated spectrogram frames.
         """
 
-        reverse_mask = None
-
         if mask is not None:
             reverse_mask = torch.logical_not(mask).unsqueeze(-1)
+
+        else:
+            reverse_mask = None
 
         output = input_phonemes + self._positional_encoding
 

@@ -46,7 +46,8 @@ class Encoder(torch.nn.Module):
             requires_grad=False
         )
 
-        self._gst_cond_layer = torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=1)
+        self._gst_cond_layer = torch.nn.Conv1d(
+            in_channels=1, out_channels=1, kernel_size=1)
 
         self._fft_blocks = torch.nn.ModuleList(
             [fft_block.FFTBlock(input_shape=(input_length, d_model),
@@ -89,10 +90,11 @@ class Encoder(torch.nn.Module):
             input_phonemes: The input one-hot encoded phonemes.
         """
 
-        reverse_mask = None
-
         if mask is not None:
             reverse_mask = torch.logical_not(mask).unsqueeze(-1)
+
+        else:
+            reverse_mask = None
 
         output = self._phoneme_embedding(input_phonemes)
         output += self._positional_encoding

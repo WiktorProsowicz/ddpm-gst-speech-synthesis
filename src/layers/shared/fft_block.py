@@ -46,14 +46,12 @@ class FFTBlock(torch.nn.Module):
                 kernel_size=9,
                 padding='same'),
             torch.nn.ReLU(),
-            torch.nn.Dropout(dropout_rate),
             torch.nn.Conv1d(
                 in_channels=conv_channels,
                 out_channels=input_embedding_dim,
                 kernel_size=1,
                 padding='same'),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(dropout_rate)
+            torch.nn.Dropout1d(dropout_rate)
         )
 
         self._layer_norm2 = torch.nn.LayerNorm(input_embedding_dim)

@@ -9,6 +9,21 @@ from layers.shared import fft_block
 from utilities import other as other_utils
 
 
+def create_gst(n, dim):
+    """Generates random Global Style Tokens.
+
+    The created tokens are orthogonal to ensure there's no overlap between them.
+    """
+
+    # base_matrix = torch.randn(n, dim)
+    # gst, _ = torch.linalg.qr(base_matrix) # pylint: disable=not-callable
+
+    gst = torch.zeros(n, dim)
+    torch.nn.init.normal_(gst, mean=0, std=1)
+
+    return gst
+
+
 class ReferenceEmbedder(torch.nn.Module):
     """Converts the reference audio into GST-based style embedding.
 
@@ -21,7 +36,8 @@ class ReferenceEmbedder(torch.nn.Module):
                  reference_spectrogram_shape: Tuple[int, int],
                  gst_shape: Tuple[int, int],
                  n_ref_encoder_blocks: int,
-                 dropout_rate: float):
+                 dropout_rate: float,
+                 fft_conv_channels: int):
         """Initializes the reference embedder."""
 
         super().__init__()
@@ -30,40 +46,40 @@ class ReferenceEmbedder(torch.nn.Module):
         gst_count, gst_size = gst_shape
 
         self._gst = torch.nn.Parameter(
-            torch.randn((gst_count, gst_size)),
-            requires_grad=False)
+            create_gst(gst_count, gst_size),
+            requires_grad=True)
 
         self._positional_encoding = torch.nn.Parameter(
             other_utils.create_positional_encoding(torch.arange(0, spec_length),
-                                                   spec_channels),
+                                                   gst_size),
             requires_grad=False
         )
 
+        self._pre_enc = torch.nn.Sequential(
+            torch.nn.Linear(spec_channels, gst_size),
+            torch.nn.SiLU())
+
         self._fft_blocks = torch.nn.ModuleList([
-            fft_block.FFTBlock((spec_length, spec_channels),
+            fft_block.FFTBlock((spec_length, gst_size),
                                4,
                                dropout_rate,
-                               gst_size)
+                               fft_conv_channels)
             for _ in range(n_ref_encoder_blocks)
         ])
 
-        self._recurr_pool_key = torch.nn.Parameter(
+        self._recurr_pool_query = torch.nn.Parameter(
             torch.randn(gst_size),
             requires_grad=True)
         self._recurr_pool = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
-            num_heads=4,
+            num_heads=16,
             batch_first=True,
             dropout=dropout_rate)
 
-        self._post_enc = torch.nn.Sequential(
-            torch.nn.Linear(spec_channels, gst_size),
-            torch.nn.ReLU())
-
         self._gst_att = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
-            num_heads=4,
-            batch_first=True)
+            num_heads=16,
+            batch_first=True,)
 
     def forward(self,
                 reference_spectrogram: torch.Tensor,
@@ -77,15 +93,15 @@ class ReferenceEmbedder(torch.nn.Module):
             reverse_mask = torch.logical_not(spectrogram_mask).unsqueeze(-1)
 
         output = reference_spectrogram.transpose(1, 2)
+        output = self._pre_enc(output)
         output = output + self._positional_encoding
 
         for fft_b in self._fft_blocks:
             output = fft_b(output, spectrogram_mask, reverse_mask)
 
-        output = self._post_enc(output)
-
-        recurr_pool_key = self._recurr_pool_key.unsqueeze(0).unsqueeze(0).expand(batch_size, -1, -1)
-        output, _ = self._recurr_pool(recurr_pool_key,
+        recurr_pool_query = self._recurr_pool_query.unsqueeze(
+            0).unsqueeze(0).expand(batch_size, -1, -1)
+        output, _ = self._recurr_pool(recurr_pool_query,
                                       output,
                                       output,
                                       key_padding_mask=spectrogram_mask)

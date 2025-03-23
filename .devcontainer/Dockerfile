@@ -7,16 +7,11 @@
 
     FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
     ARG DEBIAN_FRONTEND=noninteractive
-    RUN useradd -ms /bin/bash devcontainer
+    RUN useradd -ms /bin/bash devcontainer \ 
+        && echo "devcontainer:devcontainer" | chpasswd \
+        && adduser devcontainer sudo
 
     # Installing the main packages required for a new project's user
     # They're necessary to correctly use the project's content
-    RUN apt update && \
-        # Enabling adding apt repository and adding ppas for necessary packages
-        apt install -y software-properties-common && \
-        add-apt-repository -y ppa:deadsnakes/ppa && \
-        # Main dependencies
-        apt update && apt install -y \
-            git nano
-
+    RUN apt-get update && apt install -y git sudo
     USER devcontainer

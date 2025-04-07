@@ -1,27 +1,46 @@
 # -*- coding: utf-8 -*-
 """Contains the module creating embedding from the reference audio."""
 from typing import Tuple
-from typing import Optional
 
 import torch
 
-from layers.shared import fft_block
-from utilities import other as other_utils
+
+class _DownsamplingBlock(torch.nn.Module):
+    """Downsamples and encodes the input spectrogram."""
+
+    def __init__(self, input_channels: int, output_channels: int, dropout_rate: float):
+
+        super().__init__()
+
+        self._convs = torch.nn.Sequential(
+            torch.nn.BatchNorm2d(input_channels),
+            torch.nn.Dropout2d(dropout_rate),
+            torch.nn.Conv2d(
+                input_channels,
+                output_channels,
+                kernel_size=5,
+                padding='same'),
+            torch.nn.MaxPool2d(3, padding=(1, 1), stride=(1, 2)),
+            torch.nn.SiLU(),
+        )
+
+    def forward(self, input_spec: torch.Tensor) -> torch.Tensor:
+        """Downsamples and encodes the input spectrogram."""
+
+        output = self._convs(input_spec)
+        return output
 
 
-def create_gst(n, dim):
-    """Generates random Global Style Tokens.
+def _create_downsampling_blocks(dropout_rate: float,
+                                num_blocks: int) -> torch.nn.Module:
+    """Creates the downsampling blocks."""
 
-    The created tokens are orthogonal to ensure there's no overlap between them.
-    """
+    blocks = [_DownsamplingBlock(1, 4 ** (num_blocks - 1), dropout_rate)]
 
-    # base_matrix = torch.randn(n, dim)
-    # gst, _ = torch.linalg.qr(base_matrix) # pylint: disable=not-callable
+    for i in range(num_blocks - 1, 0, -1):
+        blocks.append(_DownsamplingBlock(4**(i), 4**(i - 1), dropout_rate))
 
-    gst = torch.zeros(n, dim)
-    torch.nn.init.normal_(gst, mean=0, std=1)
-
-    return gst
+    return torch.nn.Sequential(*blocks)
 
 
 class ReferenceEmbedder(torch.nn.Module):
@@ -37,76 +56,99 @@ class ReferenceEmbedder(torch.nn.Module):
                  gst_shape: Tuple[int, int],
                  n_ref_encoder_blocks: int,
                  dropout_rate: float,
-                 fft_conv_channels: int):
+                 use_gst_att: bool):
         """Initializes the reference embedder."""
 
         super().__init__()
 
-        spec_channels, spec_length = reference_spectrogram_shape
+        spec_channels = 40  # How many first frequency bins to take
         gst_count, gst_size = gst_shape
 
+        assert spec_channels <= reference_spectrogram_shape[1]
+
         self._gst = torch.nn.Parameter(
-            create_gst(gst_count, gst_size),
+            torch.randn((gst_count, gst_size)),
             requires_grad=True)
 
-        self._positional_encoding = torch.nn.Parameter(
-            other_utils.create_positional_encoding(torch.arange(0, spec_length),
-                                                   gst_size),
-            requires_grad=False
+        self._down_blocks = _create_downsampling_blocks(
+            dropout_rate, n_ref_encoder_blocks)
+
+        self._recurr_pool = torch.nn.LSTM(
+            input_size=spec_channels,
+            hidden_size=gst_size,
+            num_layers=1,
+            batch_first=True
         )
-
-        self._pre_enc = torch.nn.Sequential(
-            torch.nn.Linear(spec_channels, gst_size),
-            torch.nn.SiLU())
-
-        self._fft_blocks = torch.nn.ModuleList([
-            fft_block.FFTBlock((spec_length, gst_size),
-                               4,
-                               dropout_rate,
-                               fft_conv_channels)
-            for _ in range(n_ref_encoder_blocks)
-        ])
-
-        self._recurr_pool_query = torch.nn.Parameter(
-            torch.randn(gst_size),
-            requires_grad=True)
-        self._recurr_pool = torch.nn.MultiheadAttention(
-            embed_dim=gst_size,
-            num_heads=16,
-            batch_first=True,
-            dropout=dropout_rate)
 
         self._gst_att = torch.nn.MultiheadAttention(
             embed_dim=gst_size,
-            num_heads=16,
-            batch_first=True,)
+            num_heads=1,
+            batch_first=True)
 
-    def forward(self,
-                reference_spectrogram: torch.Tensor,
-                spectrogram_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
-        """Converts the reference audio into the style embedding."""
+        self._use_gst_att = use_gst_att
 
-        batch_size = reference_spectrogram.size(0)
-        reverse_mask = None
+    def forward(self, reference_audio: torch.Tensor) -> torch.Tensor:
+        """Converts the reference audio into the style embedding.
 
-        if spectrogram_mask is not None:
-            reverse_mask = torch.logical_not(spectrogram_mask).unsqueeze(-1)
+        Args:
+            reference_audio: The reference spectrogram.
 
-        output = reference_spectrogram.transpose(1, 2)
-        output = self._pre_enc(output)
-        output = output + self._positional_encoding
+        Returns:
+            The style embedding.
+        """
 
-        for fft_b in self._fft_blocks:
-            output = fft_b(output, spectrogram_mask, reverse_mask)
+        encoded_ref = self._obtain_reference_embedding(reference_audio)
 
-        recurr_pool_query = self._recurr_pool_query.unsqueeze(
-            0).unsqueeze(0).expand(batch_size, -1, -1)
-        output, _ = self._recurr_pool(recurr_pool_query,
-                                      output,
-                                      output,
-                                      key_padding_mask=spectrogram_mask)
+        if not self._use_gst_att:
+            return encoded_ref
 
-        gst = self._gst.unsqueeze(0).expand(batch_size, -1, -1)
-        output, _ = self._gst_att(output, gst, gst)
+        att_out, _ = self._obtain_gst_output(encoded_ref)
 
-        return output.squeeze(1)
+        return att_out.squeeze(1)
+
+    def obtain_gst_weights(self, reference_audio: torch.Tensor):
+
+        encoded_ref = self._obtain_reference_embedding(reference_audio)
+
+        _, att_weights = self._obtain_gst_output(encoded_ref)
+
+        return att_weights.squeeze(1)
+    
+    def get_style_embedding_from_weights(self, weights: torch.Tensor):
+
+        _, _, W_v = self._gst_att.in_proj_weight.chunk(3) # pylint: disable=unpacking-non-sequence
+        _, _, b_v = self._gst_att.in_proj_bias.chunk(3) # pylint: disable=unpacking-non-sequence
+
+        gst = self._gst.unsqueeze(0).expand(weights.size(0), -1, -1)
+
+        V = gst @ W_v.T + b_v
+
+        context = weights.unsqueeze(1) @ V
+
+        embedding = context @ self._gst_att.out_proj.weight.T + self._gst_att.out_proj.bias
+        return embedding.squeeze(1)
+
+    def _obtain_reference_embedding(self, reference_audio: torch.Tensor):
+
+        reference_audio = reference_audio.unsqueeze(1)
+
+        output = self._down_blocks(reference_audio[:, :, :40])
+
+        output = output.squeeze(1).transpose(1, 2)
+
+        _, (_, final_state) = self._recurr_pool(output)
+
+        encoded_ref = final_state.squeeze(0)
+        encoded_ref = torch.nn.functional.tanh(encoded_ref)
+
+        return encoded_ref
+    
+    def _obtain_gst_output(self, reference_embedding: torch.Tensor):
+
+        reference_embedding = reference_embedding.unsqueeze(1)
+
+        gst = self._gst.unsqueeze(0).expand(reference_embedding.shape[0], -1, -1)
+        gst = torch.nn.functional.tanh(gst)
+        att_output, att_weights = self._gst_att(reference_embedding, gst, gst)
+
+        return att_output, att_weights

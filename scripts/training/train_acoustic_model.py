@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
         'dropout_rate': 0.1,
         'd_model': 384,
         'fft_conv_channels': 1536,
+        'use_reference_encoder': True,
         'encoder': {
             'n_blocks': 6
         },
@@ -67,7 +68,7 @@ DEFAULT_CONFIG = {
             'n_blocks': 2
         },
         'gst': {
-            'use_gst': True,
+            'use_gst_att': True,
             'n_tokens': 32,
             'n_ref_encoder_blocks': 3
         }

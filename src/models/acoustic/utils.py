@@ -87,13 +87,14 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         dropout_rate=cfg['dropout_rate']
     ).to(device)
 
-    if cfg['gst']['use_gst']:
+    if cfg['use_reference_encoder']:
 
         embedder = ref_embedder.ReferenceEmbedder(
             reference_spectrogram_shape=output_spectrogram_shape,
             gst_shape=(cfg['gst']['n_tokens'], cfg['d_model']),
             n_ref_encoder_blocks=cfg['gst']['n_ref_encoder_blocks'],
-            dropout_rate=cfg['dropout_rate']
+            dropout_rate=cfg['dropout_rate'],
+            use_gst_att=cfg['gst']['use_gst_att']
         ).to(device)
 
     else:

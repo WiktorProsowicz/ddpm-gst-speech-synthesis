@@ -29,6 +29,7 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
 
 
 def create_model_components(input_phonemes_shape: Tuple[int, int],
+                            input_gst_shape: Tuple[int],
                             cfg: Dict[str, Any], device: torch.device) -> ModelComponents:
     """Creates the components of the GST predictor model.
 
@@ -44,15 +45,21 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
         device: The device to use for the model.
     """
 
+    BERT_EMBEDDING_SIZE = 768
+
     return ModelComponents(
         encoder=m_encoder.Encoder(
             input_phonemes_shape=input_phonemes_shape,
-            n_conv_blocks=cfg['encoder']['n_conv_blocks'],
+            gst_size=input_gst_shape[0],
+            n_blocks=cfg['encoder']['n_blocks'],
+            n_heads=cfg['encoder']['n_heads'],
+            conv_filters=cfg['encoder']['conv_filters'],
             dropout_rate=cfg['dropout_rate']).to(device),
         decoder=m_decoder.Decoder(
-            input_gst_size=input_phonemes_shape[1],
+            input_gst_size=input_gst_shape[0],
             timestep_embedding_size=cfg['decoder']['timestep_embedding_size'],
             internal_channels=cfg['decoder']['internal_channels'],
-            n_conv_blocks=cfg['decoder']['n_conv_blocks'],
+            n_blocks=cfg['decoder']['n_blocks'],
+            phoneme_embedding_dim=input_phonemes_shape[1] + BERT_EMBEDDING_SIZE,
             dropout_rate=cfg['dropout_rate']).to(device)
     )

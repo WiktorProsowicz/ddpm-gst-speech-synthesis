@@ -4,58 +4,48 @@ from typing import Tuple
 
 import torch
 
-
-class _ConvBlock(torch.nn.Module):
-
-    def __init__(self,
-                 in_channels: int,
-                 input_length: int,
-                 dropout_rate: float):
-        super().__init__()
-
-        self._layers = torch.nn.Sequential(
-            torch.nn.Conv1d(in_channels, in_channels, kernel_size=3, padding='same'),
-            torch.nn.LayerNorm(input_length),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate)
-        )
-
-    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
-        return self._layers(input_tensor) + input_tensor
+from layers.shared import fft_block
 
 
 class Encoder(torch.nn.Module):
-    """Encodes input phoneme representations into an embedding.
+    """Encodes input phoneme representations into conditioning information.
 
     The created embedding is used to condition the noise generation in the decoder.
     """
 
     def __init__(self,
                  input_phonemes_shape: Tuple[int, int],
-                 n_conv_blocks: int,
+                 gst_size: int,
+                 n_blocks: int,
+                 n_heads: int,
+                 conv_filters: int,
                  dropout_rate: float):
 
         super().__init__()
 
         input_length, input_dim = input_phonemes_shape
+        input_dim += 768
 
-        self._prenet = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, input_dim),
-            torch.nn.SiLU(),
+        self._fft_blocks = torch.nn.ModuleList(
+            [fft_block.FFTBlock((input_length, input_dim),
+                                 n_heads,
+                                 dropout_rate,
+                                 conv_filters)
+              for _ in range(n_blocks)]
         )
 
-        self._conv_blocks = torch.nn.Sequential(
-            *[_ConvBlock(input_dim, input_length, dropout_rate) for _ in range(n_conv_blocks)]
-        )
-
-        self._attention_query = torch.nn.Parameter(torch.rand(input_dim) * 2 - 1)
+        self._attention_query = torch.nn.Parameter(torch.rand(gst_size, input_dim),
+                                                   requires_grad=True)
 
         self._attention = torch.nn.MultiheadAttention(input_dim,
                                                       4,
                                                       dropout=dropout_rate,
                                                       batch_first=True)
 
-    def forward(self, phoneme_representations: torch.Tensor) -> torch.Tensor:
+    def forward(self,
+                phoneme_representations: torch.Tensor,
+                phonemes_mask: torch.Tensor,
+                bert_embeddings: torch.Tensor) -> torch.Tensor:
         """Encodes input phoneme representations into an embedding.
 
         Args:
@@ -65,16 +55,16 @@ class Encoder(torch.nn.Module):
             Embedding of shape (batch_size, embedding_size).
         """
 
-        prenet_output = self._prenet(phoneme_representations)
-        prenet_output = prenet_output.transpose(1, 2)
+        output = torch.cat((phoneme_representations, bert_embeddings), dim=-1)
 
-        conv_blocks_output = self._conv_blocks(prenet_output)
-        conv_blocks_output = conv_blocks_output.transpose(1, 2)
+        for block in self._fft_blocks:
+            reversed_mask = torch.logical_not(phonemes_mask).unsqueeze(-1)
+            output = block(output, phonemes_mask, reversed_mask)
 
-        attention_query = self._attention_query.unsqueeze(0).unsqueeze(0).expand(
-            conv_blocks_output.size(0), -1, -1)
+        attention_query = self._attention_query.unsqueeze(0).expand(
+            output.size(0), -1, -1)
         attention_output, _ = self._attention(attention_query,
-                                              conv_blocks_output,
-                                              conv_blocks_output)
+                                              output,
+                                              output)
 
-        return attention_output.squeeze(1)
+        return attention_output

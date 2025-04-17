@@ -1,67 +1,57 @@
 # -*- coding: utf-8 -*-
 """Contains the definition of the decoder layer for the GST predictor."""
 from typing import Optional
-from typing import Tuple
 
 import torch
 
 from utilities import other as other_utils
 
 
-class _ConvBlock(torch.nn.Module):
-    """Convolutional block used in the decoder."""
+class _ResBlock(torch.nn.Module):
+    """Residual block used in the decoder."""
 
     def __init__(self,
-                 internal_channels: int,
+                 n_channels: int,
+                 phoneme_embedding_dim: int,
                  dropout_rate: float,):
+        
         super().__init__()
 
-        self._conv1 = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                in_channels=internal_channels,
-                out_channels=internal_channels,
-                kernel_size=1,
-                padding='same'
-            ),
-            torch.nn.GroupNorm(8, internal_channels),
+        self._layer1 = torch.nn.Sequential(
+            torch.nn.GroupNorm(8, n_channels),
+            torch.nn.Conv1d(n_channels, n_channels, kernel_size=3, padding='same'),
             torch.nn.SiLU(),
-            torch.nn.Dropout1d(dropout_rate),
+            torch.nn.Dropout(dropout_rate),
         )
 
-        self._conv2 = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                in_channels=internal_channels,
-                out_channels=internal_channels,
-                kernel_size=1,
-                padding='same'
-            ),
-            torch.nn.GroupNorm(8, internal_channels),
+        self._cond_proj = torch.nn.Sequential(
+            torch.nn.Linear(phoneme_embedding_dim, n_channels),
             torch.nn.SiLU(),
-            torch.nn.Dropout1d(dropout_rate),
+            torch.nn.Dropout(dropout_rate),
         )
 
-        self._skip_conv = torch.nn.Conv1d(
-            in_channels=internal_channels,
-            out_channels=internal_channels,
-            kernel_size=1,
-            padding='same'
+        self._layer2 = torch.nn.Sequential(
+            torch.nn.GroupNorm(8, n_channels),
+            torch.nn.Conv1d(n_channels, n_channels, kernel_size=3, padding='same'),
+            torch.nn.SiLU(),
+            torch.nn.Dropout(dropout_rate),
         )
 
     def forward(self,
                 input_tensor: torch.Tensor,
                 timestep_embedding: torch.Tensor,
-                phoneme_embedding: Optional[torch.Tensor]
-                ) -> Tuple[torch.Tensor, torch.Tensor]:
+                phoneme_embedding: Optional[torch.Tensor]) -> torch.Tensor:
 
-        output = self._conv1(input_tensor)
+        output = self._layer1(input_tensor)
 
         if phoneme_embedding is not None:
-            output = output + phoneme_embedding
+            output = self._cond_proj(phoneme_embedding).transpose(1, 2) + output 
 
-        output = output + timestep_embedding
-        output = self._conv2(output)
+        output = output + timestep_embedding.unsqueeze(-1)
 
-        return output + input_tensor, self._skip_conv(output)
+        output = self._layer2(output)
+
+        return output + input_tensor
 
 
 class Decoder(torch.nn.Module):
@@ -69,9 +59,10 @@ class Decoder(torch.nn.Module):
 
     def __init__(self,
                  input_gst_size: int,
+                 phoneme_embedding_dim: int,
                  timestep_embedding_size: int,
                  internal_channels: int,
-                 n_conv_blocks: int,
+                 n_blocks: int,
                  dropout_rate: float):
 
         super().__init__()
@@ -79,36 +70,21 @@ class Decoder(torch.nn.Module):
         self._timestep_embedding_dim = timestep_embedding_size
 
         self._timestep_encoder = torch.nn.Sequential(
-            torch.nn.Linear(timestep_embedding_size, input_gst_size),
+            torch.nn.Linear(timestep_embedding_size, timestep_embedding_size),
             torch.nn.SiLU(),
         )
 
-        self._prenet = torch.nn.Sequential(
-            torch.nn.Conv1d(1, internal_channels, kernel_size=1, padding='same'),
-            torch.nn.SiLU()
+        self._pre_net = torch.nn.Conv1d(
+            1, internal_channels, kernel_size=1)
+
+        self._res_blocks = torch.nn.ModuleList(
+            [_ResBlock(internal_channels,
+                       phoneme_embedding_dim,
+                       dropout_rate) for _ in range(n_blocks)]
         )
 
-        self._phoneme_cond = torch.nn.Sequential(
-            torch.nn.Linear(input_gst_size, input_gst_size),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate),
-        )
-
-        self._timestep_cond = torch.nn.Sequential(
-            torch.nn.Linear(input_gst_size, input_gst_size),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate),
-        )
-
-        self._conv_blocks = torch.nn.ModuleList(
-            [_ConvBlock(internal_channels,
-                        dropout_rate)
-             for _ in range(n_conv_blocks)]
-        )
-
-        self._postnet = torch.nn.Sequential(
-            torch.nn.Conv1d(n_conv_blocks * internal_channels, 1, kernel_size=1, padding='same'),
-        )
+        self._postnet = torch.nn.Sequential(torch.nn.Conv1d(internal_channels, 1, kernel_size=1),
+                                            torch.nn.Linear(input_gst_size, input_gst_size))
 
     def forward(self, input_gst: torch.Tensor,
                 diffusion_step: torch.Tensor,
@@ -124,31 +100,13 @@ class Decoder(torch.nn.Module):
             Predicted diffusion noise.
         """
 
-        input_gst = input_gst.unsqueeze(1)
+        output = self._pre_net(input_gst.unsqueeze(1))
 
         time_embedding = other_utils.create_positional_encoding(
             diffusion_step, self._timestep_embedding_dim)
         time_embedding = self._timestep_encoder(time_embedding)
 
-        time_embedding = self._timestep_cond(time_embedding)
-        time_embedding = time_embedding.unsqueeze(1)
+        for res_block in self._res_blocks:
+            output = res_block(output, time_embedding, phoneme_embedding)
 
-        if phoneme_embedding is not None:
-            phoneme_embedding = self._phoneme_cond(phoneme_embedding)
-            phoneme_embedding = phoneme_embedding.unsqueeze(1)
-
-        output = self._prenet(input_gst)
-        total_skip_output = None
-
-        for conv_block in self._conv_blocks:
-            output, skip_output = conv_block(output,
-                                             time_embedding,
-                                             phoneme_embedding)
-
-            if total_skip_output is None:
-                total_skip_output = skip_output
-
-            else:
-                total_skip_output = torch.cat((total_skip_output, skip_output), dim=1)
-
-        return self._postnet(total_skip_output).squeeze(1)
+        return self._postnet(output).squeeze(1)

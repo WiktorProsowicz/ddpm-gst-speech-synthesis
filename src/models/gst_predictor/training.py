@@ -75,6 +75,13 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
         self._global_mean, self._global_stddev = global_ds_stats
 
+        # !!!!!
+        self._global_mean = torch.zeros_like(self._global_mean)
+        # self._global_stddev = torch.ones_like(self._global_stddev)
+        self._global_stddev = torch.tensor([0.4838, 0.3305, 0.3202, 0.2450, 0.2565, 0.2523, 0.3045, 0.3186, 0.4009,
+        0.3385]).to(self._device)
+        # self._global_stddev = torch.tensor(0.4472).to(self._device)
+
     @property
     def model_comps(self) -> m_utils.ModelComponents:
         """Returns the model components."""
@@ -86,7 +93,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                         ) -> Dict[str, torch.Tensor]:
         """Overrides BaseTrainer::_compute_losses."""
 
-        phonemes, gst_targets = input_batch
+        phonemes, phoneme_mask, bert_embeddings, gst_targets = input_batch
         gst_targets = (gst_targets - self._global_mean) / self._global_stddev
         batch_size = phonemes.size(0)
 
@@ -96,7 +103,8 @@ class ModelTrainer(base_trainer.BaseTrainer):
 
         noised_gst = self._diffusion_handler.add_noise(gst_targets, noise, diff_timestep)
 
-        encoder_output = self.model_comps.encoder(phonemes)
+        encoder_output = self.model_comps.encoder(phonemes, phoneme_mask, bert_embeddings)
+
         pred_noise = self.model_comps.decoder(noised_gst, diff_timestep, encoder_output)
 
         if self._guidance_scale is not None:
@@ -115,6 +123,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
     def _on_step_end(self, step_idx):
 
         if (step_idx + 1) % self._backward_diff_interval == 0:
+        # if step_idx == 200    00:
             logging.debug('Running full backward diffusion.')
             self._run_backward_diff(step_idx)
 
@@ -149,14 +158,21 @@ class ModelTrainer(base_trainer.BaseTrainer):
             batch = next(iter(data_loader))
             batch = tuple(t.to(self._device) for t in batch)
 
-            phonemes, gst_targets = batch
+            phonemes, phoneme_mask, bert_embeddings, gst_targets = batch
 
             phonemes = phonemes[:1]
             gst_targets = gst_targets[:1]
+            phoneme_mask = phoneme_mask[:1]
+            bert_embeddings = bert_embeddings[:1]
 
-            phoneme_embedding = self.model_comps.encoder(phonemes)
+            phoneme_embedding = self.model_comps.encoder(phonemes, phoneme_mask, bert_embeddings)
 
-            noised_gst = torch.randn_like(gst_targets)
+            # noised_gst = 0.13218499677587747 + torch.randn_like(gst_targets)
+
+            noised_gst = self._diffusion_handler.add_noise(
+                (gst_targets - self._global_mean) / self._global_stddev,
+                torch.randn_like(gst_targets),
+                torch.tensor([699], device=self._device))
 
             for diff_step in reversed(range(self._diffusion_handler.num_steps)):
 

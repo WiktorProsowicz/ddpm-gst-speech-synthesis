@@ -55,12 +55,15 @@ DEFAULT_CONFIG = {
     },
     'model': {
         'decoder': {
+            'input_dimension': 10,
             'timestep_embedding_size': 128,
-            'internal_channels': 32,
-            'n_conv_blocks': 6,
+            'internal_channels': 128,
+            'n_blocks': 10,
         },
         'encoder': {
-            'n_conv_blocks': 6,
+            'n_blocks': 6,
+            'n_heads': 4,
+            'conv_filters': 1536,
         },
         'dropout_rate': 0.1
     },
@@ -71,12 +74,14 @@ DEFAULT_CONFIG = {
 
 
 def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
+                       input_gst_shape: Tuple[int],
                        config: Dict[str, Any],
                        train_loader: torch_data.DataLoader,
                        val_loader: torch_data.DataLoader,
                        global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
                        tb_writer: torch_tb.SummaryWriter) -> training.ModelTrainer:
 
+    torch.multiprocessing.set_start_method('spawn')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
@@ -87,6 +92,7 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
 
     model_components = m_utils.create_model_components(
         input_phonemes_shape,
+        input_gst_shape,
         config['model'],
         device
     )
@@ -140,7 +146,7 @@ def main(config):
         batch_size=config['training']['batch_size'],
         shuffle=True,
         num_workers=4,
-        pin_memory=True
+        pin_memory=False
     )
 
     val_loader = torch_data.DataLoader(
@@ -152,9 +158,11 @@ def main(config):
     logging.info('Data loaders created.')
 
     input_phonemes_shape = train_ds[0][0].shape
+    input_gst_shape = train_ds[0][3].shape
 
     model_trainer = _get_model_trainer(
         input_phonemes_shape,
+        input_gst_shape,
         config,
         train_loader,
         val_loader,

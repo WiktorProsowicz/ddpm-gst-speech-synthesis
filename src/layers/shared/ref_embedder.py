@@ -61,10 +61,10 @@ class ReferenceEmbedder(torch.nn.Module):
 
         super().__init__()
 
-        spec_channels = 40  # How many first frequency bins to take
+        self._spec_channels = 20  # How many first frequency bins to take
         gst_count, gst_size = gst_shape
 
-        assert spec_channels <= reference_spectrogram_shape[1]
+        assert self._spec_channels <= reference_spectrogram_shape[1]
 
         self._gst = torch.nn.Parameter(
             torch.randn((gst_count, gst_size)),
@@ -74,7 +74,7 @@ class ReferenceEmbedder(torch.nn.Module):
             dropout_rate, n_ref_encoder_blocks)
 
         self._recurr_pool = torch.nn.LSTM(
-            input_size=spec_channels,
+            input_size=self._spec_channels,
             hidden_size=gst_size,
             num_layers=1,
             batch_first=True
@@ -132,10 +132,10 @@ class ReferenceEmbedder(torch.nn.Module):
 
         reference_audio = reference_audio.unsqueeze(1)
 
-        output = self._down_blocks(reference_audio[:, :, :40])
+        output = self._down_blocks(reference_audio[:, :, :self._spec_channels])
 
         output = output.squeeze(1).transpose(1, 2)
-
+        
         _, (_, final_state) = self._recurr_pool(output)
 
         encoded_ref = final_state.squeeze(0)

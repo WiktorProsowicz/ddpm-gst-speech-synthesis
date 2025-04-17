@@ -44,19 +44,7 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
     Args:
         output_spectrogram_shape: The shape of the output spectrogram.
         input_phonemes_shape: The shape of the input one-hot encoded phonemes.
-        cfg: The internal configuration of the model. It contains the following keys:
-            - n_heads: The number of attention heads to use in the FFT blocks.
-            - dropout_rate: The dropout rate to use in the FFT blocks.
-            - d_model: The dimension of the embeddings in the encoder and decoder.
-            - fft_conv_channels: The number of convolutional channels in the FFT blocks.
-            - encoder::n_blocks: The number of residual blocks to use in the encoder.
-            - decoder::n_blocks: The number of FFT blocks to use in the decoder.
-            - decoder::output_channels: The number of output channels in the decoder.
-            - duration_predictor::n_blocks: The number of convolutional blocks to use in
-                the duration predictor.
-            - gst::use_gst: Whether to use the global style tokens.
-            - gst::n_tokens: Number of Global Style Tokens to use.
-            - gst::n_ref_encoder_blocks: Number of residual blocks to use in the reference encoder.
+        cfg: The internal configuration of the model. See scripts/training/train_acoustic_model.py
     """
 
     encoder = m_encoder.Encoder(

@@ -65,7 +65,7 @@ class Encoder(torch.nn.Module):
         Args:
             input_phonemes: The input one-hot encoded phonemes.
             style_embedding: The style embedding to condition the generation on.
-            mask: Indicates which input sequence elements are not padding.
+            mask: Indicates which input sequence elements are padding.
 
         Returns:
             The enriched representations of the input phonemes.

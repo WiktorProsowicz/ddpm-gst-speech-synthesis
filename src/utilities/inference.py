@@ -2,8 +2,12 @@
 """Contains utilities for running inference with the trained model."""
 from typing import Optional
 from typing import Tuple
+from typing import List
 
 import torch
+from torchvision import transforms
+import pytorch_pretrained_bert as bert_lib
+import numpy as np
 
 import layers
 import layers.acoustic
@@ -13,6 +17,74 @@ import layers.shared
 import layers.shared.duration_predictor
 import layers.shared.length_regulator
 
+def _split_transcript_into_tokens(transcript: str):
+
+    special_chars = ['.', ',', '!', '?']
+
+    for char in special_chars:
+        transcript = transcript.replace(char, f' {char} ')
+
+    return transcript.split()
+
+def obtain_gst_predictor_inputs(transcript: str,
+                                text_transforms: transforms.Compose,
+                                tokenizer: bert_lib.BertTokenizer,
+                                bert_model: bert_lib.BertModel,
+                                device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    init_tokens = _split_transcript_into_tokens(transcript)
+
+    phonemes_counts = []
+    input_phonemes = []
+
+    for token in init_tokens:
+        phonemes = text_transforms.transforms[0](token)
+
+        input_phonemes += phonemes
+        phonemes_counts.append(len(phonemes))
+
+    tokens_counts = []
+    bert_tokens = []
+
+    for token in init_tokens:
+        tokens = tokenizer.tokenize(token)
+
+        bert_tokens += tokens
+        tokens_counts.append(len(tokens))
+
+    bert_tokens = ['[CLS]'] + bert_tokens + ['[SEP]']
+    bert_tokens = tokenizer.convert_tokens_to_ids(bert_tokens)
+    segments_ids = [0] * len(bert_tokens)
+
+    tokens_tensor = torch.tensor([bert_tokens]).to(device)
+    segments_tensors = torch.tensor([segments_ids]).to(device)
+
+    with torch.no_grad():
+        encoded_layers, _ = bert_model(tokens_tensor, segments_tensors)
+        bert_embeddings = encoded_layers[-1].squeeze(0)[1:-1]
+
+    tokens_counts = np.array(tokens_counts)
+    phonemes_counts = torch.tensor(phonemes_counts, dtype=torch.int64).to(device)
+    tokens_upper_bounds = np.cumsum(tokens_counts)
+
+    averaged_bert_embeddings = torch.zeros(
+        (len(tokens_counts), bert_embeddings.shape[1]), device=device)
+
+    for i, token_count in enumerate(tokens_counts):
+        upper_bound = tokens_upper_bounds[i]
+        lower_bound = upper_bound - token_count
+
+        averaged_bert_embeddings[i] = torch.mean(bert_embeddings[lower_bound:upper_bound], dim=0)
+
+    input_phonemes = text_transforms.transforms[1](input_phonemes).to(device)
+
+    averaged_bert_embeddings = torch.repeat_interleave(averaged_bert_embeddings,
+                                                       phonemes_counts,
+                                                       dim=0)
+
+    assert input_phonemes.shape[0] == averaged_bert_embeddings.shape[0]
+
+    return averaged_bert_embeddings, input_phonemes
 
 def get_transcript_length(transcript: torch.Tensor) -> torch.Tensor:
     """Returns the actual length of the one-hot encoded transcript.

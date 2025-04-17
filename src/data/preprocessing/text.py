@@ -64,7 +64,7 @@ class G2PTransform(torch.nn.Module):
 
         self._conv = g2p_en.G2p()
 
-        self._tokens_to_remove = [' ']
+        self._tokens_to_remove = [' ', ';', '-', ':', '"', '\'']
         self._tokens_to_replace = {
             '.': '<sil>',
             ',': '<sil>',

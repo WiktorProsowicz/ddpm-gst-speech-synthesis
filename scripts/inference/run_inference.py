@@ -6,20 +6,20 @@ and mel2linear converter.
 
 For script's configuration, see `DEFAULT_CONFIG` constant.
 """
-import os
-import logging
 import json
+import logging
+import os
 
 import torch
 import torchaudio
-from torchvision import transforms
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
+from torchvision import transforms
 
 from data.preprocessing import text as text_prep
-from utilities import logging_utils
-from utilities import scripts_utils
 from utilities import diffusion as diff_utils
 from utilities import inference
+from utilities import logging_utils
+from utilities import scripts_utils
 
 DEFAULT_CONFIG = {
     'compiled_model_path': scripts_utils.CfgRequired(),

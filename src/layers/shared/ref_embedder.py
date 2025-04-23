@@ -113,11 +113,11 @@ class ReferenceEmbedder(torch.nn.Module):
         _, att_weights = self._obtain_gst_output(encoded_ref)
 
         return att_weights.squeeze(1)
-    
+
     def get_style_embedding_from_weights(self, weights: torch.Tensor):
 
-        _, _, W_v = self._gst_att.in_proj_weight.chunk(3) # pylint: disable=unpacking-non-sequence
-        _, _, b_v = self._gst_att.in_proj_bias.chunk(3) # pylint: disable=unpacking-non-sequence
+        _, _, W_v = self._gst_att.in_proj_weight.chunk(3)  # pylint: disable=unpacking-non-sequence
+        _, _, b_v = self._gst_att.in_proj_bias.chunk(3)  # pylint: disable=unpacking-non-sequence
 
         gst = self._gst.unsqueeze(0).expand(weights.size(0), -1, -1)
 
@@ -135,14 +135,14 @@ class ReferenceEmbedder(torch.nn.Module):
         output = self._down_blocks(reference_audio[:, :, :self._spec_channels])
 
         output = output.squeeze(1).transpose(1, 2)
-        
+
         _, (_, final_state) = self._recurr_pool(output)
 
         encoded_ref = final_state.squeeze(0)
         encoded_ref = torch.nn.functional.tanh(encoded_ref)
 
         return encoded_ref
-    
+
     def _obtain_gst_output(self, reference_embedding: torch.Tensor):
 
         reference_embedding = reference_embedding.unsqueeze(1)

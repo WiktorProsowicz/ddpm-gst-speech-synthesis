@@ -28,10 +28,10 @@ class Encoder(torch.nn.Module):
 
         self._fft_blocks = torch.nn.ModuleList(
             [fft_block.FFTBlock((input_length, input_dim),
-                                 n_heads,
-                                 dropout_rate,
-                                 conv_filters)
-              for _ in range(n_blocks)]
+                                n_heads,
+                                dropout_rate,
+                                conv_filters)
+             for _ in range(n_blocks)]
         )
 
         self._attention_query = torch.nn.Parameter(torch.rand(gst_size, input_dim),

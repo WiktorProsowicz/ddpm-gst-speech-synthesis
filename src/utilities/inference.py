@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
+from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import List
 
+import numpy as np
+import pytorch_pretrained_bert as bert_lib
 import torch
 from torchvision import transforms
-import pytorch_pretrained_bert as bert_lib
-import numpy as np
 
-import layers
-import layers.acoustic
 import layers.acoustic.decoder
 import layers.acoustic.encoder
-import layers.shared
 import layers.shared.duration_predictor
 import layers.shared.length_regulator
+
 
 def _split_transcript_into_tokens(transcript: str):
 
@@ -25,6 +23,7 @@ def _split_transcript_into_tokens(transcript: str):
         transcript = transcript.replace(char, f' {char} ')
 
     return transcript.split()
+
 
 def obtain_gst_predictor_inputs(transcript: str,
                                 text_transforms: transforms.Compose,
@@ -85,6 +84,7 @@ def obtain_gst_predictor_inputs(transcript: str,
     assert input_phonemes.shape[0] == averaged_bert_embeddings.shape[0]
 
     return averaged_bert_embeddings, input_phonemes
+
 
 def get_transcript_length(transcript: torch.Tensor) -> torch.Tensor:
     """Returns the actual length of the one-hot encoded transcript.

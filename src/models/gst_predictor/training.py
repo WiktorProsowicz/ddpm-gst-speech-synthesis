@@ -2,8 +2,8 @@
 """Contains the training/validation/profiling pipeline for the GST predictor model."""
 import logging
 from typing import Dict
-from typing import Tuple
 from typing import Optional
+from typing import Tuple
 
 import torch
 from torch.utils import tensorboard as pt_tensorboard
@@ -79,7 +79,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
         self._global_mean = torch.zeros_like(self._global_mean)
         # self._global_stddev = torch.ones_like(self._global_stddev)
         self._global_stddev = torch.tensor([0.4838, 0.3305, 0.3202, 0.2450, 0.2565, 0.2523, 0.3045, 0.3186, 0.4009,
-        0.3385]).to(self._device)
+                                            0.3385]).to(self._device)
         # self._global_stddev = torch.tensor(0.4472).to(self._device)
 
     @property
@@ -123,7 +123,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
     def _on_step_end(self, step_idx):
 
         if (step_idx + 1) % self._backward_diff_interval == 0:
-        # if step_idx == 200    00:
+            # if step_idx == 200    00:
             logging.debug('Running full backward diffusion.')
             self._run_backward_diff(step_idx)
 

@@ -7,7 +7,7 @@
 
     FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-devel
     ARG DEBIAN_FRONTEND=noninteractive
-    RUN useradd -ms /bin/bash devcontainer \ 
+    RUN useradd -ms /bin/bash devcontainer \
         && echo "devcontainer:devcontainer" | chpasswd \
         && adduser devcontainer sudo
 

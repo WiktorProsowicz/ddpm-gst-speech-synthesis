@@ -14,7 +14,7 @@ class _ResBlock(torch.nn.Module):
                  n_channels: int,
                  phoneme_embedding_dim: int,
                  dropout_rate: float,):
-        
+
         super().__init__()
 
         self._layer1 = torch.nn.Sequential(
@@ -45,7 +45,7 @@ class _ResBlock(torch.nn.Module):
         output = self._layer1(input_tensor)
 
         if phoneme_embedding is not None:
-            output = self._cond_proj(phoneme_embedding).transpose(1, 2) + output 
+            output = self._cond_proj(phoneme_embedding).transpose(1, 2) + output
 
         output = output + timestep_embedding.unsqueeze(-1)
 

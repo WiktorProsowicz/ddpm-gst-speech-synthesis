@@ -8,7 +8,6 @@ of the particular phonemes. The dataset is serialized into a single folder for f
 
 For expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import logging
 import os
 import pathlib

@@ -8,12 +8,11 @@ diffusion process.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-
 import logging
+import os
 from typing import Any
 from typing import Dict
 from typing import Tuple
-import os
 
 import torch
 import yaml  # type: ignore

@@ -3,16 +3,16 @@
 
 For script's configuration, see `DEFAULT_CONFIG` constant.
 """
-import os
-import logging
 import json
+import logging
+import os
 from typing import Tuple
 
 import torch
 
+from data.preprocessing import text as text_prep
 from models.acoustic import utils as acoustic_utils
 from models.gst_predictor import utils as gst_predictor_utils
-from data.preprocessing import text as text_prep
 from utilities import inference
 from utilities import logging_utils
 from utilities import scripts_utils
@@ -110,7 +110,7 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
 
     device = torch.device('cpu')
 
-    logging.info("Loading the GST predictor components...")
+    logging.info('Loading the GST predictor components...')
 
     gst_predictor = gst_predictor_utils.create_model_components(
         (config['phonemes_length'], config['acoustic_model_cfg']['d_model']),
@@ -120,7 +120,7 @@ def _compile_gst_predictor(config) -> Tuple[torch.jit.ScriptModule, torch.jit.Sc
     gst_predictor.load_from_path(config['gst_predictor_cfg']['checkpoint_path'], device)
     gst_predictor.eval()
 
-    logging.info("Tracing the GST predictor...")
+    logging.info('Tracing the GST predictor...')
 
     example_phonemes = torch.randn(1,
                                    config['phonemes_length'],

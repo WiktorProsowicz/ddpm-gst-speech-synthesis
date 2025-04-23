@@ -4,16 +4,16 @@
 The dataset's details is available at https://keithito.com/LJ-Speech-Dataset/.
 """
 import csv
+import json
 import logging
 import os
-import json
 from typing import Dict
 
 import torch
 from torch.utils import data as torch_data
 from torchaudio import datasets  # type: ignore
-from torchvision.transforms import transforms
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
+from torchvision.transforms import transforms
 
 from data.preprocessing import alignments
 from data.preprocessing import audio as audio_prep

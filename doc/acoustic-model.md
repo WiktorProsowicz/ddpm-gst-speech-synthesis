@@ -30,4 +30,3 @@ The GST Provider has abandoned Multi-Head attention in favor of a single Scaled 
 The Sigmoid activation has been removed from the postnet.
 
 The ReLU activations in the Encoder have been replaced with SILU.
- 

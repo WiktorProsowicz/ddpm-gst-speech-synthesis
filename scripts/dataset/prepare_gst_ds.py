@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 """Downloads and prepares the dataset for GST Predictor model."""
-
-from typing import Tuple
-from typing import List
+import csv
+import json
 import logging
 import os
-import json
-import csv
+from typing import List
+from typing import Tuple
 
-import torch
-import pytorch_pretrained_bert as bert_lib
 import g2p_en
+import pytorch_pretrained_bert as bert_lib
+import torch
 from torchvision import transforms
 
+from data.preprocessing import text as text_prep
+from models.acoustic import utils as acoustic_utils
+from utilities import inference as inference_utils
 from utilities import logging_utils
 from utilities import scripts_utils
-from models.acoustic import utils as acoustic_utils
-from data.preprocessing import text as text_prep
-from utilities import inference as inference_utils
 
 
 DEFAULT_CONFIG = {
@@ -27,6 +26,7 @@ DEFAULT_CONFIG = {
     'acoustic_model_checkpoint': scripts_utils.CfgRequired(),
     'acoustic_model_cfg': scripts_utils.CfgRequired(),
 }
+
 
 def _get_acoustic_components(config, ds_metadata, device: torch.device):
 
@@ -46,6 +46,7 @@ def _get_acoustic_components(config, ds_metadata, device: torch.device):
 
     return acoustic_model_comps
 
+
 def _get_samples_transcripts(config):
 
     with open(config['ljspeech_metadata_path'], 'r', encoding='utf-8') as meta_f:
@@ -58,14 +59,15 @@ def _get_samples_transcripts(config):
 
     return sample_to_transcript
 
+
 def _save_ds_stats(config):
 
     sample_names = filter(lambda path: '.pt' in path,
                           os.listdir(config['processed_ds_path']))
     sample_names = list(sample_names)
 
-    gst_weights_mean = torch.zeros((config['acoustic_model_cfg']['gst']['n_tokens']))
-    gst_weights_std = torch.zeros((config['acoustic_model_cfg']['gst']['n_tokens']))
+    gst_weights_mean = torch.zeros(config['acoustic_model_cfg']['gst']['n_tokens'])
+    gst_weights_std = torch.zeros(config['acoustic_model_cfg']['gst']['n_tokens'])
 
     for sample_name in sample_names:
         sample_path = os.path.join(config['output_path'], sample_name)
@@ -89,6 +91,7 @@ def _save_ds_stats(config):
         config['output_path'], 'stats', 'gst_embedding_stats.pt')
 
     torch.save((gst_weights_mean, gst_weights_std), stats_path)
+
 
 def main(config):
     """Downloads the dataset."""
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     logging_utils.setup_logging()
 
     configuration = scripts_utils.try_obtain_cfg_from_cl(
-        "Prepares the dataset for GST Predictor model.",
+        'Prepares the dataset for GST Predictor model.',
         DEFAULT_CONFIG)
 
     main(configuration)

@@ -5,9 +5,9 @@ import json
 import logging
 import sys
 from dataclasses import dataclass
+from typing import Any
 from typing import Dict
 from typing import Optional
-from typing import Any
 
 
 class CfgRequired:
@@ -22,7 +22,7 @@ class CfgRequired:
 class CfgOptional:
     """Indicates that a field is optional in the configuration.
 
-    Optional fields carry a default value but it is allowed not to provide them in a configuration. 
+    Optional fields carry a default value but it is allowed not to provide them in a configuration.
     """
 
     default_value: Any
@@ -93,7 +93,7 @@ def _sanitize_config_to_dump(config: Dict) -> Dict:
             sanitized_config[key] = _sanitize_config_to_dump(config[key])
 
         elif isinstance(config[key], CfgRequired):
-            sanitized_config[key] = "REQUIRED"
+            sanitized_config[key] = 'REQUIRED'
 
         else:
             sanitized_config[key] = config[key]

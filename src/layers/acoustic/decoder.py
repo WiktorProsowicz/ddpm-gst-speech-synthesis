@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Contains the encoder for the acoustic model."""
-from typing import Tuple
 from typing import Optional
+from typing import Tuple
 
 import torch
 

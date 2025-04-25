@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
-
 from typing import Optional
 from typing import Tuple
 

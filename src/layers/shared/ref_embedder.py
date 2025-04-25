@@ -116,12 +116,12 @@ class ReferenceEmbedder(torch.nn.Module):
 
     def get_style_embedding_from_weights(self, weights: torch.Tensor):
 
-        _, _, W_v = self._gst_att.in_proj_weight.chunk(3)  # pylint: disable=unpacking-non-sequence
-        _, _, b_v = self._gst_att.in_proj_bias.chunk(3)  # pylint: disable=unpacking-non-sequence
+        _, _, W_v = self._gst_att.in_proj_weight.chunk(3)  # pylint: disable=all
+        _, _, b_v = self._gst_att.in_proj_bias.chunk(3)  # pylint: disable=all
 
         gst = self._gst.unsqueeze(0).expand(weights.size(0), -1, -1)
 
-        V = gst @ W_v.T + b_v
+        V = gst @ W_v.T + b_v  # pylint: disable=all
 
         context = weights.unsqueeze(1) @ V
 

@@ -4,10 +4,7 @@ import csv
 import json
 import logging
 import os
-from typing import List
-from typing import Tuple
 
-import g2p_en
 import pytorch_pretrained_bert as bert_lib
 import torch
 from torchvision import transforms

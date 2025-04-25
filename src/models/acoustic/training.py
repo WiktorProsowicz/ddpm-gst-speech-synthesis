@@ -143,30 +143,41 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         self.model_comps.eval()
 
-        spectrogram, decoder_output = self._perform_visualization_for_loader(self._val_data_loader)
+        for label, data_loader in [('validation', self._val_data_loader),
+                                   ('training', self._train_data_loader)]:
+            
+            gt_output, pred_output = self._perform_visualization_for_loader(data_loader)
 
-        self._tb_logger.add_image(
-            'Validation/Visualization/Original',
-            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
-            step_idx)
+            gt_wav, gt_dur, gt_spec = gt_output
+            pred_wav, pred_dur, pred_spec = pred_output
 
-        self._tb_logger.add_image(
-            'Validation/Visualization/Predicted',
-            visualization.colorize_spectrogram(decoder_output[0], 'viridis'),
-            step_idx)
+            self._tb_logger.add_image(
+                f'{label}/spectrogram/original',
+                visualization.colorize_spectrogram(gt_spec, 'viridis'),
+                step_idx)
 
-        spectrogram, decoder_output = self._perform_visualization_for_loader(
-            self._train_data_loader)
+            self._tb_logger.add_image(
+                f'{label}/spectrogram/predicted',
+                visualization.colorize_spectrogram(pred_spec, 'viridis'),
+                step_idx)
 
-        self._tb_logger.add_image(
-            'Training/Visualization/Original',
-            visualization.colorize_spectrogram(spectrogram[0], 'viridis'),
-            step_idx)
+            self._tb_logger.add_audio(
+                f'{label}/waveform/original',
+                gt_wav.cpu(),
+                step_idx,
+                22050)
 
-        self._tb_logger.add_image(
-            'Training/Visualization/Predicted',
-            visualization.colorize_spectrogram(decoder_output[0], 'viridis'),
-            step_idx)
+            self._tb_logger.add_audio(
+                f'{label}/waveform/predicted',
+                pred_wav.cpu(),
+                step_idx,
+                22050)
+
+            self._tb_logger.add_figure(
+                f'{label}/durations',
+                visualization.plot_pred_and_gt_durations(gt_dur, pred_dur),
+                step_idx)
+
 
     def _perform_visualization_for_loader(self,
                                           data_loader: torch.utils.data.DataLoader
@@ -198,7 +209,12 @@ class ModelTrainer(tdu.training.BaseTrainer):
             else:
                 gst_weights = None
 
+            pred_wave, pred_dur, pred_spec = inference_model(phonemes,
+                                                             p_mask,
+                                                             gst_weights,
+                                                             return_intermediate_results=True)
+
             return (
-                vocoder(spectrogram)[0],  # pylint: disable=not-callable
-                inference_model(phonemes, p_mask, gst_weights)[0]
+                (vocoder(spectrogram)[0], durations[0], spectrogram[0]),
+                (pred_wave[0], pred_dur[0], pred_spec[0])
             )

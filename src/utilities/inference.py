@@ -235,11 +235,14 @@ class InferenceAcousticModel(torch.nn.Module):
     def forward(self,
                 input_phonemes: torch.Tensor,
                 phoneme_mask: torch.Tensor,
-                gst_weights: Optional[torch.Tensor] = None):
+                gst_weights: Optional[torch.Tensor] = None,
+                return_intermediate_results: bool = False
+                ):
         """Runs the inference model.
 
         Args:
             input_phonemes: Input one-hot encoded phonemes.
+            phoneme_mask: Binary mask indicating non-padding values.
             gst_weights: The GST weights to create the style embedding, if supported.
 
         Returns:
@@ -282,4 +285,7 @@ class InferenceAcousticModel(torch.nn.Module):
         total_dur = durations.sum()
         mel_spec = mel_spec[:, :, :total_dur]
 
-        return self._vocoder(mel_spec)
+        if not return_intermediate_results:
+            return self._vocoder(mel_spec)
+
+        return self._vocoder(mel_spec), log_durations, mel_spec

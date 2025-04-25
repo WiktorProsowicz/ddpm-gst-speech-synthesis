@@ -97,6 +97,33 @@ def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
 
     return fig
 
+def plot_pred_and_gt_durations(original_durations: torch.Tensor,
+                               pred_durations: torch.Tensor) -> matplotlib.figure.Figure:
+    """Plots the predicted and ground truth phoneme durations."""
+
+    fig, ax = plt.subplots(figsize=(20, 5))
+
+    original_durations = original_durations.cpu().numpy()
+    pred_durations = pred_durations.cpu().numpy()
+
+    mae = np.mean(np.abs(original_durations - pred_durations))
+
+    ax.plot(np.arange(original_durations.size),
+            original_durations,
+            label='Ground Truth',
+            alpha=0.8)
+    ax.plot(np.arange(pred_durations.size),
+            pred_durations,
+            label='Predicted',
+            alpha=0.8)
+    
+    ax.set_title(f'Ground Truth and Predicted durations. MAE = {mae:.2f}')
+    ax.set_xlabel('Phoneme index')
+    ax.set_ylabel('Duration')
+    ax.legend()
+
+    return fig
+
 
 def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
                               tb_writer: torch.utils.tensorboard.SummaryWriter):

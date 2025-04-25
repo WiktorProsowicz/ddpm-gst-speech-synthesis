@@ -6,17 +6,16 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualization
-from models import base_trainer
-from models import utils as shared_m_utils
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import metrics
 
 
-class ModelTrainer(base_trainer.BaseTrainer):
+class ModelTrainer(tdu.training.BaseTrainer):
     """Trains and validates the GST predictor model.
 
     The trainer performs the following operations:
@@ -37,7 +36,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
-                 checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
+                 checkpoints_handler: tdu.serialization.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
                  learning_rate: float,
@@ -126,6 +125,9 @@ class ModelTrainer(base_trainer.BaseTrainer):
             # if step_idx == 200    00:
             logging.debug('Running full backward diffusion.')
             self._run_backward_diff(step_idx)
+
+    def _on_step_start(self, step_idx: int):
+        pass
 
     def _run_backward_diff(self, step_idx: int):
         """Runs the backward diffusion step and visualizes the output."""

@@ -8,7 +8,6 @@ training.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-import argparse
 import logging
 import os
 import pathlib
@@ -16,13 +15,12 @@ from typing import Any
 from typing import Dict
 
 import torch
+import torch_dev_utils as tdu
 import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
-from data import data_loading
 from data import visualization
-from models import utils as shared_m_utils
 from models.acoustic import training
 from models.acoustic import utils as m_utils
 from utilities import logging_utils
@@ -46,10 +44,7 @@ DEFAULT_CONFIG = {
         'steps': 1000,
         'start_step': 0,
         'checkpoint_interval': 200,
-        'checkpoints_path': scripts_utils.CfgRequired(),
-
-        'use_gt_durations_for_visualization': True,
-        'use_loss_weights': True
+        'checkpoints_path': scripts_utils.CfgRequired()
     },
     'model': {
         'n_heads': 4,
@@ -90,7 +85,7 @@ def _get_model_trainer(
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
+    checkpoints_handler = tdu.serialization.ModelCheckpointHandler(
         config['training']['checkpoints_path'],
         'acoustic_model',
         device)
@@ -108,9 +103,7 @@ def _get_model_trainer(
         config['training']['checkpoint_interval'],
         config['training']['validation_interval'],
         config['model']['d_model'],
-        config['training']['warmup_steps'],
-        config['training']['use_gt_durations_for_visualization'],
-        config['training']['use_loss_weights'])
+        config['training']['warmup_steps'])
 
 
 def main(config):
@@ -124,7 +117,7 @@ def main(config):
 
     tb_writer.add_text('Configuration', yaml.dump(config))
 
-    train_ds, val_ds, _ = data_loading.get_datasets(
+    train_ds, val_ds, _ = tdu.data_loading.get_datasets(
         config['data']['dataset_path'],
         config['data']['train_split_ratio'],
         config['data']['n_test_files']

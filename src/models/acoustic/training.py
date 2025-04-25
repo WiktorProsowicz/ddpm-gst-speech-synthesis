@@ -5,10 +5,10 @@ from typing import Dict
 from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualization
-from models import base_trainer
 from models import utils as shared_m_utils
 from models.acoustic import utils as model_utils
 from utilities import inference as inf_utils
@@ -16,7 +16,7 @@ from utilities import metrics
 from utilities import other as other_utils
 
 
-class ModelTrainer(base_trainer.BaseTrainer):
+class ModelTrainer(tdu.training.BaseTrainer):
     """Runs the training pipeline for the acoustic model.
 
     The trainer does the following:
@@ -33,7 +33,7 @@ class ModelTrainer(base_trainer.BaseTrainer):
                  val_data_loader: torch.utils.data.DataLoader,
                  tb_logger: pt_tensorboard.SummaryWriter,
                  device: torch.device,
-                 checkpoints_handler: shared_m_utils.ModelCheckpointHandler,
+                 checkpoints_handler: tdu.serialization.ModelCheckpointHandler,
                  checkpoints_interval: int,
                  validation_interval: int,
                  d_model: int,
@@ -143,6 +143,9 @@ class ModelTrainer(base_trainer.BaseTrainer):
         if (step_idx + 1) % self._visualization_interval == 0:
             logging.info('Visualizing model output after %d steps.', step_idx + 1)
             self._perform_visualization(step_idx)
+
+    def _on_step_start(self, step_idx: int):
+        pass
 
     def _perform_visualization(self, step_idx: int):
         """Performs visualization of the model's predictions."""

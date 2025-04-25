@@ -15,12 +15,11 @@ from typing import Dict
 from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
-from data import data_loading
-from models import utils as shared_m_utils
 from models.gst_predictor import training
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
@@ -83,7 +82,7 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
     torch.multiprocessing.set_start_method('spawn')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
+    checkpoints_handler = tdu.serialization.ModelCheckpointHandler(
         config['training']['checkpoints_path'],
         'gst_predictor_ckpt',
         device
@@ -129,7 +128,7 @@ def main(config):
 
     tb_writer.add_text('Configuration', yaml.dump(config))
 
-    train_ds, val_ds, _ = data_loading.get_datasets(
+    train_ds, val_ds, _ = tdu.data_loading.get_datasets(
         config['data']['dataset_path'],
         config['data']['train_split_ratio'],
         config['data']['n_test_files']

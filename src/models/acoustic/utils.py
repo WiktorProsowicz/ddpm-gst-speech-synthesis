@@ -7,17 +7,17 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 
 from layers.acoustic import decoder as m_decoder
 from layers.acoustic import encoder as m_encoder
 from layers.shared import duration_predictor as m_dp
 from layers.shared import length_regulator as m_lr
 from layers.shared import ref_embedder
-from models import utils as shared_m_utils
 
 
 @dataclass
-class ModelComponents(shared_m_utils.BaseModelComponents):
+class ModelComponents(tdu.model.BaseModelComponents):
     """Contains the components of the acoustic model."""
     encoder: m_encoder.Encoder
     decoder: m_decoder.Decoder

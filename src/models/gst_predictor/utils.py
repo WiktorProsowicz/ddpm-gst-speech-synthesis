@@ -7,14 +7,17 @@ from typing import Optional
 from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 
 from layers.gst_predictor import decoder as m_decoder
 from layers.gst_predictor import encoder as m_encoder
-from models import utils as shared_m_utils
+
+
+BERT_EMBEDDING_SIZE = 768
 
 
 @dataclass
-class ModelComponents(shared_m_utils.BaseModelComponents):
+class ModelComponents(tdu.model.BaseModelComponents):
     """Contains components of the GST predictor model."""
 
     encoder: m_encoder.Encoder
@@ -30,7 +33,8 @@ class ModelComponents(shared_m_utils.BaseModelComponents):
 
 def create_model_components(input_phonemes_shape: Tuple[int, int],
                             input_gst_shape: Tuple[int],
-                            cfg: Dict[str, Any], device: torch.device) -> ModelComponents:
+                            cfg: Dict[str, Any],
+                            device: torch.device) -> ModelComponents:
     """Creates the components of the GST predictor model.
 
     Args:
@@ -44,8 +48,6 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
             - dropout_rate: The dropout rate to use in the encoder and decoder.
         device: The device to use for the model.
     """
-
-    BERT_EMBEDDING_SIZE = 768
 
     return ModelComponents(
         encoder=m_encoder.Encoder(

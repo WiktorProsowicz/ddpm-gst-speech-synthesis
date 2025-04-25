@@ -67,6 +67,7 @@ class Decoder(torch.nn.Module):
 
         super().__init__()
 
+        self._gst_size = input_gst_size
         self._timestep_embedding_dim = timestep_embedding_size
 
         self._timestep_encoder = torch.nn.Sequential(
@@ -110,3 +111,9 @@ class Decoder(torch.nn.Module):
             output = res_block(output, time_embedding, phoneme_embedding)
 
         return self._postnet(output).squeeze(1)
+
+    @property
+    def gst_size(self) -> int:
+        """Returns the size of the GST input and output."""
+
+        return self._gst_size

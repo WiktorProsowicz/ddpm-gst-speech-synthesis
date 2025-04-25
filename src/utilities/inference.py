@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for running inference with the trained model."""
-from typing import List
+
 from typing import Optional
 from typing import Tuple
 
@@ -9,10 +9,9 @@ import pytorch_pretrained_bert as bert_lib
 import torch
 from torchvision import transforms
 
-import layers.acoustic.decoder
-import layers.acoustic.encoder
-import layers.shared.duration_predictor
-import layers.shared.length_regulator
+from models.acoustic import utils as acoustic_utils
+from models.gst_predictor import utils as gst_utils
+from utilities import diffusion as diff_utils
 
 
 def _split_transcript_into_tokens(transcript: str):
@@ -75,15 +74,15 @@ def obtain_gst_predictor_inputs(transcript: str,
 
         averaged_bert_embeddings[i] = torch.mean(bert_embeddings[lower_bound:upper_bound], dim=0)
 
-    input_phonemes = text_transforms.transforms[1](input_phonemes).to(device)
+    input_phonemes_t = text_transforms.transforms[1](input_phonemes).to(device)
 
     averaged_bert_embeddings = torch.repeat_interleave(averaged_bert_embeddings,
                                                        phonemes_counts,
                                                        dim=0)
 
-    assert input_phonemes.shape[0] == averaged_bert_embeddings.shape[0]
+    assert input_phonemes_t.shape[0] == averaged_bert_embeddings.shape[0]
 
-    return averaged_bert_embeddings, input_phonemes
+    return averaged_bert_embeddings, input_phonemes_t
 
 
 def get_transcript_length(transcript: torch.Tensor) -> torch.Tensor:
@@ -152,99 +151,136 @@ def sanitize_predicted_durations(log_durations: torch.Tensor,
     return log_durations * durations_mask
 
 
-class InferenceAcousticEnc(torch.nn.Module):
-    """Contains the acoustic encoder required for inference.
-
-    The module performs the encoding of the input phonemes and returns their enriched
-    representations. The module does not use any style information.
-
-    The model is convertible to a TorchScript.
-    """
-
-    def __init__(self, acoustic_encoder: layers.acoustic.encoder.Encoder):
-        super().__init__()
-
-        self._acoustic_encoder = acoustic_encoder
-
-    def forward(self, input_phonemes):
-        """Runs the acoustic encoder.
-
-        Args:
-            input_phonemes: The one-hot encoded phonemes.
-        """
-
-        mask = torch.logical_not(create_transcript_mask(input_phonemes))
-
-        return self._acoustic_encoder.run_basic_blocks(input_phonemes, mask)
-
-
-class InferenceVarianceReg(torch.nn.Module):
-    """Contains the variance regulator required for inference."""
-
-    def __init__(self, acoustic_encoder: layers.acoustic.encoder.Encoder):
-        super().__init__()
-
-        self._acoustic_encoder = acoustic_encoder
-
-    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor]):
-        """Runs the variance regulator.
-
-        Args:
-            inputs: The phoneme representations and the style embedding.
-        """
-
-        phoneme_representations, style_embedding = inputs
-
-        return self._acoustic_encoder.apply_gst_conditioning(phoneme_representations,
-                                                             style_embedding)
-
-
-class InferenceAcousticDec(torch.nn.Module):
-    """Contains the acoustic decoder required fot the inference.
-
-    The module performs explicit duration prediction, stretches the input and runs the acoustic
-    decoder.
-
-    The model is convertible to a TorchScript.
-    """
+class InferenceGSTPredictor(torch.nn.Module):
+    """Runs the whole GST prediction pipeline."""
 
     def __init__(self,
-                 ac_decoder: layers.acoustic.decoder.Decoder,
-                 duration_predictor: layers.shared.duration_predictor.DurationPredictor,
-                 length_regulator: layers.shared.length_regulator.LengthRegulator,
-                 output_spec_length: int):
+                 gst_components: gst_utils.ModelComponents,
+                 diffusion_handler: diff_utils.DiffusionHandler,
+                 scaling_values: Tuple[torch.Tensor, torch.Tensor],
+                 guidance_scale: Optional[float] = None):
+        """Initializes the GST predictor.
+
+        Args:
+            gst_components: The components of the GST predictor.
+            diffusion_handler: The diffusion handler used during the training.
+            scaling_values: The (factor, shift) values used to scale the output weights.
+        """
 
         super().__init__()
 
-        self._ac_decoder = ac_decoder
-        self._duration_predictor = duration_predictor
-        self._length_regulator = length_regulator
-        self._expected_output_length = output_spec_length
+        self._gst_comps = gst_components
+        self._diffusion_handler = diffusion_handler
+        self._factor, self._shift = scaling_values
+        self._guidance_scale = guidance_scale
 
-    def forward(self, inputs: Tuple[torch.Tensor, torch.Tensor]):
-        """Runs the acoustic decoder.
+    def forward(self,
+                phoneme_representations: torch.Tensor,
+                bert_embeddings: torch.Tensor,
+                phoneme_mask: torch.Tensor):
+        """Runs the inference model.
 
         Args:
-            inputs: The input phoneme representations, transcript mask and the style embedding,
-            if supported.
+            phoneme_representations: The acoustic encoder's output.
+            bert_embeddings: The BERT embeddings.
+            phoneme_mask: The mask for the phoneme representations.
         """
 
-        phoneme_representations, transcript_mask = inputs
-        transcript_mask = torch.reshape(transcript_mask, (1, -1, 1))
+        noised_gst = torch.randn(1, self._gst_comps.decoder.gst_size,
+                                 device=phoneme_representations.device)
 
-        log_durations = self._duration_predictor(phoneme_representations)
+        phoneme_embedding = self._gst_comps.encoder(phoneme_representations,
+                                                    phoneme_mask,
+                                                    bert_embeddings)
 
-        phoneme_durations = sanitize_predicted_durations(log_durations,
-                                                         self._expected_output_length)
-        phoneme_durations = phoneme_durations * transcript_mask
+        for diff_step in reversed(range(self._diffusion_handler.num_steps)):
 
-        stretched_phoneme_repr = self._length_regulator(phoneme_representations,
-                                                        phoneme_durations)
+            timestep = torch.tensor([diff_step], device=phoneme_representations.device)
 
-        decoder_mask = create_mask_from_durations(phoneme_durations.reshape(1, -1),
-                                                  self._expected_output_length)
+            predicted_noise = self._gst_comps.decoder(
+                noised_gst,
+                timestep,
+                phoneme_embedding
+            )
+
+            if self._guidance_scale is not None:
+
+                pred_noise_uncond = self._gst_comps.decoder(
+                    noised_gst,
+                    timestep,
+                    None)
+
+                predicted_noise = (self._guidance_scale + 1) * predicted_noise
+                predicted_noise -= self._guidance_scale * pred_noise_uncond
+
+            noised_gst = self._diffusion_handler.remove_noise(noised_gst,
+                                                              predicted_noise,
+                                                              diff_step)
+
+        noised_gst = (noised_gst - self._shift) / self._factor
+
+
+class InferenceAcousticModel(torch.nn.Module):
+    """Runs the whole acoustic pipeline with optional style embedding prediction."""
+
+    def __init__(self,
+                 acoustic_components: acoustic_utils.ModelComponents,
+                 vocoder: torch.nn.Module):
+
+        super().__init__()
+
+        self._ac_comps = acoustic_components
+        self._vocoder = vocoder
+        self._use_style_embedding = acoustic_components.embedder is not None
+
+    def forward(self,
+                input_phonemes: torch.Tensor,
+                phoneme_mask: torch.Tensor,
+                gst_weights: Optional[torch.Tensor] = None):
+        """Runs the inference model.
+
+        Args:
+            input_phonemes: Input one-hot encoded phonemes.
+            gst_weights: The GST weights to create the style embedding, if supported.
+
+        Returns:
+            The generated waveform.
+        """
+
+        phoneme_representations = self._ac_comps.encoder.run_basic_blocks(input_phonemes,
+                                                                          phoneme_mask)
+
+        if self._use_style_embedding:
+            assert gst_weights is not None
+            assert self._ac_comps.embedder is not None
+
+            style_embedding = self._ac_comps.embedder.get_style_embedding_from_weights(gst_weights)
+            phoneme_representations = self._ac_comps.encoder.apply_gst_conditioning(
+                phoneme_representations,
+                style_embedding
+            )
+
+        log_durations = self._ac_comps.duration_predictor(phoneme_representations)
+
+        log_durations = sanitize_predicted_durations(
+            log_durations,
+            self._ac_comps.length_regulator.output_length
+        )
+        log_durations = log_durations * torch.reshape(phoneme_mask, (1, -1, 1))
+
+        stretched_phoneme_repr = self._ac_comps.length_regulator(phoneme_representations,
+                                                                 log_durations)
+
+        decoder_mask = create_mask_from_durations(
+            log_durations.reshape(1, -1),
+            self._ac_comps.length_regulator.output_length
+        )
         decoder_mask = torch.logical_not(decoder_mask)
 
-        mel_spec = self._ac_decoder(stretched_phoneme_repr, decoder_mask)
+        mel_spec = self._ac_comps.decoder(stretched_phoneme_repr, decoder_mask)
 
-        return mel_spec, phoneme_durations
+        durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64)
+        total_dur = durations.sum()
+        mel_spec = mel_spec[:, :, :total_dur]
+
+        return self._vocoder(mel_spec)

@@ -9,158 +9,203 @@ For script's configuration, see `DEFAULT_CONFIG` constant.
 import json
 import logging
 import os
+from typing import Tuple
 
 import torch
+import torch_dev_utils as tdu
 import torchaudio
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
-from torchvision import transforms
 
-from data.preprocessing import text as text_prep
+from models.acoustic import utils as acoustic_utils
+from models.gst_predictor import utils as gst_utils
 from utilities import diffusion as diff_utils
 from utilities import inference
 from utilities import logging_utils
 from utilities import scripts_utils
 
 DEFAULT_CONFIG = {
-    'compiled_model_path': scripts_utils.CfgRequired(),
-    'input_text': scripts_utils.CfgRequired(),
+    # Path to the json configuration of the acoustic model training script.
+    'acoustic_training_cfg': scripts_utils.CfgRequired(),
+    # The ID of the acoustic checkpoint to load
+    'acoustic_ckpt': scripts_utils.CfgRequired(),
+    # Path to a chosen preprocessed sample as expected by the acoustic model trainer.
+    'acoustic_input_sample': scripts_utils.CfgRequired(),
+    # Path to the json configuration of the GST Predictor training script.
+    'gst_pred_training_cfg': scripts_utils.CfgOptional(None),
+    # The ID of the GST Predictoe checkpoint to load
+    'gst_pred_ckpt': scripts_utils.CfgOptional(None),
+    # Path to a chosen preprocessed sample as expected by the GST Predictor trainer.
+    'gst_pred_input_sample': scripts_utils.CfgOptional(None),
+
     'output_path': scripts_utils.CfgRequired()
 }
 
 
-def _obtain_style_embedding(phoneme_representations: torch.Tensor,
-                            gst_predictor_encoder: torch.jit.ScriptModule,
-                            gst_predictor_decoder: torch.jit.ScriptModule,
-                            config,
-                            device: torch.device) -> torch.Tensor:
+def _load_acoustic_model_components(acoustic_config,
+                                    ckpt: str,
+                                    output_spec_shape: Tuple[int, int],
+                                    input_phonemes_shape: Tuple[int, int],
+                                    device: torch.device):
 
-    param_scheduler = diff_utils.LinearScheduler(config['diff_beta_min'],
-                                                 config['diff_beta_max'],
-                                                 config['diff_timesteps'])
+    ckpt_handler = tdu.serialization.ModelCheckpointHandler(
+        acoustic_config['checkpoints_path'],
+        device,
+        missing_modules_strict=False
+    )
 
-    diffusion_handler = diff_utils.DiffusionHandler(param_scheduler, device)
+    model_comps = acoustic_utils.create_model_components(
+        output_spec_shape,
+        input_phonemes_shape,
+        acoustic_config['model'],
+        device
+    )
 
-    with torch.no_grad():
+    acoustic_model_comps, _, _ = ckpt_handler.get_checkpoint(ckpt, model_comps)
 
-        phoneme_embedding = gst_predictor_encoder(phoneme_representations)
-
-        noised_style_embedding = torch.randn(1, config['style_embedding_size'], device=device)
-
-        for diff_timestep in reversed(range(config['diff_timesteps'])):
-
-            predicted_noise = gst_predictor_decoder(
-                noised_style_embedding,
-                torch.tensor([diff_timestep], device=device),
-                phoneme_embedding
-            )
-
-            noised_style_embedding = diffusion_handler.remove_noise(noised_style_embedding,
-                                                                    predicted_noise,
-                                                                    diff_timestep)
-
-    return noised_style_embedding
+    return acoustic_model_comps
 
 
-def main(config):  # pylint: disable=too-many-locals
+def _load_gst_pred_components(gst_pred_config,
+                              ckpt: str,
+                              input_phonemes_shape: Tuple[int, int],
+                              input_gst_size: int,
+                              device: torch.device):
+
+    ckpt_handler = tdu.serialization.ModelCheckpointHandler(
+        gst_pred_config['checkpoints_path'],
+        device,
+        missing_modules_strict=False)
+
+    model_comps = gst_utils.create_model_components(
+        input_phonemes_shape,
+        (input_gst_size,),
+        gst_pred_config['model'],
+        device)
+
+    gst_pred_model_comps, _, _ = ckpt_handler.get_checkpoint(ckpt, model_comps)
+
+    return gst_pred_model_comps
+
+
+def _get_acoustic_inference_model(config, device):
+
+    exp_spec, input_phonemes, _, _, _ = torch.load(config['input_sample'],
+                                                   map_location=device,
+                                                   weights_only=True)
+
+    with open(config['acoustic_training_cfg'], 'r', encoding='utf-8') as cfg_f:
+        acoustic_cfg = json.load(cfg_f)
+
+    logging.info('Loading the acoustic model...')
+
+    acoustic_comps = _load_acoustic_model_components(
+        acoustic_cfg, config['acoustic_skpt'],
+        (exp_spec.shape[0], exp_spec.shape[1]),
+        (input_phonemes.shape[0], input_phonemes.shape[1]),
+        device)
+
+    acoustic_comps.eval()
+
+    logging.info('Loading the vocoder...')
+
+    vocoder = hifigan_bundle.get_vocoder().to(device)
+
+    vocoder.eval()
+
+    logging.info('Composing the inference model...')
+
+    return inference.InferenceAcousticModel(acoustic_comps,
+                                            vocoder).to(device)
+
+
+def _get_gst_predictor_inference_model(config, device):
+
+    logging.info('Loading the GST predictor components...')
+
+    assert config['gst_pred_training_cfg'] is not None
+    assert config['gst_pred_ckpt'] is not None
+    assert config['gst_pred_input_sample'] is not None
+
+    phoneme_repr, _, bert_embeddings, exp_gst = torch.load(config['gst_pred_input_sample'],
+                                                           map_location=device,
+                                                           weights_only=True)
+    bert_embeddings = bert_embeddings.unsqueeze(0).to(device)
+
+    with open(config['gst_pred_training_cfg'], 'r', encoding='utf-8') as cfg_f:
+        gst_predictor_cfg = json.load(cfg_f)
+
+    gst_pred_comps = _load_gst_pred_components(
+        gst_predictor_cfg,
+        config['gst_pred_ckpt'],
+        (phoneme_repr.shape[0], phoneme_repr.shape[1]),
+        exp_gst.shape[0],
+        device)
+
+    gst_pred_comps.eval()
+
+    logging.info('Composing the inference model...')
+
+    diff_handler = diff_utils.DiffusionHandler(
+        diff_utils.LinearScheduler(gst_predictor_cfg['diffusion']['beta_min'],
+                                   gst_predictor_cfg['diffusion']['beta_max'],
+                                   gst_predictor_cfg['diffusion']['n_steps']),
+        device
+    )
+
+    scaling_values = torch.load(
+        os.path.join(
+            gst_predictor_cfg['data']['dataset_path'],
+            'stats',
+            'gst_embedding_stats.pt')
+    )
+
+    return inference.InferenceGSTPredictor(gst_pred_comps,
+                                           diff_handler,
+                                           scaling_values,
+                                           gst_predictor_cfg['diffusion']['guidance_scale']
+                                           ).to(device)
+
+
+def main(config):
     """Loads the model and runs inference."""
-
-    metadata_path = os.path.join(config['compiled_model_path'], 'metadata.json')
-    with open(metadata_path, 'r', encoding='utf-8') as metadata_file:
-        metadata = json.load(metadata_file)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    logging.info('Loading the compiled model...')
+    _, input_phonemes, _, p_mask, _ = torch.load(
+        config['acoustic_input_sample'],
+        map_location=device,
+        weights_only=True
+    )
 
-    acoustic_encoder_path = os.path.join(config['compiled_model_path'], 'acoustic_encoder.pt')
-    acoustic_encoder = torch.jit.load(acoustic_encoder_path).to(device)
+    acoustic_inference_model = _get_acoustic_inference_model(config, device)
 
-    acoustic_decoder_path = os.path.join(config['compiled_model_path'], 'acoustic_decoder.pt')
-    acoustic_decoder = torch.jit.load(acoustic_decoder_path).to(device)
+    if config['gst_pred_training_cfg'] is not None:
+        phoneme_repr, phoneme_mask, bert_embeddings, _ = torch.load(
+            config['gst_pred_input_sample'],
+            map_location=device,
+            weights_only=True
+        )
 
-    acoustic_encoder.eval()
-    acoustic_decoder.eval()
-
-    if metadata['gst_predictor_cfg'] is not None:
-
-        logging.info('Loading the GST predictor components...')
-
-        encoder_path = os.path.join(config['compiled_model_path'], 'gst_predictor_encoder.pt')
-        decoder_path = os.path.join(config['compiled_model_path'], 'gst_predictor_decoder.pt')
-        variance_reg_path = os.path.join(config['compiled_model_path'], 'acoustic_var_reg.pt')
-
-        gst_predictor_encoder = torch.jit.load(encoder_path).to(device)
-        gst_predictor_decoder = torch.jit.load(decoder_path).to(device)
-        variance_reg = torch.jit.load(variance_reg_path).to(device)
-
-        gst_predictor_encoder.eval()
-        gst_predictor_decoder.eval()
-        variance_reg.eval()
-
-        def apply_style_emb(phoneme_representations):
-            embedding = _obtain_style_embedding(
-                phoneme_representations,
-                gst_predictor_encoder,
-                gst_predictor_decoder,
-                metadata['gst_predictor_cfg'],
-                device
-            )
-
-            return variance_reg((phoneme_representations, embedding))
-
+        gst_pred_inference_model = _get_gst_predictor_inference_model(config, device)
+        gst_weights = gst_pred_inference_model(  # pylint:disable=not-callable
+            phoneme_repr.unsqueeze(0).to(device),
+            bert_embeddings.unsqueeze(0).to(device),
+            phoneme_mask.unsqueeze(0).to(device),
+        )
     else:
-        def apply_style_emb(phoneme_representations):
-            return phoneme_representations
-
-    logging.info('Logging HiFi-GAN vocoder...')
-    vocoder = hifigan_bundle.get_vocoder().to(device)
-
-    logging.info('Transforming the input text to phonemes...')
-    all_input_phonemes = text_prep.G2PTransform()(config['input_text'])
-
-    logging.debug('Input phonemes: %s', all_input_phonemes)
-
-    phonemes_transform = transforms.Compose([
-        text_prep.PadSequenceTransform(metadata['input_phonemes_length']),
-        text_prep.OneHotEncodeTransform(text_prep.ENHANCED_MFA_ARP_VOCAB)
-    ])
+        gst_weights = None
 
     logging.info('Running inference...')
 
-    total_output_waveform = None
-
-    for run_idx in range((len(all_input_phonemes) // metadata['input_phonemes_length']) + 1):
-        input_phonemes = all_input_phonemes[
-            run_idx * metadata['input_phonemes_length']:
-            (run_idx + 1) * metadata['input_phonemes_length']
-        ]
-
-        input_phonemes = phonemes_transform(input_phonemes).unsqueeze(0).to(device)
-
-        with torch.no_grad():
-            transcript_mask = inference.create_transcript_mask(input_phonemes)
-            phoneme_representations = acoustic_encoder(input_phonemes)
-
-            phoneme_representations = apply_style_emb(phoneme_representations)
-
-            output_spec, log_durations = acoustic_decoder((phoneme_representations,
-                                                           transcript_mask))
-
-            durations_mask = (log_durations > 0).to(torch.int64)
-            durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
-            total_dur = durations.sum()
-            output_spec = output_spec[:, :, :total_dur]
-
-            waveform = vocoder(output_spec)  # pylint: disable=not-callable
-
-            if total_output_waveform is None:
-                total_output_waveform = waveform[0]
-
-            else:
-                total_output_waveform = torch.cat([total_output_waveform, waveform[0]], dim=1)
+    with torch.no_grad():
+        waveform = acoustic_inference_model(  # pylint:disable=not-callable
+            input_phonemes.unsqueeze(0).to(device),
+            p_mask.unsqueeze(0).to(device),
+            gst_weights
+        )
 
     logging.info("Saving the output waveform to '%s'", config['output_path'])
-    torchaudio.save(config['output_path'], total_output_waveform.cpu(), 22050)
+    torchaudio.save(config['output_path'], waveform.cpu(), 22050)
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ from torch.utils import tensorboard as pt_tensorboard
 from data import visualization
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
+from utilities import inference
 from utilities import metrics
 
 
@@ -49,7 +50,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         Args:
             learning_rate: The learning rate to use in the optimizer.
             diff_params_scheduler: The scheduler for the diffusion parameters.
-            global_ds_stats: The global mean and stddev of the dataset.
+            global_ds_stats: The (factor, shift) used to scale the input samples.
         """
 
         super().__init__(
@@ -72,14 +73,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         self._loss = torch.nn.MSELoss()
         self._guidance_scale = guidance_scale
 
-        self._global_mean, self._global_stddev = global_ds_stats
-
-        # !!!!!
-        self._global_mean = torch.zeros_like(self._global_mean)
-        # self._global_stddev = torch.ones_like(self._global_stddev)
-        self._global_stddev = torch.tensor([0.4838, 0.3305, 0.3202, 0.2450, 0.2565, 0.2523, 0.3045, 0.3186, 0.4009,
-                                            0.3385]).to(self._device)
-        # self._global_stddev = torch.tensor(0.4472).to(self._device)
+        self._scale_factor, self._scale_shift = global_ds_stats
 
     @property
     def model_comps(self) -> m_utils.ModelComponents:
@@ -93,7 +87,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         """Overrides BaseTrainer::_compute_losses."""
 
         phonemes, phoneme_mask, bert_embeddings, gst_targets = input_batch
-        gst_targets = (gst_targets - self._global_mean) / self._global_stddev
+        gst_targets = gst_targets * self._scale_factor + self._scale_shift
         batch_size = phonemes.size(0)
 
         noise = torch.randn_like(gst_targets)
@@ -155,50 +149,25 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         self.model_comps.eval()
 
+        inference_model = inference.InferenceGSTPredictor(self.model_comps,
+                                                          self._diffusion_handler,
+                                                          (self._scale_factor,
+                                                           self._scale_shift),
+                                                          self._guidance_scale)
+
+        batch = next(iter(data_loader))
+        batch = tuple(t.to(self._device) for t in batch)
+
+        phonemes, phoneme_mask, bert_embeddings, gst_targets = batch
+
+        phonemes = phonemes[:1]
+        gst_targets = gst_targets[:1]
+        phoneme_mask = phoneme_mask[:1]
+        bert_embeddings = bert_embeddings[:1]
+
         with torch.no_grad():
 
-            batch = next(iter(data_loader))
-            batch = tuple(t.to(self._device) for t in batch)
-
-            phonemes, phoneme_mask, bert_embeddings, gst_targets = batch
-
-            phonemes = phonemes[:1]
-            gst_targets = gst_targets[:1]
-            phoneme_mask = phoneme_mask[:1]
-            bert_embeddings = bert_embeddings[:1]
-
-            phoneme_embedding = self.model_comps.encoder(phonemes, phoneme_mask, bert_embeddings)
-
-            # noised_gst = 0.13218499677587747 + torch.randn_like(gst_targets)
-
-            noised_gst = self._diffusion_handler.add_noise(
-                (gst_targets - self._global_mean) / self._global_stddev,
-                torch.randn_like(gst_targets),
-                torch.tensor([699], device=self._device))
-
-            for diff_step in reversed(range(self._diffusion_handler.num_steps)):
-
-                timestep = torch.tensor([diff_step], device=self._device)
-
-                predicted_noise = self.model_comps.decoder(
-                    noised_gst,
-                    timestep,
-                    phoneme_embedding)
-
-                if self._guidance_scale is not None:
-
-                    pred_noise_uncond = self.model_comps.decoder(
-                        noised_gst,
-                        timestep,
-                        None)
-
-                    predicted_noise = (self._guidance_scale + 1) * predicted_noise
-                    predicted_noise -= self._guidance_scale * pred_noise_uncond
-
-                noised_gst = self._diffusion_handler.remove_noise(
-                    noised_gst, predicted_noise, diff_step)
-
-        return (
-            gst_targets[0],
-            (noised_gst[0] * self._global_stddev) + self._global_mean
-        )
+            return (
+                gst_targets[0],
+                inference_model(phonemes, phoneme_mask, bert_embeddings)[0]
+            )

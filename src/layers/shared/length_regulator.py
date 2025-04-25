@@ -55,3 +55,8 @@ class LengthRegulator(torch.nn.Module):
 
         alignment_matrix = _create_alignment_matrix(log_durations, self._output_length)
         return torch.matmul(alignment_matrix, encoder_output)
+
+    @property
+    def output_length(self) -> int:
+        """Returns the length the regulator stretches the input to."""
+        return self._output_length

@@ -7,6 +7,7 @@ from typing import Tuple
 import torch
 import torch_dev_utils as tdu
 from torch.utils import tensorboard as pt_tensorboard
+from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
 
 from data import visualization
 from models import utils as shared_m_utils
@@ -37,9 +38,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
                  checkpoints_interval: int,
                  validation_interval: int,
                  d_model: int,
-                 warmup_steps: int,
-                 use_gt_durations_for_visualization: bool,
-                 use_loss_weights: bool):
+                 warmup_steps: int):
         """Initializes the model trainer.
 
         See the arguments of the BaseTrainer constructor.
@@ -72,8 +71,6 @@ class ModelTrainer(tdu.training.BaseTrainer):
             validation_interval=validation_interval,
             optimizer=optimizer)
 
-        self._use_gt_durations_for_visualization = use_gt_durations_for_visualization
-        self._use_loss_weights = use_loss_weights
         self._visualization_interval = validation_interval * 5
 
         self._spec_prediction_loss = torch.nn.MSELoss(reduction='none')
@@ -119,13 +116,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         l_spec_mask, l_spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(spectrogram,
                                                                                     durations,
                                                                                     l_dur_mask)
-        if self._use_loss_weights:
-            spec_weights = other_utils.create_loss_weight_for_spectrogram(spectrogram)
-            spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask * spec_weights)
-
-        else:
-            spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
-
+        spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
         spec_prediction_loss /= l_spec_mask_sum
 
         return {
@@ -182,48 +173,32 @@ class ModelTrainer(tdu.training.BaseTrainer):
                                           ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Performs visualization for the given data loader."""
 
+        self.model_comps.eval()
+
+        vocoder = hifigan_bundle.get_vocoder().to(self._device)
+        inference_model = inf_utils.InferenceAcousticModel(self.model_comps, vocoder)
+
+        batch = next(iter(data_loader))
+        batch = [elem.to(self._device) for elem in batch]
+
+        spectrogram, phonemes, durations, p_mask, s_mask = batch
+        durations = torch.unsqueeze(durations, -1)
+
+        spectrogram = spectrogram[0:1]
+        phonemes = phonemes[0:1]
+        durations = durations[0:1]
+        p_mask = p_mask[0:1]
+        s_mask = s_mask[0:1]
+
         with torch.no_grad():
 
-            batch = next(iter(data_loader))
-
-            batch = [elem.to(self._device) for elem in batch]
-
-            spectrogram, phonemes, durations, p_mask, s_mask = batch
-            durations = torch.unsqueeze(durations, -1)
-
-            spectrogram = spectrogram[0:1]
-            phonemes = phonemes[0:1]
-            durations = durations[0:1]
-            p_mask = p_mask[0:1]
-            s_mask = s_mask[0:1]
-
             if self.model_comps.embedder:
-                style_embedding = self.model_comps.embedder(spectrogram)
+                gst_weights = self.model_comps.embedder.obtain_gst_weights(spectrogram)
 
             else:
-                style_embedding = None
+                gst_weights = None
 
-            phoneme_representations = self.model_comps.encoder(phonemes, style_embedding, p_mask)
-
-            durations_mask = inf_utils.create_transcript_mask(phonemes).to(self._device)
-            durations_mask = torch.reshape(durations_mask, (1, -1, 1))
-
-            if not self._use_gt_durations_for_visualization:
-                phoneme_durations = self.model_comps.duration_predictor(phoneme_representations)
-                phoneme_durations = inf_utils.sanitize_predicted_durations(phoneme_durations,
-                                                                           spectrogram.shape[2])
-                phoneme_durations = phoneme_durations * durations_mask
-
-            else:
-                phoneme_durations = durations
-
-            stretched_phoneme_representations = self.model_comps.length_regulator(
-                phoneme_representations, phoneme_durations)
-
-            decoder_output = self.model_comps.decoder(
-                stretched_phoneme_representations, s_mask)
-
-            decoder_output *= inf_utils.create_mask_from_durations(phoneme_durations,
-                                                                   spectrogram.shape[2])
-
-            return spectrogram, decoder_output
+            return (
+                vocoder(spectrogram)[0],  # pylint: disable=not-callable
+                inference_model(phonemes, p_mask, gst_weights)[0]
+            )

@@ -3,11 +3,13 @@
 import logging
 from typing import Dict
 from typing import Tuple
+from typing import List
 
 import torch
 import torch_dev_utils as tdu
 from torch.utils import tensorboard as pt_tensorboard
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
+import numpy as np
 
 from data import visualization
 from models import utils as shared_m_utils
@@ -72,6 +74,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
             optimizer=optimizer)
 
         self._visualization_interval = validation_interval * 5
+        self._metrics_interval = validation_interval * 20
 
         self._spec_prediction_loss = torch.nn.MSELoss(reduction='none')
         self._duration_loss = torch.nn.MSELoss(reduction='none')
@@ -132,8 +135,16 @@ class ModelTrainer(tdu.training.BaseTrainer):
     def _on_step_end(self, step_idx):
 
         if (step_idx + 1) % self._visualization_interval == 0:
+
             logging.info('Visualizing model output after %d steps.', step_idx + 1)
+
             self._perform_visualization(step_idx)
+
+        if (step_idx + 1) % self._metrics_interval == 0:
+
+            logging.info('Calculating metrics after %d steps.', step_idx + 1)
+
+            self._calculate_and_plot_metrics(step_idx)
 
     def _on_step_start(self, step_idx: int):
         pass
@@ -145,44 +156,87 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         for label, data_loader in [('validation', self._val_data_loader),
                                    ('training', self._train_data_loader)]:
-            
-            gt_output, pred_output = self._perform_visualization_for_loader(data_loader)
+
+            n_visualized_files = min(5, data_loader.batch_size)
+
+            gt_output, pred_output = self._run_inference_for_loader(data_loader,
+                                                                    n_visualized_files)
 
             gt_wav, gt_dur, gt_spec = gt_output
             pred_wav, pred_dur, pred_spec = pred_output
 
-            self._tb_logger.add_image(
-                f'{label}/spectrogram/original',
-                visualization.colorize_spectrogram(gt_spec, 'viridis'),
-                step_idx)
+            for i in range(n_visualized_files):
 
-            self._tb_logger.add_image(
-                f'{label}/spectrogram/predicted',
-                visualization.colorize_spectrogram(pred_spec, 'viridis'),
-                step_idx)
+                self._tb_logger.add_image(
+                    f'{label}/spectrogram/{i}/original',
+                    visualization.colorize_spectrogram(gt_spec[i], 'viridis'),
+                    step_idx)
 
-            self._tb_logger.add_audio(
-                f'{label}/waveform/original',
-                gt_wav.cpu(),
-                step_idx,
-                22050)
+                self._tb_logger.add_image(
+                    f'{label}/spectrogram/{i}/predicted',
+                    visualization.colorize_spectrogram(pred_spec[i], 'viridis'),
+                    step_idx)
 
-            self._tb_logger.add_audio(
-                f'{label}/waveform/predicted',
-                pred_wav.cpu(),
-                step_idx,
-                22050)
+                self._tb_logger.add_audio(
+                    f'{label}/waveform/{i}/original',
+                    gt_wav[i].cpu(),
+                    step_idx,
+                    22050)
 
-            self._tb_logger.add_figure(
-                f'{label}/durations',
-                visualization.plot_pred_and_gt_durations(gt_dur, pred_dur),
-                step_idx)
+                self._tb_logger.add_audio(
+                    f'{label}/waveform/{i}/predicted',
+                    pred_wav[i].cpu(),
+                    step_idx,
+                    22050)
 
+                self._tb_logger.add_figure(
+                    f'{label}/durations/{i}',
+                    visualization.plot_pred_and_gt_durations(gt_dur[i], pred_dur[i]),
+                    step_idx)
 
-    def _perform_visualization_for_loader(self,
-                                          data_loader: torch.utils.data.DataLoader
-                                          ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Performs visualization for the given data loader."""
+    def _calculate_and_plot_metrics(self, step_idx: int):
+        """Runs inference, calculates metrics and plots them."""
+
+        self.model_comps.eval()
+
+        for label, data_loader in [('validation', self._val_data_loader),
+                                   ('training', self._train_data_loader)]:
+
+            n_chosen_files = min(50, data_loader.batch_size)
+
+            gt_output, pred_output = self._run_inference_for_loader(data_loader,
+                                                                    n_chosen_files)
+
+            gt_wav, _, _ = gt_output
+            pred_wav, _, _ = pred_output
+
+            f0_rmse_sum = np.float32(0.0)
+            f0_corr_sum = np.float32(0.0)
+
+            for i in range(n_chosen_files):
+
+                gt_wav_i = gt_wav[i].cpu().numpy()
+                pred_wav_i = pred_wav[i].cpu().numpy()
+
+                f0_corr, f0_rmse = metrics.f0_pearson_corr_and_rmse(gt_wav_i,
+                                                                    pred_wav_i)
+
+                f0_rmse_sum += f0_rmse
+                f0_corr_sum += f0_corr
+
+            self._tb_logger.add_scalars('f0_rmse',
+                                        {label: f0_rmse_sum / n_chosen_files},
+                                        step_idx)
+
+            self._tb_logger.add_scalars('f0_corr',
+                                        {label: f0_corr_sum / n_chosen_files},
+                                        step_idx)
+
+    def _run_inference_for_loader(self,
+                                  data_loader: torch.utils.data.DataLoader,
+                                  n_runs: int) -> Tuple[Tuple[List[torch.Tensor], ...],
+                                                        Tuple[List[torch.Tensor], ...]]:
+        """Runs inference on `n_runs` chosen files and returns the results."""
 
         self.model_comps.eval()
 
@@ -195,26 +249,39 @@ class ModelTrainer(tdu.training.BaseTrainer):
         spectrogram, phonemes, durations, p_mask, s_mask = batch
         durations = torch.unsqueeze(durations, -1)
 
-        spectrogram = spectrogram[0:1]
-        phonemes = phonemes[0:1]
-        durations = durations[0:1]
-        p_mask = p_mask[0:1]
-        s_mask = s_mask[0:1]
+        gt_results = ([], [], [])
+        pred_results = ([], [], [])
 
-        with torch.no_grad():
+        for i in range(n_runs):
 
-            if self.model_comps.embedder:
-                gst_weights = self.model_comps.embedder.obtain_gst_weights(spectrogram)
+            i_spectrogram = spectrogram[i:i+1]
+            i_phonemes = phonemes[i:i+1]
+            i_durations = durations[i:i+1]
+            i_p_mask = p_mask[i:i+1]
+            i_s_mask = s_mask[i:i+1]
 
-            else:
-                gst_weights = None
+            with torch.no_grad():
 
-            pred_wave, pred_dur, pred_spec = inference_model(phonemes,
-                                                             p_mask,
-                                                             gst_weights,
-                                                             return_intermediate_results=True)
+                if self.model_comps.embedder:
+                    gst_weights = self.model_comps.embedder.obtain_gst_weights(i_spectrogram,
+                                                                               i_s_mask)
 
-            return (
-                (vocoder(spectrogram)[0], durations[0], spectrogram[0]),
-                (pred_wave[0], pred_dur[0], pred_spec[0])
-            )
+                else:
+                    gst_weights = None
+
+                pred_wave, pred_dur, pred_spec = inference_model(i_phonemes,
+                                                                 i_p_mask,
+                                                                 gst_weights,
+                                                                 return_intermediate_results=True)
+
+                gt_wave = vocoder(i_spectrogram)  # pylint: disable=not-callable
+
+                gt_results[0].append(gt_wave[0])
+                gt_results[1].append(i_durations[0])
+                gt_results[2].append(i_spectrogram[0])
+
+                pred_results[0].append(pred_wave[0])
+                pred_results[1].append(pred_dur[0])
+                pred_results[2].append(pred_spec[0])
+
+        return gt_results, pred_results

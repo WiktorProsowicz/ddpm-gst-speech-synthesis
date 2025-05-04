@@ -122,7 +122,7 @@ def create_mask_from_durations(log_durations: torch.Tensor,
     """Creates a mask for the stretched phoneme representations based on the predicted durations."""
 
     durations_mask = (log_durations > 0).to(torch.int64)
-    durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
+    durations = (torch.pow(2.0, log_durations)).to(torch.int64) * durations_mask
     cum_length = torch.sum(durations, dim=1).to(torch.int64)
     mask = torch.zeros((durations.shape[0], expected_output_length), dtype=torch.bool)
 
@@ -216,7 +216,7 @@ class InferenceGSTPredictor(torch.nn.Module):
                                                               predicted_noise,
                                                               diff_step)
 
-        noised_gst = (noised_gst - self._shift) / self._factor
+        return (noised_gst - self._shift) / self._factor
 
 
 class InferenceAcousticModel(torch.nn.Module):
@@ -268,7 +268,8 @@ class InferenceAcousticModel(torch.nn.Module):
             log_durations,
             self._ac_comps.length_regulator.output_length
         )
-        log_durations = log_durations * torch.reshape(phoneme_mask, (1, -1, 1))
+        durations_mask = torch.logical_not(phoneme_mask)
+        log_durations = log_durations * torch.reshape(durations_mask, (1, -1, 1))
 
         stretched_phoneme_repr = self._ac_comps.length_regulator(phoneme_representations,
                                                                  log_durations)
@@ -277,12 +278,11 @@ class InferenceAcousticModel(torch.nn.Module):
             log_durations.reshape(1, -1),
             self._ac_comps.length_regulator.output_length
         )
-        decoder_mask = torch.logical_not(decoder_mask)
 
-        mel_spec = self._ac_comps.decoder(stretched_phoneme_repr, decoder_mask)
+        total_dur = torch.sum(decoder_mask).to(torch.int64)
+        mel_spec = self._ac_comps.decoder(stretched_phoneme_repr,
+                                          torch.logical_not(decoder_mask))
 
-        durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64)
-        total_dur = durations.sum()
         mel_spec = mel_spec[:, :, :total_dur]
 
         if not return_intermediate_results:

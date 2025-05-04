@@ -48,7 +48,7 @@ def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
         A tuple containing the mask and the sum of the mask elements to compute the mean loss.
     """
 
-    pow_durations = (torch.pow(2.0, durations) + 1e-4).to(torch.int32)
+    pow_durations = (torch.pow(2.0, durations)).to(torch.int32)
     pow_durations = pow_durations * durations_mask
 
     max_lengths = torch.sum(pow_durations, dim=1).to(torch.int32)

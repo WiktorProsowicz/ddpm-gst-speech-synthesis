@@ -8,6 +8,7 @@ import os
 import pytorch_pretrained_bert as bert_lib
 import torch
 from torchvision import transforms
+import torch_dev_utils as tdu
 
 from data.preprocessing import text as text_prep
 from models.acoustic import utils as acoustic_utils
@@ -20,22 +21,33 @@ DEFAULT_CONFIG = {
     'processed_ds_path': scripts_utils.CfgRequired(),
     'ljspeech_metadata_path': scripts_utils.CfgRequired(),
     'output_path': scripts_utils.CfgRequired(),
+    # PAth to the json config used to train the acoustic model.
+    'acoustic_model_training_cfg': scripts_utils.CfgRequired(),
+    # E.g. 'ckpt_10'
     'acoustic_model_checkpoint': scripts_utils.CfgRequired(),
-    'acoustic_model_cfg': scripts_utils.CfgRequired(),
 }
 
 
 def _get_acoustic_components(config, ds_metadata, device: torch.device):
 
+    with open(config['acoustic_model_training_cfg'], 'r', encoding='utf-8') as cfg_f:
+        acoustic_cfg = json.load(cfg_f)
+
     acoustic_model_comps = acoustic_utils.create_model_components(
         (80, ds_metadata['output_spectrogram_length']),
         (ds_metadata['phonemes_sequence_length'],
          len(text_prep.ENHANCED_MFA_ARP_VOCAB)),
-        config['acoustic_model_cfg'],
+        acoustic_cfg['model'],
         device)
 
-    acoustic_model_comps.load_from_path(
-        config['acoustic_model_checkpoint'], device)
+    ckpt_handler = tdu.serialization.ModelCheckpointHandler(
+        acoustic_cfg['training']['checkpoints_path'],
+        device,
+        False)
+
+    ckpt_handler, _, _ = ckpt_handler.get_checkpoint(
+        config['acoustic_model_checkpoint'],
+        acoustic_model_comps)
 
     assert acoustic_model_comps.embedder is not None
 
@@ -63,31 +75,25 @@ def _save_ds_stats(config):
                           os.listdir(config['processed_ds_path']))
     sample_names = list(sample_names)
 
-    gst_weights_mean = torch.zeros(config['acoustic_model_cfg']['gst']['n_tokens'])
-    gst_weights_std = torch.zeros(config['acoustic_model_cfg']['gst']['n_tokens'])
+    with open(config['acoustic_model_training_cfg'], 'r', encoding='utf-8') as cfg_f:
+        acoustic_cfg = json.load(cfg_f)
+
+    gst_weights_factor = torch.zeros(acoustic_cfg['model']['gst']['n_tokens'])
 
     for sample_name in sample_names:
         sample_path = os.path.join(config['output_path'], sample_name)
         _, _, _, weights = torch.load(sample_path, weights_only=True)
 
-        gst_weights_mean += weights
+        gst_weights_factor = torch.maximum(gst_weights_factor, weights)
 
-    gst_weights_mean /= len(sample_names)
-
-    for sample_name in sample_names:
-        sample_path = os.path.join(config['output_path'], sample_name)
-        _, _, _, weights = torch.load(sample_path, weights_only=True)
-
-        gst_weights_std += (weights - gst_weights_mean) ** 2
-
-    gst_weights_std /= len(sample_names)
-    gst_weights_std = torch.sqrt(gst_weights_std)
+    gst_weights_shift = torch.full_like(gst_weights_factor, 0.0)
+    gst_weights_factor = 1. / (gst_weights_factor + 1e-9)
 
     os.makedirs(os.path.join(config['output_path'], 'stats'), exist_ok=True)
     stats_path = os.path.join(
         config['output_path'], 'stats', 'gst_embedding_stats.pt')
 
-    torch.save((gst_weights_mean, gst_weights_std), stats_path)
+    torch.save((gst_weights_factor, gst_weights_shift), stats_path)
 
 
 def main(config):
@@ -126,7 +132,7 @@ def main(config):
     for sample_idx, sample_name in enumerate(sample_names):
         data_sample_path = os.path.join(
             config['processed_ds_path'], sample_name)
-        spectrogram, _, _, _, _, = torch.load(
+        spectrogram, _, _, _, s_mask, = torch.load(
             data_sample_path, weights_only=True)
 
         sample_key = sample_name.split('.')[0]
@@ -152,11 +158,13 @@ def main(config):
         spectrogram = torch.unsqueeze(spectrogram, dim=0).to(device)
         phonemes = torch.unsqueeze(phonemes, dim=0).to(device)
         phonemes_mask = torch.unsqueeze(phonemes_mask, dim=0).to(device)
+        s_mask = torch.unsqueeze(s_mask, dim=0).to(device)
 
         with torch.no_grad():
             enhanced_phonemes = acoustic_model_comps.encoder.run_basic_blocks(
                 phonemes, phonemes_mask)
-            gst_weights = acoustic_model_comps.embedder.obtain_gst_weights(spectrogram)
+            gst_weights = acoustic_model_comps.embedder.obtain_gst_weights(spectrogram,
+                                                                           s_mask)
 
         enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
         gst_weights = gst_weights.squeeze(dim=0).to('cpu')

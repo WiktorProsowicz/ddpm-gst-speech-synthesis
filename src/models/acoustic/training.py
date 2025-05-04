@@ -92,7 +92,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         durations = torch.unsqueeze(durations, -1)
 
         if self.model_comps.embedder:
-            style_embedding = self.model_comps.embedder(spectrogram)
+            style_embedding = self.model_comps.embedder(spectrogram, s_mask)
 
         else:
             style_embedding = None

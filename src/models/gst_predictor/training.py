@@ -31,16 +31,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
     """
 
     def __init__(self,
-                 model_components: m_utils.ModelComponents,
-                 train_data_loader: torch.utils.data.DataLoader,
-                 val_data_loader: torch.utils.data.DataLoader,
-                 global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
-                 tb_logger: pt_tensorboard.SummaryWriter,
-                 device: torch.device,
-                 checkpoints_handler: tdu.serialization.ModelCheckpointHandler,
-                 checkpoints_interval: int,
-                 validation_interval: int,
-                 learning_rate: float,
+                 params: tdu.training.BaseTrainerParams,
                  diff_params_scheduler: diff_utils.ParametrizationScheduler,
                  global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
                  guidance_scale: Optional[float]):
@@ -54,19 +45,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
             global_ds_stats: The (factor, shift) used to scale the input samples.
         """
 
-        super().__init__(
-            model_comps=model_components,
-            train_data_loader=train_data_loader,
-            val_data_loader=val_data_loader,
-            tb_logger=tb_logger,
-            device=device,
-            checkpoints_handler=checkpoints_handler,
-            checkpoints_interval=checkpoints_interval,
-            validation_interval=validation_interval,
-            optimizer=torch.optim.Adam(model_components.parameters(),
-                                       lr=learning_rate,
-                                       weight_decay=0.01),
-        )
+        super().__init__(params)
 
         self._diffusion_handler = diff_utils.DiffusionHandler(diff_params_scheduler,
                                                               self._device)
@@ -135,7 +114,6 @@ class ModelTrainer(tdu.training.BaseTrainer):
     def _on_step_end(self, step_idx):
 
         if (step_idx + 1) % self._backward_diff_interval == 0:
-            # if step_idx == 200    00:
             logging.debug('Running full backward diffusion.')
             self._run_backward_diff(step_idx)
 

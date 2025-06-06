@@ -2,6 +2,7 @@
 """Contains shared utils for the models."""
 from typing import Any
 from typing import Dict
+from typing import List
 
 import torch
 import torch_dev_utils as tdu
@@ -18,7 +19,8 @@ class TransformerScheduledOptim(tdu.misc.IOptimizerWrapper):
     def __init__(self,
                  optimizer: torch.optim.Optimizer,
                  d_model: int,
-                 warmup_steps: int):
+                 warmup_steps: int,
+                 tracked_param_groups: List[str]):
         """Initializes the TransformerScheduledOptim.
 
         Args:
@@ -31,15 +33,20 @@ class TransformerScheduledOptim(tdu.misc.IOptimizerWrapper):
         self._d_model = d_model
         self._warmup_steps = warmup_steps
         self._step_num = 0
+        self._tracked_param_groups = tracked_param_groups
 
     def step(self):
         """Performs a single optimization step."""
 
         self._step_num += 1
-        lr = (self._d_model ** -0.5) * min(self._step_num ** -
-                                           0.5, self._step_num * (self._warmup_steps ** -1.5))
+        lr = (self._d_model ** -0.5) * min(self._step_num ** -0.5,
+                                           self._step_num * (self._warmup_steps ** -1.5))
 
         for param_group in self._optimizer.param_groups:
+
+            if param_group['name'] not in self._tracked_param_groups:
+                continue
+
             param_group['lr'] = lr
 
         self._optimizer.step()

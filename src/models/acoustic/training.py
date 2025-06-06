@@ -30,51 +30,14 @@ class ModelTrainer(tdu.training.BaseTrainer):
     - logs statistics for profiling purposes
     """
 
-    def __init__(self,
-                 model_components: model_utils.ModelComponents,
-                 train_data_loader: torch.utils.data.DataLoader,
-                 val_data_loader: torch.utils.data.DataLoader,
-                 tb_logger: pt_tensorboard.SummaryWriter,
-                 device: torch.device,
-                 checkpoints_handler: tdu.serialization.ModelCheckpointHandler,
-                 checkpoints_interval: int,
-                 validation_interval: int,
-                 d_model: int,
-                 warmup_steps: int):
+    def __init__(self, params: tdu.training.BaseTrainerParams):
         """Initializes the model trainer.
-
-        See the arguments of the BaseTrainer constructor.
-
-        Args:
-            d_model: Dimensionality of the transformer architecture. It is the size of the
-                embedding every input sequence's element is projected to.
-            warmup_steps: The number of warmup steps for the learning rate scheduler.
-            use_gt_durations_for_visualization: Tells whether to use ground truth durations
-                instead of the predicted ones while performing visualization.
-            use_loss_weights: Tells whether to use loss weights for the loss computation.
         """
 
-        base_optimizer = torch.optim.Adam(model_components.parameters(),
-                                          lr=2e-4,
-                                          betas=(0.9, 0.98),
-                                          weight_decay=2e-6)
-        optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
-                                                             d_model,
-                                                             warmup_steps)
+        super().__init__(params)
 
-        super().__init__(
-            model_comps=model_components,
-            train_data_loader=train_data_loader,
-            val_data_loader=val_data_loader,
-            tb_logger=tb_logger,
-            device=device,
-            checkpoints_handler=checkpoints_handler,
-            checkpoints_interval=checkpoints_interval,
-            validation_interval=validation_interval,
-            optimizer=optimizer)
-
-        self._visualization_interval = validation_interval * 5
-        self._metrics_interval = validation_interval * 20
+        self._visualization_interval = params.validation_interval * 5
+        self._metrics_interval = params.validation_interval * 20
 
         self._spec_prediction_loss = torch.nn.MSELoss(reduction='none')
         self._duration_loss = torch.nn.MSELoss(reduction='none')
@@ -265,6 +228,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
                 if self.model_comps.embedder:
                     gst_weights = self.model_comps.embedder.obtain_gst_weights(i_spectrogram,
                                                                                i_s_mask)
+                    gst_embedding = self.model_comps.embedder(i_spectrogram, i_s_mask)
 
                 else:
                     gst_weights = None
@@ -272,6 +236,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
                 pred_wave, pred_dur, pred_spec = inference_model(i_phonemes,
                                                                  i_p_mask,
                                                                  gst_weights,
+                                                                 gst_embedding,
                                                                  return_intermediate_results=True)
 
                 gt_wave = vocoder(i_spectrogram)  # pylint: disable=not-callable

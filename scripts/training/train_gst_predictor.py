@@ -25,6 +25,7 @@ from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
+from models import utils as shared_m_utils
 
 
 DEFAULT_CONFIG = {
@@ -103,26 +104,47 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
         device
     )
 
-    global_ds_stats = (global_ds_stats[0].to(device), global_ds_stats[1].to(device))
+    global_ds_stats = tuple(stat.to(device) for stat in global_ds_stats)
 
-    return training.ModelTrainer(
-        model_components,
-        train_loader,
-        val_loader,
-        global_ds_stats,
-        tb_writer,
-        device,
-        checkpoints_handler,
-        config['training']['checkpoint_interval'],
-        config['training']['validation_interval'],
-        config['training']['lr'],
-        diff_utils.LinearScheduler(
-            config['training']['diffusion']['beta_min'],
-            config['training']['diffusion']['beta_max'],
-            config['training']['diffusion']['n_steps']
-        ),
-        config['training']['diffusion']['guidance_scale']
+    optimizer = torch.optim.Adam([{'name': 'weight_pred_params',
+                                  'params': model_components.weights_pred_params(),
+                                 'lr': config['training']['lr'],
+                                   'betas': (0.9, 0.98),
+                                   'weight_decay': 2e-6},
+                                  {'name': 'emb_pred_params',
+                                   'params': model_components.diffusion_params(),
+                                   'lr': config['training']['lr'],
+                                   'betas': (0.9, 0.98),
+                                   'weight_decay': 2e-6}])
+
+    optimizer = shared_m_utils.TransformerScheduledOptim(
+        optimizer,
+        config['model']['deterministic_pred']['internal_dim'],
+        config['training']['warmup_steps'],
+        ['weight_pred_params'])
+
+    params = tdu.training.BaseTrainerParams(
+        model_comps=model_components,
+        optimizer=optimizer,
+        checkpoints_handler=checkpoints_handler,
+        train_data_loader=train_loader,
+        val_data_loader=val_loader,
+        tb_logger=tb_writer,
+        device=device,
+        validation_interval=config['training']['validation_interval'],
+        checkpoints_interval=config['training']['checkpoint_interval'],
+        log_interval=100
     )
+
+    return training.ModelTrainer(params,
+                                 diff_utils.LinearScheduler(
+                                     config['training']['diffusion']['beta_min'],
+                                     config['training']['diffusion']['beta_max'],
+                                     config['training']['diffusion']['n_steps']
+                                 ),
+                                 global_ds_stats,
+                                 config['training']['diffusion']['guidance_scale']
+                                 )
 
 
 def main(config):

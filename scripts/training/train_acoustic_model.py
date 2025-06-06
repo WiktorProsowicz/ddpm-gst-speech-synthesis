@@ -23,6 +23,7 @@ from torch.utils import tensorboard as torch_tb
 from data import visualization
 from models.acoustic import training
 from models.acoustic import utils as m_utils
+from models import utils as shared_m_utils
 from utilities import logging_utils
 from utilities import scripts_utils
 
@@ -52,6 +53,7 @@ DEFAULT_CONFIG = {
         'd_model': 384,
         'fft_conv_channels': 1536,
         'use_reference_encoder': True,
+        'isolate_gst_att': False,
         'encoder': {
             'n_blocks': 6
         },
@@ -87,23 +89,36 @@ def _get_model_trainer(
 
     checkpoints_handler = tdu.serialization.ModelCheckpointHandler(
         config['training']['checkpoints_path'],
-        'acoustic_model',
-        device)
+        device,
+        False)
 
     model_components = m_utils.create_model_components(
         input_spectrogram_shape, input_phonemes_shape, config['model'], device)
 
-    return training.ModelTrainer(
-        model_components,
-        train_loader,
-        val_loader,
-        tb_writer,
-        device,
-        checkpoints_handler,
-        config['training']['checkpoint_interval'],
-        config['training']['validation_interval'],
-        config['model']['d_model'],
-        config['training']['warmup_steps'])
+    base_optimizer = torch.optim.Adam([{'name': 'base_params',
+                                       'params': model_components.parameters(),
+                                        'lr': config['training']['lr'],
+                                        'betas': (0.9, 0.98),
+                                        'weight_decay': 2e-6}])
+
+    optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                         config['model']['d_model'],
+                                                         config['training']['warmup_steps'],
+                                                         ['base_params'])
+
+    params = tdu.training.BaseTrainerParams(
+        model_comps=model_components,
+        optimizer=optimizer,
+        checkpoints_handler=checkpoints_handler,
+        train_data_loader=train_loader,
+        val_data_loader=val_loader,
+        tb_logger=tb_writer,
+        device=device,
+        validation_interval=config['training']['validation_interval'],
+        checkpoints_interval=config['training']['checkpoint_interval'],
+        log_interval=100)
+
+    return training.ModelTrainer(params)
 
 
 def main(config):

@@ -96,6 +96,9 @@ class DiffusionHandler:
         mean_t_1 = noised_data - ((self._betas[t] * noise) / self._sqrt_one_minus_alpha_cumprod[t])
         mean_t_1 = mean_t_1 / torch.sqrt(self._alphas[t])
 
+        if t == 0:
+            return mean_t_1
+
         variance_t_1 = (1. - self._alpha_cumprod[t - 1]) / (1. - self._alpha_cumprod[t])
         stddev_t_1 = torch.sqrt(variance_t_1 * self._betas[t])
 

@@ -78,22 +78,31 @@ def _save_ds_stats(config):
     with open(config['acoustic_model_training_cfg'], 'r', encoding='utf-8') as cfg_f:
         acoustic_cfg = json.load(cfg_f)
 
-    gst_weights_factor = torch.zeros(acoustic_cfg['model']['gst']['n_tokens'])
+    emb_maximum = torch.zeros(acoustic_cfg['model']['d_model'])
+    emb_minimum = torch.zeros(acoustic_cfg['model']['d_model'])
+    w_maximum = torch.zeros(acoustic_cfg['model']['gst']['n_tokens'])
+    w_minimum = torch.zeros(acoustic_cfg['model']['gst']['n_tokens'])
 
     for sample_name in sample_names:
         sample_path = os.path.join(config['output_path'], sample_name)
-        _, _, _, weights = torch.load(sample_path, weights_only=True)
+        _, _, _, embedding, weights = torch.load(sample_path, weights_only=True)
 
-        gst_weights_factor = torch.maximum(gst_weights_factor, weights)
+        emb_maximum = torch.maximum(emb_maximum, embedding)
+        emb_minimum = torch.minimum(emb_minimum, embedding)
+        w_maximum = torch.maximum(w_maximum, weights)
+        w_minimum = torch.minimum(w_minimum, weights)
 
-    gst_weights_shift = torch.full_like(gst_weights_factor, 0.0)
-    gst_weights_factor = 1. / (gst_weights_factor + 1e-9)
+    emb_scale_shift = -emb_minimum
+    emb_scale_factor = 1.0 / (emb_maximum - emb_minimum)
+    w_scale_shift = -w_minimum
+    w_scale_factor = 1.0 / (w_maximum - w_minimum)
 
     os.makedirs(os.path.join(config['output_path'], 'stats'), exist_ok=True)
     stats_path = os.path.join(
         config['output_path'], 'stats', 'gst_embedding_stats.pt')
 
-    torch.save((gst_weights_factor, gst_weights_shift), stats_path)
+    torch.save((emb_scale_factor, emb_scale_shift,
+                w_scale_factor, w_scale_shift), stats_path)
 
 
 def main(config):
@@ -165,14 +174,16 @@ def main(config):
                 phonemes, phonemes_mask)
             gst_weights = acoustic_model_comps.embedder.obtain_gst_weights(spectrogram,
                                                                            s_mask)
+            gst_embedding = acoustic_model_comps.embedder(spectrogram, s_mask)
 
         enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
         gst_weights = gst_weights.squeeze(dim=0).to('cpu')
         phonemes_mask = phonemes_mask.squeeze(dim=0).to('cpu')
+        gst_embedding = gst_embedding.squeeze(dim=0).to('cpu')
 
         output_path = os.path.join(config['output_path'], sample_name)
         torch.save((enhanced_phonemes, phonemes_mask,
-                   bert_embeddings, gst_weights), output_path)
+                   bert_embeddings, gst_embedding, gst_weights), output_path)
 
         if (sample_idx + 1) % 1000 == 0:
             logging.debug('Processed %d samples.', sample_idx + 1)

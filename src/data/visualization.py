@@ -90,12 +90,13 @@ def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
             pred_gst,
             label='Predicted',
             alpha=0.5)
-    ax.set_title(f'Ground Truth and Predicted GST Weights. MAE = {mae:.2f}')
+    ax.set_title(f'Ground Truth and Predicted GST. MAE = {mae:.2f}')
     ax.set_xlabel('Token index')
     ax.set_ylabel('Weight')
     ax.legend()
 
     return fig
+
 
 def plot_pred_and_gt_durations(original_durations: torch.Tensor,
                                pred_durations: torch.Tensor) -> matplotlib.figure.Figure:
@@ -116,7 +117,7 @@ def plot_pred_and_gt_durations(original_durations: torch.Tensor,
             pred_durations,
             label='Predicted',
             alpha=0.8)
-    
+
     ax.set_title(f'Ground Truth and Predicted durations. MAE = {mae:.2f}')
     ax.set_xlabel('Phoneme index')
     ax.set_ylabel('Duration')

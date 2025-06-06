@@ -57,13 +57,20 @@ DEFAULT_CONFIG = {
             'timestep_embedding_size': 128,
             'internal_channels': 128,
             'n_blocks': 10,
+            'dropout_rate': 0.0
         },
         'encoder': {
             'n_blocks': 6,
             'n_heads': 4,
             'conv_filters': 1536,
+            'dropout_rate': 0.1
         },
-        'dropout_rate': 0.1
+        'deterministic_pred': {
+            'n_blocks': 1,
+            'fft_conv_channels': 1536,
+            'internal_dim': 384,
+            'dropout_rate': 0.1
+        }
     },
     # The name of the script run. Shall be used for the TensorBoard logging
     'run_label': None,
@@ -72,7 +79,8 @@ DEFAULT_CONFIG = {
 
 
 def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
-                       input_gst_shape: Tuple[int],
+                       gst_emb_size: int,
+                       gst_weights_size: int,
                        config: Dict[str, Any],
                        train_loader: torch_data.DataLoader,
                        val_loader: torch_data.DataLoader,
@@ -84,13 +92,13 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
 
     checkpoints_handler = tdu.serialization.ModelCheckpointHandler(
         config['training']['checkpoints_path'],
-        'gst_predictor_ckpt',
-        device
-    )
+        device,
+        False)
 
     model_components = m_utils.create_model_components(
         input_phonemes_shape,
-        input_gst_shape,
+        gst_emb_size,
+        gst_weights_size,
         config['model'],
         device
     )
@@ -156,11 +164,13 @@ def main(config):
     logging.info('Data loaders created.')
 
     input_phonemes_shape = train_ds[0][0].shape
-    input_gst_shape = train_ds[0][3].shape
+    input_gst_emb_size = train_ds[0][3].shape[0]
+    input_gst_weights_size = train_ds[0][4].shape[0]
 
     model_trainer = _get_model_trainer(
         input_phonemes_shape,
-        input_gst_shape,
+        input_gst_emb_size,
+        input_gst_weights_size,
         config,
         train_loader,
         val_loader,

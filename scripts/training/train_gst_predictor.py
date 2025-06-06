@@ -39,6 +39,7 @@ DEFAULT_CONFIG = {
     'training': {
         'batch_size': 64,
         'lr': 2e-4,
+        'warmup_steps': 4000,
         'validation_interval': 100,
         'steps': 1000,
         'start_step': 0,

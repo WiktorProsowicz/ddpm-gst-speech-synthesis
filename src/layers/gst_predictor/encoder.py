@@ -34,13 +34,11 @@ class Encoder(torch.nn.Module):
              for _ in range(n_blocks)]
         )
 
-        self._attention_query = torch.nn.Parameter(torch.rand(gst_size, input_dim),
-                                                   requires_grad=True)
-
-        self._attention = torch.nn.MultiheadAttention(input_dim,
-                                                      4,
-                                                      dropout=dropout_rate,
-                                                      batch_first=True)
+        self._post_encoder = torch.nn.Sequential(
+            torch.nn.Linear(input_dim, gst_size),
+            torch.nn.SiLU(),
+            torch.nn.Dropout(dropout_rate)
+        )
 
     def forward(self,
                 phoneme_representations: torch.Tensor,
@@ -57,14 +55,9 @@ class Encoder(torch.nn.Module):
 
         output = torch.cat((phoneme_representations, bert_embeddings), dim=-1)
 
+        reversed_mask = torch.logical_not(phonemes_mask).unsqueeze(-1)
+
         for block in self._fft_blocks:
-            reversed_mask = torch.logical_not(phonemes_mask).unsqueeze(-1)
             output = block(output, phonemes_mask, reversed_mask)
 
-        attention_query = self._attention_query.unsqueeze(0).expand(
-            output.size(0), -1, -1)
-        attention_output, _ = self._attention(attention_query,
-                                              output,
-                                              output)
-
-        return attention_output
+        return self._post_encoder(output)

@@ -92,7 +92,6 @@ def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
             alpha=0.5)
     ax.set_title(f'Ground Truth and Predicted GST. MAE = {mae:.2f}')
     ax.set_xlabel('Token index')
-    ax.set_ylabel('Weight')
     ax.legend()
 
     return fig

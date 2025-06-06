@@ -12,44 +12,43 @@ class _ResBlock(torch.nn.Module):
 
     def __init__(self,
                  n_channels: int,
-                 phoneme_embedding_dim: int,
+                 input_gst_size: int,
                  dropout_rate: float,):
 
         super().__init__()
 
-        self._layer1 = torch.nn.Sequential(
-            torch.nn.GroupNorm(8, n_channels),
-            torch.nn.Conv1d(n_channels, n_channels, kernel_size=3, padding='same'),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate),
+        self._conv_layers = torch.nn.ModuleList(
+            [torch.nn.Sequential(
+                torch.nn.GroupNorm(8, n_channels),
+                torch.nn.Conv1d(n_channels, n_channels, kernel_size=5, padding='same'),
+                torch.nn.SiLU(),
+                torch.nn.Dropout(dropout_rate),
+            ) for _ in range(3)]
         )
 
-        self._cond_proj = torch.nn.Sequential(
-            torch.nn.Linear(phoneme_embedding_dim, n_channels),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate),
-        )
-
-        self._layer2 = torch.nn.Sequential(
-            torch.nn.GroupNorm(8, n_channels),
-            torch.nn.Conv1d(n_channels, n_channels, kernel_size=3, padding='same'),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout_rate),
-        )
+        self._attention = torch.nn.MultiheadAttention(
+            input_gst_size,
+            4,
+            dropout_rate,
+            batch_first=True)
 
     def forward(self,
                 input_tensor: torch.Tensor,
                 timestep_embedding: torch.Tensor,
-                phoneme_embedding: Optional[torch.Tensor]) -> torch.Tensor:
+                phoneme_cond: Optional[torch.Tensor],
+                phoneme_cond_mask: Optional[torch.Tensor]) -> torch.Tensor:
 
-        output = self._layer1(input_tensor)
+        output = self._conv_layers[0](input_tensor)
 
-        if phoneme_embedding is not None:
-            output = self._cond_proj(phoneme_embedding).transpose(1, 2) + output
+        if phoneme_cond is not None:
+            att_output, _ = self._attention(output,
+                                            phoneme_cond,
+                                            phoneme_cond,
+                                            key_padding_mask=phoneme_cond_mask)
+            output = self._conv_layers[1](att_output + output)
 
-        output = output + timestep_embedding.unsqueeze(-1)
-
-        output = self._layer2(output)
+        output = output + timestep_embedding.unsqueeze(1)
+        output = self._conv_layers[2](output)
 
         return output + input_tensor
 
@@ -80,22 +79,28 @@ class Decoder(torch.nn.Module):
 
         self._res_blocks = torch.nn.ModuleList(
             [_ResBlock(internal_channels,
-                       phoneme_embedding_dim,
+                       input_gst_size,
                        dropout_rate) for _ in range(n_blocks)]
         )
 
-        self._postnet = torch.nn.Sequential(torch.nn.Conv1d(internal_channels, 1, kernel_size=1),
-                                            torch.nn.Linear(input_gst_size, input_gst_size))
+        self._postnet_query = torch.nn.Parameter(torch.empty(1, 1, input_gst_size),
+                                                 requires_grad=True)
+        torch.nn.init.xavier_uniform_(self._postnet_query)
+        self._postnet = torch.nn.MultiheadAttention(input_gst_size,
+                                                    1,
+                                                    dropout_rate,
+                                                    batch_first=True)
 
     def forward(self, input_gst: torch.Tensor,
                 diffusion_step: torch.Tensor,
-                phoneme_embedding: Optional[torch.Tensor]) -> torch.Tensor:
+                phoneme_cond: Optional[torch.Tensor],
+                phoneme_cond_mask: Optional[torch.Tensor]) -> torch.Tensor:
         """Predicts the diffusion noise based on the encoded phonemes and diffusion timestep.
 
         Args:
             input_gst: Noised gst at timestep t.
             diffusion_step: The diffusion step t.
-            phoneme_embedding: Output of the phoneme encoder.
+            phoneme_cond: Output of the phoneme encoder.
 
         Returns:
             Predicted diffusion noise.
@@ -108,9 +113,13 @@ class Decoder(torch.nn.Module):
         time_embedding = self._timestep_encoder(time_embedding)
 
         for res_block in self._res_blocks:
-            output = res_block(output, time_embedding, phoneme_embedding)
+            output = res_block(output, time_embedding, phoneme_cond, phoneme_cond_mask)
 
-        return self._postnet(output).squeeze(1)
+        postnet_query = self._postnet_query.expand(input_gst.size(0), -1, -1)
+
+        att_out, _ = self._postnet(postnet_query, output, output)
+
+        return att_out.squeeze(1)
 
     @property
     def gst_size(self) -> int:

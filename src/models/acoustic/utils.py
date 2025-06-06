@@ -88,10 +88,19 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
     else:
         embedder = None
 
-    return ModelComponents(
+    components = ModelComponents(
         encoder=encoder,
         decoder=decoder,
         length_regulator=length_regulator,
         duration_predictor=duration_predictor,
         embedder=embedder
     )
+
+    if cfg['isolate_gst_att']:
+        for param in components.parameters():
+            param.requires_grad = False
+
+        for param in components.embedder.gst_att_params():
+            param.requires_grad = True
+
+    return components

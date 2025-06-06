@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Contains the module creating embedding from the reference audio."""
 from typing import Tuple
+from typing import Iterator
+import itertools
 
 import torch
 
@@ -29,7 +31,7 @@ class ReferenceEmbedder(torch.nn.Module):
         gst_count, gst_size = gst_shape
 
         self._use_gst_att = use_gst_att
-        self._chosen_spec_bins = 40
+        self._chosen_spec_bins = 80
 
         self._gst = torch.nn.Parameter(
             torch.randn((gst_count, gst_size)),
@@ -83,6 +85,9 @@ class ReferenceEmbedder(torch.nn.Module):
 
         return att_out.squeeze(1)
 
+    def gst_att_params(self) -> Iterator[torch.nn.Parameter]:
+        return self._gst_att.parameters()
+
     def obtain_gst_weights(self,
                            reference_audio: torch.Tensor,
                            spectrogram_mask: torch.Tensor):
@@ -128,7 +133,7 @@ class ReferenceEmbedder(torch.nn.Module):
                                       key_padding_mask=spectrogram_mask)
 
         output = output.squeeze(1)
-        encoded_ref = torch.nn.functional.tanh(output)
+        encoded_ref = output
 
         return encoded_ref
 
@@ -137,7 +142,6 @@ class ReferenceEmbedder(torch.nn.Module):
         reference_embedding = reference_embedding.unsqueeze(1)
 
         gst = self._gst.unsqueeze(0).expand(reference_embedding.shape[0], -1, -1)
-        gst = torch.nn.functional.tanh(gst)
         att_output, att_weights = self._gst_att(reference_embedding, gst, gst)
 
         return att_output, att_weights

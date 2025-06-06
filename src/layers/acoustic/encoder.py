@@ -46,9 +46,6 @@ class Encoder(torch.nn.Module):
             requires_grad=False
         )
 
-        self._gst_cond_layer = torch.nn.Conv1d(
-            in_channels=1, out_channels=1, kernel_size=1)
-
         self._fft_blocks = torch.nn.ModuleList(
             [fft_block.FFTBlock(input_shape=(input_length, d_model),
                                 n_heads=n_heads,
@@ -113,5 +110,4 @@ class Encoder(torch.nn.Module):
             style_embedding: The style embedding to condition the generation on.
         """
 
-        style_embedding = style_embedding.unsqueeze(1)
-        return enriched_phonemes + self._gst_cond_layer(style_embedding)
+        return enriched_phonemes + style_embedding.unsqueeze(1)

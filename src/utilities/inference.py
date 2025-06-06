@@ -170,7 +170,7 @@ class InferenceGSTPredictor(torch.nn.Module):
 
         self._gst_comps = gst_components
         self._diffusion_handler = diffusion_handler
-        self._factor, self._shift = scaling_values
+        self._emb_factor, self._emb_shift, self._w_factor, self._w_shift = scaling_values
         self._guidance_scale = guidance_scale
 
     def forward(self,
@@ -184,6 +184,9 @@ class InferenceGSTPredictor(torch.nn.Module):
             bert_embeddings: The BERT embeddings.
             phoneme_mask: The mask for the phoneme representations.
         """
+
+        pred_weights = self._gst_comps.deterministic_pred(
+            phoneme_representations, bert_embeddings, phoneme_mask)
 
         noised_gst = torch.randn(1, self._gst_comps.decoder.gst_size,
                                  device=phoneme_representations.device)
@@ -199,7 +202,8 @@ class InferenceGSTPredictor(torch.nn.Module):
             predicted_noise = self._gst_comps.decoder(
                 noised_gst,
                 timestep,
-                phoneme_embedding
+                phoneme_embedding,
+                phoneme_mask
             )
 
             if self._guidance_scale is not None:
@@ -216,7 +220,8 @@ class InferenceGSTPredictor(torch.nn.Module):
                                                               predicted_noise,
                                                               diff_step)
 
-        return (noised_gst - self._shift) / self._factor
+        return ((noised_gst / self._emb_factor) - self._emb_shift,
+                (pred_weights / self._w_factor) - self._w_shift)
 
 
 class InferenceAcousticModel(torch.nn.Module):
@@ -224,18 +229,21 @@ class InferenceAcousticModel(torch.nn.Module):
 
     def __init__(self,
                  acoustic_components: acoustic_utils.ModelComponents,
-                 vocoder: torch.nn.Module):
+                 vocoder: torch.nn.Module,
+                 det_embedding_weight: int):
 
         super().__init__()
 
         self._ac_comps = acoustic_components
         self._vocoder = vocoder
         self._use_style_embedding = acoustic_components.embedder is not None
+        self._det_emb_weight = det_embedding_weight
 
     def forward(self,
                 input_phonemes: torch.Tensor,
                 phoneme_mask: torch.Tensor,
                 gst_weights: Optional[torch.Tensor] = None,
+                gst_embedding: Optional[torch.Tensor] = None,
                 return_intermediate_results: bool = False
                 ):
         """Runs the inference model.
@@ -254,12 +262,17 @@ class InferenceAcousticModel(torch.nn.Module):
 
         if self._use_style_embedding:
             assert gst_weights is not None
+            assert gst_embedding is not None
             assert self._ac_comps.embedder is not None
 
-            style_embedding = self._ac_comps.embedder.get_style_embedding_from_weights(gst_weights)
+            embedding_from_w = self._ac_comps.embedder.get_style_embedding_from_weights(gst_weights)
+
+            st_embedding = self._det_emb_weight * embedding_from_w
+            st_embedding += (1 - self._det_emb_weight) * gst_embedding
+
             phoneme_representations = self._ac_comps.encoder.apply_gst_conditioning(
                 phoneme_representations,
-                style_embedding
+                st_embedding
             )
 
         log_durations = self._ac_comps.duration_predictor(phoneme_representations)

@@ -187,7 +187,7 @@ def main(config):
     acoustic_inference_model = _get_acoustic_inference_model(config, device)
 
     if config['gst_pred_training_cfg'] is not None:
-        phoneme_repr, phoneme_mask, bert_embeddings, _ = torch.load(
+        phoneme_repr, phoneme_mask, bert_embeddings, _, _ = torch.load(
             config['gst_pred_input_sample'],
             map_location=device,
             weights_only=True

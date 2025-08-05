@@ -35,8 +35,9 @@ class LJSpeechDataset(torch_data.Dataset):
                 torchaudio.datasets.LJSPEECH generated structure.
             alignments_path: Path to a directory containing output of the Montreal Forced
                 Aligner tool. See data.preprocessing.alignments.
-            scale_spectrograms: If True, the spectrograms are scaled to [0, 1].
+            audio_max_length: Maximum length of the returned data samples in seconds.
         """
+
         super().__init__()
 
         self._dataset = datasets.LJSPEECH(root=ds_path, download=True)

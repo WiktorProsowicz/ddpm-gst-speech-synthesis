@@ -136,13 +136,13 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
                 self._tb_logger.add_figure(
                     f'{label}/{i}/gst_emb_prediction',
-                    visualization.plot_pred_and_gt_gst_weights(original_emb[i], denoised_emb[i]),
+                    visualization.plot_pred_and_gt_gst(original_emb[i], denoised_emb[i]),
                     step_idx
                 )
 
                 self._tb_logger.add_figure(
                     f'{label}/{i}/gst_weights_prediction',
-                    visualization.plot_pred_and_gt_gst_weights(original_w[i], pred_w[i]),
+                    visualization.plot_pred_and_gt_gst(original_w[i], pred_w[i]),
                     step_idx
                 )
 

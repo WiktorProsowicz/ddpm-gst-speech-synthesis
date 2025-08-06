@@ -2,17 +2,15 @@
 """Contains the training/validation/profiling pipeline for the acoustic model."""
 import logging
 from typing import Dict
-from typing import Tuple
 from typing import List
+from typing import Tuple
 
+import numpy as np
 import torch
 import torch_dev_utils as tdu
-from torch.utils import tensorboard as pt_tensorboard
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle
-import numpy as np
 
 from data import visualization
-from models import utils as shared_m_utils
 from models.acoustic import utils as model_utils
 from utilities import inference as inf_utils
 from utilities import metrics
@@ -38,6 +36,8 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         self._visualization_interval = params.validation_interval * 5
         self._metrics_interval = params.validation_interval * 20
+        self._max_samples_for_metrics = 50
+        self._n_samples_for_visualization = 5
 
         self._spec_prediction_loss = torch.nn.MSELoss(reduction='none')
         self._duration_loss = torch.nn.MSELoss(reduction='none')
@@ -49,10 +49,11 @@ class ModelTrainer(tdu.training.BaseTrainer):
         assert isinstance(self._model_comps, model_utils.ModelComponents)
         return self._model_comps
 
-    def _compute_losses_and_metrics(self,
-                                    input_batch: Tuple[torch.Tensor, ...]
-                                    ) -> Tuple[Dict[str, torch.Tensor], ...]:
-        """Overrides BaseTrainer::_compute_losses."""
+    def _compute_model_outputs(self,
+                               input_batch: Tuple[torch.Tensor, ...]
+                               ) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        spectrogram, phonemes, durations, p_mask, s_mask = input_batch
 
         spectrogram, phonemes, durations, p_mask, s_mask = input_batch
         durations = torch.unsqueeze(durations, -1)
@@ -73,14 +74,26 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         decoder_output: torch.Tensor = self.model_comps.decoder(stretched_encoder_output, s_mask)
 
-        spec_prediction_loss = self._spec_prediction_loss(decoder_output, spectrogram)
-        duration_loss = self._duration_loss(predicted_durations, durations)
+        return decoder_output, predicted_durations
 
-        l_dur_mask, l_dur_mask_sum = other_utils.create_loss_mask_for_durations(durations)
+    def _compute_losses_and_metrics(self,  # pylint: disable=too-many-locals
+                                    input_batch: Tuple[torch.Tensor, ...]
+                                    ) -> Tuple[Dict[str, torch.Tensor], ...]:
+        """Overrides BaseTrainer::_compute_losses."""
+
+        gt_spectrogram, _, gt_durations, _, _ = input_batch
+        gt_durations = torch.unsqueeze(gt_durations, -1)
+
+        pred_spectrogram, pred_durations = self._compute_model_outputs(input_batch)
+
+        spec_prediction_loss = self._spec_prediction_loss(pred_spectrogram, gt_spectrogram)
+        duration_loss = self._duration_loss(pred_durations, gt_durations)
+
+        l_dur_mask, l_dur_mask_sum = other_utils.create_loss_mask_for_durations(gt_durations)
         duration_loss = torch.sum(duration_loss * l_dur_mask) / l_dur_mask_sum
 
-        l_spec_mask, l_spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(spectrogram,
-                                                                                    durations,
+        l_spec_mask, l_spec_mask_sum = other_utils.create_loss_mask_for_spectrogram(gt_spectrogram,
+                                                                                    gt_durations,
                                                                                     l_dur_mask)
         spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
         spec_prediction_loss /= l_spec_mask_sum
@@ -89,9 +102,9 @@ class ModelTrainer(tdu.training.BaseTrainer):
             {'spec_pred_loss': spec_prediction_loss,
              'duration_loss': duration_loss},
             {'duration_pred_mae': metrics.mean_absolute_error(
-                predicted_durations, durations, l_dur_mask, l_dur_mask_sum),
+                pred_durations, gt_durations, l_dur_mask, l_dur_mask_sum),
              'spec_pred_mae': metrics.mean_absolute_error(
-                decoder_output, spectrogram, l_spec_mask, l_spec_mask_sum)}
+                pred_spectrogram, gt_spectrogram, l_spec_mask, l_spec_mask_sum)}
         )
 
     def _on_step_end(self, step_idx):
@@ -119,7 +132,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         for label, data_loader in [('validation', self._val_data_loader),
                                    ('training', self._train_data_loader)]:
 
-            n_visualized_files = min(5, data_loader.batch_size)
+            n_visualized_files = min(self._n_samples_for_visualization, data_loader.batch_size)
 
             gt_output, pred_output = self._run_inference_for_loader(data_loader,
                                                                     n_visualized_files)
@@ -164,7 +177,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         for label, data_loader in [('validation', self._val_data_loader),
                                    ('training', self._train_data_loader)]:
 
-            n_chosen_files = min(50, data_loader.batch_size)
+            n_chosen_files = min(self._max_samples_for_metrics, data_loader.batch_size)
 
             gt_output, pred_output = self._run_inference_for_loader(data_loader,
                                                                     n_chosen_files)
@@ -177,11 +190,8 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
             for i in range(n_chosen_files):
 
-                gt_wav_i = gt_wav[i].cpu().numpy()
-                pred_wav_i = pred_wav[i].cpu().numpy()
-
-                f0_corr, f0_rmse = metrics.f0_pearson_corr_and_rmse(gt_wav_i,
-                                                                    pred_wav_i)
+                f0_corr, f0_rmse = metrics.f0_pearson_corr_and_rmse(gt_wav[i].cpu().numpy(),
+                                                                    pred_wav[i].cpu().numpy())
 
                 f0_rmse_sum += f0_rmse
                 f0_corr_sum += f0_corr
@@ -194,7 +204,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
                                         {label: f0_corr_sum / n_chosen_files},
                                         step_idx)
 
-    def _run_inference_for_loader(self,
+    def _run_inference_for_loader(self,  # pylint: disable=too-many-locals
                                   data_loader: torch.utils.data.DataLoader,
                                   n_runs: int) -> Tuple[Tuple[List[torch.Tensor], ...],
                                                         Tuple[List[torch.Tensor], ...]]:
@@ -213,16 +223,16 @@ class ModelTrainer(tdu.training.BaseTrainer):
         spectrogram, phonemes, durations, p_mask, s_mask = batch
         durations = torch.unsqueeze(durations, -1)
 
-        gt_results = ([], [], [])
-        pred_results = ([], [], [])
+        gt_results: Tuple[List[torch.Tensor], ...] = ([], [], [])
+        pred_results: Tuple[List[torch.Tensor], ...] = ([], [], [])
 
         for i in range(n_runs):
 
-            i_spectrogram = spectrogram[i:i+1]
-            i_phonemes = phonemes[i:i+1]
-            i_durations = durations[i:i+1]
-            i_p_mask = p_mask[i:i+1]
-            i_s_mask = s_mask[i:i+1]
+            i_spectrogram = spectrogram[i:i + 1]
+            i_phonemes = phonemes[i:i + 1]
+            i_durations = durations[i:i + 1]
+            i_p_mask = p_mask[i:i + 1]
+            i_s_mask = s_mask[i:i + 1]
 
             with torch.no_grad():
 

@@ -2,18 +2,17 @@
 """Contains the training/validation/profiling pipeline for the GST predictor model."""
 import logging
 from typing import Dict
+from typing import List
 from typing import Optional
 from typing import Tuple
 
 import torch
 import torch_dev_utils as tdu
-from torch.utils import tensorboard as pt_tensorboard
 
 from data import visualization
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import inference
-from utilities import metrics
 
 
 class ModelTrainer(tdu.training.BaseTrainer):
@@ -33,7 +32,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
     def __init__(self,
                  params: tdu.training.BaseTrainerParams,
                  diff_params_scheduler: diff_utils.ParametrizationScheduler,
-                 global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
+                 global_ds_stats: Tuple[torch.Tensor, ...],
                  guidance_scale: Optional[float]):
         """Initializes the model trainer.
 
@@ -42,7 +41,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
         Args:
             learning_rate: The learning rate to use in the optimizer.
             diff_params_scheduler: The scheduler for the diffusion parameters.
-            global_ds_stats: The (factor, shift) used to scale the input samples.
+            global_ds_stats: The (factor, shift) used to scale the input GST weights and embedding.
         """
 
         super().__init__(params)
@@ -66,23 +65,16 @@ class ModelTrainer(tdu.training.BaseTrainer):
         assert isinstance(self._model_comps, m_utils.ModelComponents)
         return self._model_comps
 
-    def _compute_losses_and_metrics(self, input_batch: Tuple[torch.Tensor, ...]
-                                    ) -> Tuple[Dict[str, torch.Tensor], ...]:
-        """Overrides BaseTrainer::_compute_losses."""
-
-        phonemes, phoneme_mask, bert_embeddings, gst_embedding, gst_weights = input_batch
-        gst_embedding = (gst_embedding + self._emb_scale_shift) * self._emb_scale_factor
-        gst_weights = (gst_weights + self._w_scale_shift) * self._w_scale_factor
-        batch_size = phonemes.size(0)
+    def _compute_model_outputs(self,
+                               noised_gst: torch.Tensor,
+                               phonemes: torch.Tensor,
+                               phoneme_mask: torch.Tensor,
+                               bert_embeddings: torch.Tensor,
+                               diff_timestep: torch.Tensor
+                               ) -> Tuple[torch.Tensor, torch.Tensor]:
 
         pred_weights = self.model_comps.deterministic_pred(
             phonemes, bert_embeddings, phoneme_mask)
-
-        noise = torch.randn_like(gst_embedding)
-        diff_timestep = torch.randint(
-            0, self._diffusion_handler.num_steps, (batch_size,), device=self._device)
-
-        noised_gst = self._diffusion_handler.add_noise(gst_embedding, noise, diff_timestep)
 
         encoder_output = self.model_comps.encoder(phonemes, phoneme_mask, bert_embeddings)
 
@@ -90,6 +82,25 @@ class ModelTrainer(tdu.training.BaseTrainer):
                                               diff_timestep,
                                               encoder_output,
                                               phoneme_mask)
+
+        return pred_weights, pred_noise
+
+    def _compute_losses_and_metrics(self, input_batch: Tuple[torch.Tensor, ...]
+                                    ) -> Tuple[Dict[str, torch.Tensor], ...]:
+        """Overrides BaseTrainer::_compute_losses."""
+
+        phonemes, phoneme_mask, bert_embeddings, gst_embedding, gst_weights = input_batch
+        gst_embedding = (gst_embedding + self._emb_scale_shift) * self._emb_scale_factor
+        gst_weights = (gst_weights + self._w_scale_shift) * self._w_scale_factor
+
+        diff_timestep = torch.randint(
+            0, self._diffusion_handler.num_steps, (phonemes.size(0),), device=self._device)
+
+        noise = torch.randn_like(gst_embedding)
+        noised_gst = self._diffusion_handler.add_noise(gst_embedding, noise, diff_timestep)
+
+        pred_weights, pred_noise = self._compute_model_outputs(
+            noised_gst, phonemes, phoneme_mask, bert_embeddings, diff_timestep)
 
         if self._guidance_scale is not None:
 
@@ -146,10 +157,11 @@ class ModelTrainer(tdu.training.BaseTrainer):
                     step_idx
                 )
 
-    def _run_backward_diff_for_loader(self,
+    def _run_backward_diff_for_loader(self,  # pylint: disable=too-many-locals
                                       data_loader: torch.utils.data.DataLoader,
                                       n_runs: int
-                                      ) -> Tuple[Tuple[torch.Tensor, torch.Tensor], ...]:
+                                      ) -> Tuple[Tuple[List[torch.Tensor], ...],
+                                                 Tuple[List[torch.Tensor], ...]]:
         """Runs the backward diffusion step for the given data loader."""
 
         self.model_comps.eval()
@@ -167,8 +179,8 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         phonemes, phoneme_mask, bert_embeddings, gst_emb, gst_weights = batch
 
-        emb_results = ([], [])
-        w_results = ([], [])
+        emb_results: Tuple[List[torch.Tensor], ...] = ([], [])
+        w_results: Tuple[List[torch.Tensor], ...] = ([], [])
 
         for i in range(n_runs):
 

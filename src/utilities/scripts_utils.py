@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any
@@ -161,6 +162,15 @@ def try_obtain_cfg_from_cl(script_description: str, default_config: Dict) -> Dic
     args = arg_parser.parse_args()
 
     if args.dump_default_cfg:
+
+        if os.path.exists(args.dump_default_cfg) and os.path.isdir(args.dump_default_cfg):
+            logging.critical("Cannot dump default cfg to path '%s' which is not a file.",
+                             args.dump_default_cfg)
+            sys.exit(1)
+
+        elif not os.path.exists(args.dump_default_cfg):
+            os.makedirs(os.path.dirname(args.dump_default_cfg), exist_ok=True)
+
         with open(args.dump_default_cfg, 'w', encoding='utf-8') as config_file:
             json.dump(_sanitize_config_to_dump(default_config), config_file, indent=4)
         sys.exit(0)

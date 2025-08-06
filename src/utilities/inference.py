@@ -23,11 +23,21 @@ def _split_transcript_into_tokens(transcript: str):
     return transcript.split()
 
 
-def obtain_gst_predictor_inputs(transcript: str,
+def obtain_gst_predictor_inputs(transcript: str,  # pylint: disable=too-many-locals
                                 text_transforms: transforms.Compose,
                                 tokenizer: bert_lib.BertTokenizer,
                                 bert_model: bert_lib.BertModel,
                                 device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Obtains phoneme-level BERT embeddings and one-hot encoded phonemes from the transcript.
+
+    Args:
+        transcript: The input transcript.
+        text_transforms: The text transforms to apply to the transcript. It is expected to contain
+            a G2P transform and a one-hot encoding transform.
+        tokenizer: The BERT tokenizer.
+        bert_model: The BERT model to use for obtaining the embeddings.
+        device: The device to run computations on.
+    """
 
     init_tokens = _split_transcript_into_tokens(transcript)
 
@@ -156,14 +166,15 @@ class InferenceGSTPredictor(torch.nn.Module):
     def __init__(self,
                  gst_components: gst_utils.ModelComponents,
                  diffusion_handler: diff_utils.DiffusionHandler,
-                 scaling_values: Tuple[torch.Tensor, torch.Tensor],
+                 scaling_values: Tuple[torch.Tensor, ...],
                  guidance_scale: Optional[float] = None):
         """Initializes the GST predictor.
 
         Args:
             gst_components: The components of the GST predictor.
             diffusion_handler: The diffusion handler used during the training.
-            scaling_values: The (factor, shift) values used to scale the output weights.
+            scaling_values: The (factor, shift) values used to scale the output weights and
+                embedding.
         """
 
         super().__init__()

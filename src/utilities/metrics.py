@@ -1,18 +1,13 @@
 # -*- coding: utf-8 -*-
 """Contains metrics used to evaluate the model's performance."""
 from typing import Optional
-import tempfile
 
-import torch
-import torchaudio
-import numpy as np
-import librosa
-import dtw
 import fastdtw
+import librosa
+import numpy as np
 import scipy
+import torch
 from scipy.spatial.distance import euclidean
-import mel_cepstral_distance
-import soundfile
 
 
 @torch.no_grad()
@@ -33,24 +28,6 @@ def mean_absolute_error(y_true: torch.Tensor,
         return torch.sum(torch.abs(y_true - y_pred) * mask) / mask_sum
 
     return torch.mean(torch.abs(y_true - y_pred))
-
-
-# def mean_cepstral_distortion(waveform_true: np.ndarray,
-#                              waveform_pred: np.ndarray,
-#                              sr: int):
-#     """Calculates the Mean Cepstral Distortion between two waveforms."""
-
-#     true_path = '/tmp/ddpm-gst-speech-gen_metrics__mcd__true.wav'
-#     pred_path = '/tmp/ddpm-gst-speech-gen_metrics__mcd__pred.wav'
-
-#     # soundfile.write(pred_path, waveform_pred, sr)
-#     # soundfile.write(true_path, waveform_true, sr)
-
-#     torchaudio.save(pred_path, torch.tensor(waveform_pred), sr)
-#     torchaudio.save(true_path, torch.tensor(waveform_true), sr)
-
-#     return mel_cepstral_distance.compare_audio_files(pred_path,
-#                                                      true_path)
 
 
 def _get_aligned_f0_contours(waveform_true: np.ndarray,

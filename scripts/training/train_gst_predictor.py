@@ -20,12 +20,12 @@ import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
+from models import utils as shared_m_utils
 from models.gst_predictor import training
 from models.gst_predictor import utils as m_utils
 from utilities import diffusion as diff_utils
 from utilities import logging_utils
 from utilities import scripts_utils
-from models import utils as shared_m_utils
 
 
 DEFAULT_CONFIG = {
@@ -86,7 +86,7 @@ def _get_model_trainer(input_phonemes_shape: Tuple[int, int],
                        config: Dict[str, Any],
                        train_loader: torch_data.DataLoader,
                        val_loader: torch_data.DataLoader,
-                       global_ds_stats: Tuple[torch.Tensor, torch.Tensor],
+                       global_ds_stats: Tuple[torch.Tensor, ...],
                        tb_writer: torch_tb.SummaryWriter) -> training.ModelTrainer:
 
     torch.multiprocessing.set_start_method('spawn')

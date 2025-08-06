@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Contains the module creating embedding from the reference audio."""
-from typing import Tuple
-from typing import Iterator
 import itertools
+from typing import Iterator
+from typing import Tuple
 
 import torch
 

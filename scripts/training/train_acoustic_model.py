@@ -21,9 +21,9 @@ from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
 from data import visualization
+from models import utils as shared_m_utils
 from models.acoustic import training
 from models.acoustic import utils as m_utils
-from models import utils as shared_m_utils
 from utilities import logging_utils
 from utilities import scripts_utils
 

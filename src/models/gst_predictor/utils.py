@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 """Contains utilities for the GST predictor model."""
+import itertools
 from dataclasses import dataclass
 from typing import Any
 from typing import Dict
+from typing import Iterator
 from typing import Optional
 from typing import Tuple
-from typing import Iterator
-import itertools
 
 import torch
 import torch_dev_utils as tdu
 
 from layers.gst_predictor import decoder as m_decoder
-from layers.gst_predictor import encoder as m_encoder
 from layers.gst_predictor import deterministic_weights_pred as m_deterministic_pred
+from layers.gst_predictor import encoder as m_encoder
 
 
 BERT_EMBEDDING_SIZE = 768
@@ -75,7 +75,6 @@ def create_model_components(input_phonemes_shape: Tuple[int, int],
             timestep_embedding_size=cfg['decoder']['timestep_embedding_size'],
             internal_channels=cfg['decoder']['internal_channels'],
             n_blocks=cfg['decoder']['n_blocks'],
-            phoneme_embedding_dim=input_phonemes_shape[1] + BERT_EMBEDDING_SIZE,
             dropout_rate=cfg['decoder']['dropout_rate']).to(device),
         deterministic_pred=m_deterministic_pred.DeterministicWeightsPred(
                 input_phonemes_shape=input_phonemes_shape,

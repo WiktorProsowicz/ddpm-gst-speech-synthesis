@@ -19,6 +19,8 @@ class _ConvBlock(torch.nn.Module):
         )
 
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        """Transforms the input tensor and applies residual connection."""
+
         return self._layers(input_tensor) + input_tensor
 
 

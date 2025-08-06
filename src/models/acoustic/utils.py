@@ -96,7 +96,7 @@ def create_model_components(output_spectrogram_shape: Tuple[int, int],
         embedder=embedder
     )
 
-    if cfg['isolate_gst_att']:
+    if components.embedder is not None and cfg['isolate_gst_att']:
         for param in components.parameters():
             param.requires_grad = False
 

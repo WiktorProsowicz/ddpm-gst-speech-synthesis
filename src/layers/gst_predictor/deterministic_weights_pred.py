@@ -1,9 +1,10 @@
-
+# -*- coding: utf-8 -*-
+"""Contains the definition of the deterministic weights predictor for the GST Predictor model."""
 from typing import Tuple
 
-from layers.shared import fft_block
-
 import torch
+
+from layers.shared import fft_block
 
 BERT_EMBEDDING_SIZE = 768
 
@@ -53,7 +54,7 @@ class DeterministicWeightsPred(torch.nn.Module):
         )
 
         self._post_net = torch.nn.Sequential(
-            torch.nn.Linear(internal_dim,  output_weights_size),
+            torch.nn.Linear(internal_dim, output_weights_size),
             torch.nn.ReLU(),
             torch.nn.Dropout(dropout_rate)
         )

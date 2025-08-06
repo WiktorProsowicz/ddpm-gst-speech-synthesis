@@ -7,8 +7,8 @@ import os
 
 import pytorch_pretrained_bert as bert_lib
 import torch
-from torchvision import transforms
 import torch_dev_utils as tdu
+from torchvision import transforms
 
 from data.preprocessing import text as text_prep
 from models.acoustic import utils as acoustic_utils
@@ -69,7 +69,7 @@ def _get_samples_transcripts(config):
     return sample_to_transcript
 
 
-def _save_ds_stats(config):
+def _save_ds_stats(config):  # pylint: disable=too-many-locals
 
     sample_names = filter(lambda path: '.pt' in path,
                           os.listdir(config['processed_ds_path']))
@@ -105,7 +105,7 @@ def _save_ds_stats(config):
                 w_scale_factor, w_scale_shift), stats_path)
 
 
-def main(config):
+def main(config):  # pylint: disable=too-many-locals
     """Downloads the dataset."""
 
     metadata_path = os.path.join(config['processed_ds_path'], 'metadata.json')

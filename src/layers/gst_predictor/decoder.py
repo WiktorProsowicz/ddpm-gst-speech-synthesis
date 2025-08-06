@@ -37,18 +37,29 @@ class _ResBlock(torch.nn.Module):
                 timestep_embedding: torch.Tensor,
                 phoneme_cond: Optional[torch.Tensor],
                 phoneme_cond_mask: Optional[torch.Tensor]) -> torch.Tensor:
+        """Passes the input through the residual block.
 
-        output = self._conv_layers[0](input_tensor)
+        The blocks transforms the input, adds the conditional information and adds residual
+        connection.
+
+        Args:
+            input_tensor: The main input to the block.
+            timestep_embedding: The embedding of the diffusion timestep.
+            phoneme_cond: The output of the GST Predictor's encoder.
+            phoneme_cond_mask: The mask marking the padding elements in the phoneme_cond.
+        """
+
+        output = self._conv_layers[0](input_tensor)  # pylint: disable=not-callable
 
         if phoneme_cond is not None:
             att_output, _ = self._attention(output,
                                             phoneme_cond,
                                             phoneme_cond,
                                             key_padding_mask=phoneme_cond_mask)
-            output = self._conv_layers[1](att_output + output)
+            output = self._conv_layers[1](att_output + output)  # pylint: disable=not-callable
 
         output = output + timestep_embedding.unsqueeze(1)
-        output = self._conv_layers[2](output)
+        output = self._conv_layers[2](output)  # pylint: disable=not-callable
 
         return output + input_tensor
 
@@ -58,7 +69,6 @@ class Decoder(torch.nn.Module):
 
     def __init__(self,
                  input_gst_size: int,
-                 phoneme_embedding_dim: int,
                  timestep_embedding_size: int,
                  internal_channels: int,
                  n_blocks: int,

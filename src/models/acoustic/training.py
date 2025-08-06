@@ -49,9 +49,9 @@ class ModelTrainer(tdu.training.BaseTrainer):
         assert isinstance(self._model_comps, model_utils.ModelComponents)
         return self._model_comps
 
-    def _compute_losses(self,  # pylint: disable=too-many-locals
-                        input_batch: Tuple[torch.Tensor, ...]
-                        ) -> Dict[str, torch.Tensor]:
+    def _compute_losses_and_metrics(self,
+                                    input_batch: Tuple[torch.Tensor, ...]
+                                    ) -> Tuple[Dict[str, torch.Tensor], ...]:
         """Overrides BaseTrainer::_compute_losses."""
 
         spectrogram, phonemes, durations, p_mask, s_mask = input_batch
@@ -85,15 +85,14 @@ class ModelTrainer(tdu.training.BaseTrainer):
         spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
         spec_prediction_loss /= l_spec_mask_sum
 
-        return {
-            'spec_pred_loss': spec_prediction_loss,
-            'duration_loss': duration_loss,
-            'duration_pred_mae': metrics.mean_absolute_error(
+        return (
+            {'spec_pred_loss': spec_prediction_loss,
+             'duration_loss': duration_loss},
+            {'duration_pred_mae': metrics.mean_absolute_error(
                 predicted_durations, durations, l_dur_mask, l_dur_mask_sum),
-            'spec_pred_mae': metrics.mean_absolute_error(
-                decoder_output, spectrogram, l_spec_mask, l_spec_mask_sum),
-            'total_loss': spec_prediction_loss + duration_loss
-        }
+             'spec_pred_mae': metrics.mean_absolute_error(
+                decoder_output, spectrogram, l_spec_mask, l_spec_mask_sum)}
+        )
 
     def _on_step_end(self, step_idx):
 
@@ -204,7 +203,9 @@ class ModelTrainer(tdu.training.BaseTrainer):
         self.model_comps.eval()
 
         vocoder = hifigan_bundle.get_vocoder().to(self._device)
-        inference_model = inf_utils.InferenceAcousticModel(self.model_comps, vocoder)
+        inference_model = inf_utils.InferenceAcousticModel(self.model_comps,
+                                                           vocoder,
+                                                           0.5)
 
         batch = next(iter(data_loader))
         batch = [elem.to(self._device) for elem in batch]
@@ -232,6 +233,7 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
                 else:
                     gst_weights = None
+                    gst_embedding = None
 
                 pred_wave, pred_dur, pred_spec = inference_model(i_phonemes,
                                                                  i_p_mask,

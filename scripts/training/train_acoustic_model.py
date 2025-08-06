@@ -32,7 +32,7 @@ SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
 
 DEFAULT_CONFIG = {
     'data': {
-        # The path to the preprocessed dataset
+        # The path to the preprocessed dataset (the 'processed' subdir of the dataset root dir)
         'dataset_path': scripts_utils.CfgRequired(),
         # The split ratio of the dataset after removing the test files
         'train_split_ratio': 0.98,
@@ -97,7 +97,7 @@ def _get_model_trainer(
 
     base_optimizer = torch.optim.Adam([{'name': 'base_params',
                                        'params': model_components.parameters(),
-                                        'lr': config['training']['lr'],
+                                        'lr': 2e-4,
                                         'betas': (0.9, 0.98),
                                         'weight_decay': 2e-6}])
 

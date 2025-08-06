@@ -230,7 +230,7 @@ class InferenceAcousticModel(torch.nn.Module):
     def __init__(self,
                  acoustic_components: acoustic_utils.ModelComponents,
                  vocoder: torch.nn.Module,
-                 det_embedding_weight: int):
+                 det_embedding_weight: float):
 
         super().__init__()
 

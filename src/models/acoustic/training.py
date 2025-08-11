@@ -55,9 +55,6 @@ class ModelTrainer(tdu.training.BaseTrainer):
 
         spectrogram, phonemes, durations, p_mask, s_mask = input_batch
 
-        spectrogram, phonemes, durations, p_mask, s_mask = input_batch
-        durations = torch.unsqueeze(durations, -1)
-
         if self.model_comps.embedder:
             style_embedding = self.model_comps.embedder(spectrogram, s_mask)
 
@@ -82,7 +79,6 @@ class ModelTrainer(tdu.training.BaseTrainer):
         """Overrides BaseTrainer::_compute_losses."""
 
         gt_spectrogram, _, gt_durations, _, _ = input_batch
-        gt_durations = torch.unsqueeze(gt_durations, -1)
 
         pred_spectrogram, pred_durations = self._compute_model_outputs(input_batch)
 
@@ -221,7 +217,6 @@ class ModelTrainer(tdu.training.BaseTrainer):
         batch = [elem.to(self._device) for elem in batch]
 
         spectrogram, phonemes, durations, p_mask, s_mask = batch
-        durations = torch.unsqueeze(durations, -1)
 
         gt_results: Tuple[List[torch.Tensor], ...] = ([], [], [])
         pred_results: Tuple[List[torch.Tensor], ...] = ([], [], [])

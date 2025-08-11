@@ -129,7 +129,10 @@ def create_spectrogram_mask(spectrogram: torch.Tensor) -> torch.Tensor:
 
 def create_mask_from_durations(log_durations: torch.Tensor,
                                expected_output_length: int) -> torch.Tensor:
-    """Creates a mask for the stretched phoneme representations based on the predicted durations."""
+    """Creates a mask for the stretched phoneme representations based on the predicted durations.
+
+    The mask is binary and 'ones' indicate the non-padding values.
+    """
 
     durations_mask = (log_durations > 0).to(torch.int64)
     durations = (torch.pow(2.0, log_durations)).to(torch.int64) * durations_mask
@@ -292,14 +295,14 @@ class InferenceAcousticModel(torch.nn.Module):
             log_durations,
             self._ac_comps.length_regulator.output_length
         )
-        durations_mask = torch.logical_not(phoneme_mask)
-        log_durations = log_durations * torch.reshape(durations_mask, (1, -1, 1))
+
+        log_durations = log_durations * torch.logical_not(phoneme_mask)
 
         stretched_phoneme_repr = self._ac_comps.length_regulator(phoneme_representations,
                                                                  log_durations)
 
         decoder_mask = create_mask_from_durations(
-            log_durations.reshape(1, -1),
+            log_durations,
             self._ac_comps.length_regulator.output_length
         )
 

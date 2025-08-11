@@ -74,4 +74,4 @@ class DurationPredictor(torch.nn.Module):
         output = encoder_output.transpose(1, 2)
         output = self._conv_blocks(output)
         output = output.transpose(1, 2)
-        return self._output_act(self._output_layer(output))
+        return self._output_act(self._output_layer(output)).squeeze(-1)

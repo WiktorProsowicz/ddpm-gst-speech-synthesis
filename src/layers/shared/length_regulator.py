@@ -7,11 +7,10 @@ def _create_alignment_matrix(log_durations: torch.Tensor, max_length: int) -> to
     """Creates a matrix for stretching the input based on the predicted phoneme durations."""
 
     original_device = log_durations.device
-    batch_size, n_phonemes, _ = log_durations.shape
+    batch_size, n_phonemes = log_durations.shape
 
     durations_mask = (log_durations > 0).to(torch.int64)
     durations = (torch.pow(2.0, log_durations)).to(torch.int64) * durations_mask
-    durations = durations.reshape(batch_size, n_phonemes)
 
     indexes_space = torch.arange(n_phonemes).to(torch.int64).to(original_device)
     alignment_matrix = torch.zeros((batch_size, max_length, n_phonemes))

@@ -36,7 +36,9 @@ def colorize_spectrogram(spectrogram: torch.Tensor, colormap: str) -> torch.Tens
 def decode_transcript(transcript: torch.Tensor, vocab: List[str]) -> List[str]:
     """Decodes the encoded transcript into a phoneme tokens.
 
-    The encoding may be either one-hot or argmax.
+    Args:
+        transcript: Tensor with one-hot encoded phonemes.
+        vocab: Vocabulary, which was used to encode the transcript.
     """
 
     word_indices = transcript.argmax(dim=1)
@@ -71,17 +73,67 @@ def annotate_spectrogram_with_phoneme_durations(spectrogram: np.ndarray,
     return fig
 
 
-def plot_pred_and_gt_gst_weights(original_gst: torch.Tensor,
-                                 pred_gst: torch.Tensor) -> matplotlib.figure.Figure:
-    """Plots the predicted and ground truth GST weights."""
+def plot_pred_and_gt_gst(original_gst: torch.Tensor,
+                         pred_gst: torch.Tensor) -> matplotlib.figure.Figure:
+    """Plots the predicted and ground truth GST-related output.
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    The GST output may be either the predicted weights or embedding.
 
-    ax.scatter(np.arange(original_gst.size(0)), original_gst.cpu().numpy(), label='Ground Truth')
-    ax.scatter(np.arange(pred_gst.size(0)), pred_gst.cpu().numpy(), label='Predicted')
-    ax.set_title('Ground Truth and Predicted GST Weights')
+    Args:
+        original_gst: Original GST output.
+        pred_gst: Predicted GST output.
+    """
+
+    fig, ax = plt.subplots(figsize=(20, 5))
+
+    original_gst = original_gst.cpu().numpy()
+    pred_gst = pred_gst.cpu().numpy()
+
+    mae = np.mean(np.abs(original_gst - pred_gst))
+
+    ax.plot(np.arange(original_gst.size),
+            original_gst,
+            label='Ground Truth',
+            alpha=0.8)
+    ax.plot(np.arange(pred_gst.size),
+            pred_gst,
+            label='Predicted',
+            alpha=0.5)
+    ax.set_title(f'Ground Truth and Predicted GST. MAE = {mae:.2f}')
     ax.set_xlabel('Token index')
-    ax.set_ylabel('Weight')
+    ax.legend()
+
+    return fig
+
+
+def plot_pred_and_gt_durations(original_durations: torch.Tensor,
+                               pred_durations: torch.Tensor) -> matplotlib.figure.Figure:
+    """Plots the predicted and ground truth phoneme durations.
+
+    Args:
+        original_durations: Original phoneme durations taken from forced alignment.
+        pred_durations: Predicted phoneme durations.
+    """
+
+    fig, ax = plt.subplots(figsize=(20, 5))
+
+    original_durations = original_durations.cpu().numpy()
+    pred_durations = pred_durations.cpu().numpy()
+
+    mae = np.mean(np.abs(original_durations - pred_durations))
+
+    ax.plot(np.arange(original_durations.size),
+            original_durations,
+            label='Ground Truth',
+            alpha=0.8)
+    ax.plot(np.arange(pred_durations.size),
+            pred_durations,
+            label='Predicted',
+            alpha=0.8)
+
+    ax.set_title(f'Ground Truth and Predicted durations. MAE = {mae:.2f}')
+    ax.set_xlabel('Phoneme index')
+    ax.set_ylabel('Duration')
     ax.legend()
 
     return fig
@@ -100,7 +152,7 @@ def log_example_ljspeech_data(dataset: torch.utils.data.Dataset,
 
     example_data = dataset[np.random.randint(0, len(dataset))]
 
-    spec, transcript, durations = example_data
+    spec, transcript, durations, _, _ = example_data
 
     tb_writer.add_image(
         'Example/InputMelSpectrogram',

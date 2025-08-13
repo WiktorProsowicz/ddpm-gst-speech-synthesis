@@ -20,14 +20,19 @@ _ENHANCED_MFA_ARP_PHO = ['AA0', 'AA1', 'AA2', 'AE0', 'AE1', 'AE2',
 
 ENHANCED_MFA_ARP_VOCAB = ['<pad>', '<unk>', '<sil>'] + _ENHANCED_MFA_ARP_PHO
 
+MFA_TOKENS_REPLACEMENT = {
+    'spn': '<unk>',
+    '': '<sil>'
+}
+
 
 def get_n_phonemes_for_audio_length(
-        phoneme_alignments: textgrid.IntervalTier, audio_length: float):
-    """Calculate the number of phonemes accounting for the audio length.
+        phoneme_alignments: textgrid.IntervalTier, audio_length: float) -> int:
+    """Returns the number of phonemes in the subsequence up to the given audio length.
 
     Args:
         phoneme_alignments: MFA phoneme alignments.
-        audio_length: Length of the audio in seconds.
+        audio_length: Upper bound of the sought subsequence.
     """
 
     return len(
@@ -44,20 +49,23 @@ def get_phonemes_from_alignments(phoneme_alignments: textgrid.IntervalTier):
         List of phonemes.
     """
 
-    return [interval.mark for interval in phoneme_alignments]
+    extracted_tokens = [interval.mark for interval in phoneme_alignments]
+
+    return [MFA_TOKENS_REPLACEMENT.get(token, token) for token in extracted_tokens]
 
 
 class G2PTransform(torch.nn.Module):
     """Converts the input text into a list of phonemes."""
 
     def __init__(self):
+
         super().__init__()
 
         nltk.download('averaged_perceptron_tagger_eng', quiet=True)
 
         self._conv = g2p_en.G2p()
 
-        self._tokens_to_remove = [' ']
+        self._tokens_to_remove = [' ', ';', '-', ':', '"', '\'']
         self._tokens_to_replace = {
             '.': '<sil>',
             ',': '<sil>',
@@ -66,7 +74,7 @@ class G2PTransform(torch.nn.Module):
         }
 
     def forward(self, text: str) -> List[str]:
-
+        """Converts input text to a list of phonemes."""
         phonemes = self._conv(text)
 
         phonemes = [phoneme for phoneme in phonemes if phoneme not in self._tokens_to_remove]
@@ -75,7 +83,7 @@ class G2PTransform(torch.nn.Module):
         return phonemes
 
     def _replace_token_if_unhandled(self, token: str) -> str:
-
+        """Replaces token with a special token if applicable."""
         if token in self._tokens_to_replace:
             return self._tokens_to_replace[token]
 
@@ -86,12 +94,18 @@ class PadSequenceTransform(torch.nn.Module):
     """Pads the input sequence to the desired length."""
 
     def __init__(self, output_length: int):
+        """Initializes the module.
+
+        Args:
+            output_length: The desired length of the padded sequences of phonemes.
+        """
 
         super().__init__()
 
         self._output_length = output_length
 
     def forward(self, sequence: List[str]):
+        """Pads the given sequence with special <pad> token."""
 
         if len(sequence) < self._output_length:
             return sequence + (['<pad>'] * (self._output_length - len(sequence)))
@@ -103,6 +117,12 @@ class OneHotEncodeTransform(torch.nn.Module):
     """Converts a sequence of tokens to a one-hot encoded tensor."""
 
     def __init__(self, vocabulary: List[str], padding_token: str = '<pad>'):
+        """Inits the module.
+
+        Args:
+            vocabulary: The sorted list of vocabulary to be encountered in the transformed inputs.
+            padding_token: The special padding token to be ignored during the transformation.
+        """
 
         super().__init__()
 
@@ -110,6 +130,7 @@ class OneHotEncodeTransform(torch.nn.Module):
         self._padding_token = padding_token
 
     def forward(self, sequence: List[str]) -> torch.Tensor:
+        """Transforms the given sequence into one-hot encoded vectors."""
 
         one_hot = torch.zeros(len(sequence), len(self._vocabulary))
 

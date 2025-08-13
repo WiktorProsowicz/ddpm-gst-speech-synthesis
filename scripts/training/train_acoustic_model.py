@@ -8,7 +8,6 @@ training.
 
 For the expected configuration parameters, see the DEFAULT_CONFIG constant.
 """
-import argparse
 import logging
 import os
 import pathlib
@@ -16,11 +15,11 @@ from typing import Any
 from typing import Dict
 
 import torch
+import torch_dev_utils as tdu
 import yaml  # type: ignore
 from torch.utils import data as torch_data
 from torch.utils import tensorboard as torch_tb
 
-from data import data_loading
 from data import visualization
 from models import utils as shared_m_utils
 from models.acoustic import training
@@ -33,7 +32,7 @@ SCRIPT_PATH = os.path.join(HOME_PATH, 'scripts', 'train_model')
 
 DEFAULT_CONFIG = {
     'data': {
-        # The path to the preprocessed dataset
+        # The path to the preprocessed dataset (the 'processed' subdir of the dataset root dir)
         'dataset_path': scripts_utils.CfgRequired(),
         # The split ratio of the dataset after removing the test files
         'train_split_ratio': 0.98,
@@ -46,32 +45,28 @@ DEFAULT_CONFIG = {
         'steps': 1000,
         'start_step': 0,
         'checkpoint_interval': 200,
-        'checkpoints_path': scripts_utils.CfgRequired(),
-
-        'use_gt_durations_for_visualization': True,
-        'use_loss_weights': True
+        'checkpoints_path': scripts_utils.CfgRequired()
     },
     'model': {
         'n_heads': 4,
         'dropout_rate': 0.1,
+        'd_model': 384,
+        'fft_conv_channels': 1536,
+        'use_reference_encoder': True,
+        'isolate_gst_att': False,
         'encoder': {
-            'n_blocks': 6,
-            'fft_conv_channels': 1536,
-            'embedding_dim': 384
+            'n_blocks': 6
         },
         'decoder': {
             'n_blocks': 6,
-            'fft_conv_channels': 1536,
             'output_channels': 80
         },
         'duration_predictor': {
             'n_blocks': 2
         },
         'gst': {
-            'use_gst': False,
+            'use_gst_att': True,
             'n_tokens': 32,
-            'token_dim': 384,
-            'n_attention_heads': 4,
             'n_ref_encoder_blocks': 3
         }
     },
@@ -90,27 +85,40 @@ def _get_model_trainer(
         tb_writer: torch_tb.SummaryWriter
 ) -> training.ModelTrainer:
 
-    checkpoints_handler = shared_m_utils.ModelCheckpointHandler(
-        config['training']['checkpoints_path'], 'acoustic_model')
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    checkpoints_handler = tdu.serialization.ModelCheckpointHandler(
+        config['training']['checkpoints_path'],
+        device,
+        False)
 
     model_components = m_utils.create_model_components(
         input_spectrogram_shape, input_phonemes_shape, config['model'], device)
 
-    return training.ModelTrainer(
-        model_components,
-        train_loader,
-        val_loader,
-        tb_writer,
-        device,
-        checkpoints_handler,
-        config['training']['checkpoint_interval'],
-        config['training']['validation_interval'],
-        config['model']['encoder']['embedding_dim'],
-        config['training']['warmup_steps'],
-        config['training']['use_gt_durations_for_visualization'],
-        config['training']['use_loss_weights'])
+    base_optimizer = torch.optim.Adam([{'name': 'base_params',
+                                       'params': model_components.parameters(),
+                                        'lr': 2e-4,
+                                        'betas': (0.9, 0.98),
+                                        'weight_decay': 2e-6}])
+
+    optimizer = shared_m_utils.TransformerScheduledOptim(base_optimizer,
+                                                         config['model']['d_model'],
+                                                         config['training']['warmup_steps'],
+                                                         ['base_params'])
+
+    params = tdu.training.BaseTrainerParams(
+        model_comps=model_components,
+        optimizer=optimizer,
+        checkpoints_handler=checkpoints_handler,
+        train_data_loader=train_loader,
+        val_data_loader=val_loader,
+        tb_logger=tb_writer,
+        device=device,
+        validation_interval=config['training']['validation_interval'],
+        checkpoints_interval=config['training']['checkpoint_interval'],
+        log_interval=100)
+
+    return training.ModelTrainer(params)
 
 
 def main(config):
@@ -124,7 +132,7 @@ def main(config):
 
     tb_writer.add_text('Configuration', yaml.dump(config))
 
-    train_ds, val_ds, _ = data_loading.get_datasets(
+    train_ds, val_ds, _ = tdu.data_loading.get_datasets(
         config['data']['dataset_path'],
         config['data']['train_split_ratio'],
         config['data']['n_test_files']
@@ -172,25 +180,12 @@ def main(config):
     tb_writer.close()
 
 
-def _get_cl_args() -> argparse.Namespace:
-
-    arg_parser = argparse.ArgumentParser(
-        description="Performs the model's training pipeline based on the configuration.")
-
-    arg_parser.add_argument(
-        '--config_path',
-        type=str,
-        help='Path to the folder containing configuration files.'
-    )
-
-    return arg_parser.parse_args()
-
-
 if __name__ == '__main__':
 
     logging_utils.setup_logging()
 
-    args = _get_cl_args()
+    configuration = scripts_utils.try_obtain_cfg_from_cl(
+        'Performs the model\'s training pipeline.',
+        DEFAULT_CONFIG)
 
-    configuration = scripts_utils.try_load_user_config(args.config_path, DEFAULT_CONFIG)
     main(configuration)

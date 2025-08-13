@@ -62,8 +62,6 @@ repos:
         types: [python]
         args:
           - --ignore-paths=tests/*
-          - --disable=missing-function-docstring
-          - --disable=missing-module-docstring
           - --disable=fixme
           - --disable=too-few-public-methods
           - --disable=too-many-instance-attributes

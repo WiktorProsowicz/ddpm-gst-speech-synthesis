@@ -5,13 +5,19 @@ from typing import Tuple
 import torch
 
 
-def create_positional_encoding(time_steps: torch.Tensor, embedding_dim: int) -> torch.Tensor:
-    """Creates the Sinusoidal Positional Embedding for the input time steps."""
+@torch.no_grad()
+def create_positional_encoding(indices: torch.Tensor, embedding_dim: int) -> torch.Tensor:
+    """Creates the Sinusoidal Positional Embedding for the indices.
 
-    i_steps = torch.arange(0, embedding_dim // 2, device=time_steps.device)
+    Args:
+        indices: Tensor with integers for which the positional embeddings will be created.
+        embedding_dim: The desired size of the created embeddings.
+    """
+
+    i_steps = torch.arange(0, embedding_dim // 2, device=indices.device)
     factor = 10000 ** (i_steps / (embedding_dim // 2))
 
-    t_embedding = time_steps[:, None].repeat(1, embedding_dim // 2)
+    t_embedding = indices[:, None].repeat(1, embedding_dim // 2)
     t_embedding = t_embedding / factor
 
     return torch.cat([torch.sin(t_embedding), torch.cos(t_embedding)], dim=-1)
@@ -48,7 +54,7 @@ def create_loss_mask_for_spectrogram(spectrogram: torch.Tensor,
         A tuple containing the mask and the sum of the mask elements to compute the mean loss.
     """
 
-    pow_durations = (torch.pow(2.0, durations) + 1e-4).to(torch.int32)
+    pow_durations = (torch.pow(2.0, durations)).to(torch.int32)
     pow_durations = pow_durations * durations_mask
 
     max_lengths = torch.sum(pow_durations, dim=1).to(torch.int32)

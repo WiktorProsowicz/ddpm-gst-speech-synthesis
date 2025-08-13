@@ -1,0 +1,3 @@
+[submodule "torch-dev-utils"]
+	path = torch-dev-utils
+	url = https://github.com/WiktorProsowicz/torch-dev-utils

@@ -19,6 +19,8 @@ class _ConvBlock(torch.nn.Module):
         )
 
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        """Transforms the input tensor and applies residual connection."""
+
         return self._layers(input_tensor) + input_tensor
 
 
@@ -57,6 +59,7 @@ class DurationPredictor(torch.nn.Module):
                                                 dropout_rate=dropout_rate)
 
         self._output_layer = torch.nn.Linear(input_features, 1)
+        self._output_act = torch.nn.ReLU()
 
     def forward(self, encoder_output: torch.Tensor) -> torch.Tensor:
         """Predicts the durations of the input phonemes.
@@ -71,4 +74,4 @@ class DurationPredictor(torch.nn.Module):
         output = encoder_output.transpose(1, 2)
         output = self._conv_blocks(output)
         output = output.transpose(1, 2)
-        return self._output_layer(output)
+        return self._output_act(self._output_layer(output)).squeeze(-1)

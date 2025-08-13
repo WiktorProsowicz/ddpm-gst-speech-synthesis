@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Contains definition of Feed Forward Transformer Block."""
+from typing import Optional
 from typing import Tuple
 
 import torch
@@ -42,24 +43,29 @@ class FFTBlock(torch.nn.Module):
             torch.nn.Conv1d(
                 in_channels=input_embedding_dim,
                 out_channels=conv_channels,
-                kernel_size=3,
+                kernel_size=9,
                 padding='same'),
             torch.nn.ReLU(),
             torch.nn.Conv1d(
                 in_channels=conv_channels,
                 out_channels=input_embedding_dim,
-                kernel_size=3,
+                kernel_size=1,
                 padding='same'),
-            torch.nn.ReLU()
+            torch.nn.Dropout1d(dropout_rate)
         )
 
         self._layer_norm2 = torch.nn.LayerNorm(input_embedding_dim)
 
-    def forward(self, input_sequence: torch.Tensor):
+    def forward(self,
+                input_sequence: torch.Tensor,
+                att_mask: Optional[torch.Tensor] = None,
+                non_padding_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Runs the input sequence through the block.
 
         Args:
             input_sequence: The input sequence of representations.
+            att_mask: Indicates which input sequence elements are not padding.
+            non_padding_mask: The negative of the `att_mask`.
 
         Returns:
             The output sequence of representations.
@@ -68,10 +74,19 @@ class FFTBlock(torch.nn.Module):
         attention_output, _ = self._attention(
             query=input_sequence,
             key=input_sequence,
-            value=input_sequence)
+            value=input_sequence,
+            key_padding_mask=att_mask)
 
         attention_output = self._layer_norm1(attention_output + input_sequence)
 
+        if non_padding_mask is not None:
+            attention_output *= non_padding_mask
+
         conv_output = self._conv(attention_output.transpose(1, 2)).transpose(1, 2)
 
-        return self._layer_norm2(conv_output + attention_output)
+        conv_output = self._layer_norm2(conv_output + attention_output)
+
+        if non_padding_mask is not None:
+            conv_output *= non_padding_mask
+
+        return conv_output

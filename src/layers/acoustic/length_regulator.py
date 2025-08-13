@@ -7,13 +7,12 @@ def _create_alignment_matrix(log_durations: torch.Tensor, max_length: int) -> to
     """Creates a matrix for stretching the input based on the predicted phoneme durations."""
 
     original_device = log_durations.device
-    batch_size, n_phonemes, _ = log_durations.shape
+    batch_size, n_phonemes = log_durations.shape
 
     durations_mask = (log_durations > 0).to(torch.int64)
-    durations = (torch.pow(2.0, log_durations) + 1e-4).to(torch.int64) * durations_mask
-    durations = durations.reshape(batch_size, n_phonemes)
+    durations = (torch.pow(2.0, log_durations)).to(torch.int64) * durations_mask
 
-    indexes_space = torch.arange(n_phonemes).to(torch.int64)
+    indexes_space = torch.arange(n_phonemes).to(torch.int64).to(original_device)
     alignment_matrix = torch.zeros((batch_size, max_length, n_phonemes))
 
     for i in range(batch_size):
@@ -55,3 +54,8 @@ class LengthRegulator(torch.nn.Module):
 
         alignment_matrix = _create_alignment_matrix(log_durations, self._output_length)
         return torch.matmul(alignment_matrix, encoder_output)
+
+    @property
+    def output_length(self) -> int:
+        """Returns the length the regulator stretches the input to."""
+        return self._output_length

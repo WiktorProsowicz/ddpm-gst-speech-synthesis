@@ -11,6 +11,7 @@ python3.11 project_setup.py setup_venv && source venv/bin/activate
 
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
+pip install torch-dev-utils/
 
 cat .devcontainer/res/.bash_aliases >> ~/.bash_aliases
 cat .devcontainer/res/.bashrc >> ~/.bashrc

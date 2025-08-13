@@ -12,6 +12,14 @@ loggers:
   root:
     handlers: [console_hand]
     level: NOTSET
+  numba.core.interpreter:
+    handlers: [console_hand]
+    level: INFO
+    propagate: false
+  numba.core.byteflow:
+    handlers: [console_hand]
+    level: INFO
+    propagate: false
 
 handlers:
   console_hand:

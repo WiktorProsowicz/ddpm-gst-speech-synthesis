@@ -112,7 +112,7 @@
 
 ### 2.0.0
 
-- Moved shared code for model building, training, checkpoint handling to [torch-dev-utils](https://github.com/WiktorProsowicz/torch-dev-utils) 
+- Moved shared code for model building, training, checkpoint handling to [torch-dev-utils](https://github.com/WiktorProsowicz/torch-dev-utils)
 - Removed Mel-to-Lin Converter (added support for HiFi-GAN vocoder)
 - Removed the code for unfinished `ddpm_gst_speech_gen` model
 - Removed the following scripts:
@@ -131,6 +131,6 @@
 - Modified GST predictor's architecture:
    - replaced convolutional encoder with FFT blocks
    - replaced single-vector phoneme conditioning with attention over all phoneme-representations
-   - added deterministic GST weights predictor 
+   - added deterministic GST weights predictor
 - Removed notebooks folder
 - Minimized configuration required by scripts

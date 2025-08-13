@@ -4,11 +4,11 @@ import csv
 import json
 import logging
 import os
-import tqdm
 
 import pytorch_pretrained_bert as bert_lib
 import torch
 import torch_dev_utils as tdu
+import tqdm
 from torchvision import transforms
 
 from data.preprocessing import text as text_prep

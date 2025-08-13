@@ -8,9 +8,9 @@ import json
 import logging
 import os
 from typing import Dict
-import tqdm
 
 import torch
+import tqdm
 from torch.utils import data as torch_data
 from torchaudio import datasets  # type: ignore
 from torchaudio.prototype.pipelines import HIFIGAN_VOCODER_V3_LJSPEECH as hifigan_bundle

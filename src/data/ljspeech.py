@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from typing import Dict
+import tqdm
 
 import torch
 from torch.utils import data as torch_data
@@ -141,16 +142,11 @@ def serialize_ds(ds: LJSpeechDataset, path: str) -> None:
         path: Path to the file to serialize the dataset to.
     """
 
-    debug_log_interval = 1000
-
     metadata = ds.get_dataset_metadata()
     metadata_path = os.path.join(path, 'metadata.json')
     with open(metadata_path, 'w', encoding='utf-8') as metadata_file:
         json.dump(metadata, metadata_file, ensure_ascii=False, indent=4)
 
-    for sample_idx, sample in enumerate(ds):
+    for sample_idx, sample in tqdm.tqdm(enumerate(ds), 'Serializing dataset', total=len(ds)):
         sample_path = os.path.join(path, f'{ds.get_sample_id(sample_idx)}.pt')
         torch.save(sample, sample_path)
-
-        if (sample_idx + 1) % debug_log_interval == 0:
-            logging.debug('Serialized %d samples.', sample_idx + 1)

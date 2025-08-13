@@ -4,6 +4,7 @@ import csv
 import json
 import logging
 import os
+import tqdm
 
 import pytorch_pretrained_bert as bert_lib
 import torch
@@ -138,11 +139,11 @@ def main(config):  # pylint: disable=too-many-locals
                           os.listdir(config['processed_ds_path']))
     sample_names = list(sample_names)
 
-    for sample_idx, sample_name in enumerate(sample_names):
-        data_sample_path = os.path.join(
-            config['processed_ds_path'], sample_name)
+    for sample_name in tqdm.tqdm(sample_names, 'Serializing samples', total=len(sample_names)):
+
         spectrogram, _, _, _, s_mask, = torch.load(
-            data_sample_path, weights_only=True)
+            os.path.join(config['processed_ds_path'], sample_name),
+            weights_only=True)
 
         sample_key = sample_name.split('.')[0]
 
@@ -176,17 +177,12 @@ def main(config):  # pylint: disable=too-many-locals
                                                                            s_mask)
             gst_embedding = acoustic_model_comps.embedder(spectrogram, s_mask)
 
-        enhanced_phonemes = enhanced_phonemes.squeeze(dim=0).to('cpu')
-        gst_weights = gst_weights.squeeze(dim=0).to('cpu')
-        phonemes_mask = phonemes_mask.squeeze(dim=0).to('cpu')
-        gst_embedding = gst_embedding.squeeze(dim=0).to('cpu')
+        sample = (enhanced_phonemes.squeeze(dim=0).to('cpu'),
+                  gst_weights.squeeze(dim=0).to('cpu'),
+                  phonemes_mask.squeeze(dim=0).to('cpu'),
+                  gst_embedding.squeeze(dim=0).to('cpu'))
 
-        output_path = os.path.join(config['output_path'], sample_name)
-        torch.save((enhanced_phonemes, phonemes_mask,
-                   bert_embeddings, gst_embedding, gst_weights), output_path)
-
-        if (sample_idx + 1) % 1000 == 0:
-            logging.debug('Processed %d samples.', sample_idx + 1)
+        torch.save(sample, os.path.join(config['output_path'], sample_name))
 
     logging.info('Calculating the dataset statistics.')
 

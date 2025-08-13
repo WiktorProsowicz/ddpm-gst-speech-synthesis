@@ -109,3 +109,28 @@
 - Added a new script for compiling the model into TorchScript
 - Added a enw script for running inference
 - Refactored classes responsible for serializing models' components
+
+### 2.0.0
+
+- Moved shared code for model building, training, checkpoint handling to [torch-dev-utils](https://github.com/WiktorProsowicz/torch-dev-utils) 
+- Removed Mel-to-Lin Converter (added support for HiFi-GAN vocoder)
+- Removed the code for unfinished `ddpm_gst_speech_gen` model
+- Removed the following scripts:
+   - `compile_model`
+   - `train_mel_to_lin_converter`
+   - `prepare_spectrograms_ds`
+   - `split_processed_samples`
+   - `train_model`
+- Modified FFT blocks's architecture:
+   - added Dropout, removed the last ReLU activation
+   - added padding mask handling for Self-Attention block
+- Modified acoustic decoder's architecture:
+   - removed Sigmoid activation from decoder's output
+- Modified acoustic encoder's architecture:
+   - replaced old style embedding conditioning with a single sum at the end of the encoder
+- Modified GST predictor's architecture:
+   - replaced convolutional encoder with FFT blocks
+   - replaced single-vector phoneme conditioning with attention over all phoneme-representations
+   - added deterministic GST weights predictor 
+- Removed notebooks folder
+- Minimized configuration required by scripts

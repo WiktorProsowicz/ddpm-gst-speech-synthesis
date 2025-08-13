@@ -10,10 +10,10 @@ import torch
 import torch_dev_utils as tdu
 
 from layers.acoustic import decoder as m_decoder
+from layers.acoustic import duration_predictor as m_dp
 from layers.acoustic import encoder as m_encoder
-from layers.shared import duration_predictor as m_dp
-from layers.shared import length_regulator as m_lr
-from layers.shared import ref_embedder
+from layers.acoustic import length_regulator as m_lr
+from layers.acoustic import ref_embedder
 
 
 @dataclass

@@ -94,9 +94,11 @@ class ModelTrainer(tdu.training.BaseTrainer):
         spec_prediction_loss = torch.sum(spec_prediction_loss * l_spec_mask)
         spec_prediction_loss /= l_spec_mask_sum
 
+        losses = {'spec_pred_loss': spec_prediction_loss,
+                  'duration_loss': duration_loss}
+
         return (
-            {'spec_pred_loss': spec_prediction_loss,
-             'duration_loss': duration_loss},
+            {k: v for k, v in losses.items() if v.requires_grad},
             {'duration_pred_mae': metrics.mean_absolute_error(
                 pred_durations, gt_durations, l_dur_mask, l_dur_mask_sum),
              'spec_pred_mae': metrics.mean_absolute_error(

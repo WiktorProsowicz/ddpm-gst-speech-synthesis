@@ -134,3 +134,8 @@
    - added deterministic GST weights predictor
 - Removed notebooks folder
 - Minimized configuration required by scripts
+
+### 2.0.1
+
+- Added reference to published paper
+- Fixed minor bugs

@@ -178,9 +178,10 @@ def main(config):  # pylint: disable=too-many-locals
             gst_embedding = acoustic_model_comps.embedder(spectrogram, s_mask)
 
         sample = (enhanced_phonemes.squeeze(dim=0).to('cpu'),
-                  gst_weights.squeeze(dim=0).to('cpu'),
                   phonemes_mask.squeeze(dim=0).to('cpu'),
-                  gst_embedding.squeeze(dim=0).to('cpu'))
+                  bert_embeddings.to('cpu'),
+                  gst_embedding.squeeze(dim=0).to('cpu'),
+                  gst_weights.squeeze(dim=0).to('cpu'))
 
         torch.save(sample, os.path.join(config['output_path'], sample_name))
 

@@ -194,13 +194,15 @@ def main(config):
         )
 
         gst_pred_inference_model = _get_gst_predictor_inference_model(config, device)
-        gst_weights, gst_emb = gst_pred_inference_model(  # pylint:disable=not-callable
-            phoneme_repr.unsqueeze(0).to(device),
-            bert_embeddings.unsqueeze(0).to(device),
-            phoneme_mask.unsqueeze(0).to(device),
-        )
+
+        with torch.no_grad():
+            gst_emb, gst_weights = gst_pred_inference_model(  # pylint:disable=not-callable
+                phoneme_repr.unsqueeze(0).to(device),
+                bert_embeddings.unsqueeze(0).to(device),
+                phoneme_mask.unsqueeze(0).to(device),
+            )
     else:
-        gst_weights, gst_emb = None, None
+        gst_emb, gst_weights = None, None
 
     logging.info('Running inference...')
 

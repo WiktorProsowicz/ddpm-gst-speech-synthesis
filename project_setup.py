@@ -5,94 +5,15 @@ Available functions and corresponding arguments are described in the
 main function as well as in the doc strings of the functions.
 """
 import argparse
-import dataclasses
 import logging
 import os
 import pathlib
-import shutil
 import subprocess
 import sys
 import venv
-from os import environ
 from os import path
 
 HOME_PATH = pathlib.Path(__file__).absolute().parent.as_posix()
-
-
-@dataclasses.dataclass(frozen=True)
-class _TestsRunParams:
-    """Contains configuration used while running tests."""
-
-    tests_path: str  # contains test files
-    resources_path: str  # contains resources used by tests
-    results_path: str  # shall contain test results dump
-
-
-def _run_tests(config: _TestsRunParams) -> None:
-    """Runs a specific kind of tests.
-
-    Args:
-        config: Configuration of the tests to be run.
-    """
-
-    src_path = path.join(HOME_PATH, 'src')
-
-    coverage_data_file = path.join(config.results_path, '.coverage')
-    coverage_stats_dir = path.join(config.results_path, 'coverage_stats')
-    tests_report_file = path.join(config.results_path, 'tests_report.xml')
-
-    if not os.path.exists(config.results_path):
-        os.makedirs(config.results_path)
-
-    logging.info('Cleaning test results directory...')
-
-    for root, dirs, files in os.walk(config.results_path):
-
-        for file in files:
-            os.remove(os.path.join(root, file))
-        for directory in dirs:
-            shutil.rmtree(os.path.join(root, directory))
-
-    current_env = environ.copy()
-    current_env['PYTHONPATH'] = (src_path +
-                                 ':' + current_env.get('PYTHONPATH', ''))
-    current_env['TEST_RESOURCES'] = config.resources_path
-    current_env['TEST_RESULTS'] = config.results_path
-
-    logging.info('Running tests...')
-
-    command = (f'python3 -m coverage run --data-file={coverage_data_file} --source={src_path}'
-               f' -m pytest --import-mode=prepend -s {config.tests_path} --tb=short'
-               f' --junitxml={tests_report_file} -W ignore::DeprecationWarning'
-               f' --rootdir={config.tests_path}')
-
-    subprocess.run(command.split(), check=False, env=current_env)
-
-    logging.info('Generating coverage report...')
-
-    command = (f'python3 -m coverage html --data-file={coverage_data_file}'
-               f' --directory={coverage_stats_dir} --omit=*/__init__.py')
-
-    subprocess.run(command.split(), check=False, env=current_env)
-
-    os.remove(coverage_data_file)
-
-
-def run_unit_tests() -> None:
-    """Run available unit tests from the 'tests/unit' directory."""
-
-    tests_path = path.join(HOME_PATH, 'tests')
-    resources_path = path.join(HOME_PATH, 'tests', 'res')
-    results_path = path.join(HOME_PATH, 'test_results')
-
-    tests_config = _TestsRunParams(tests_path, resources_path, results_path)
-
-    logging.info('Tests configuration:')
-    logging.info('\ttests_path:      %s', tests_config.tests_path)
-    logging.info('\tresources_path:  %s', tests_config.resources_path)
-    logging.info('\tresults_path:    %s', tests_config.results_path)
-
-    _run_tests(tests_config)
 
 
 def run_repository_checks():
@@ -189,7 +110,7 @@ def _get_available_functions():
     order to setup a venv).
     """
 
-    available_functions_env = [run_unit_tests, run_repository_checks]
+    available_functions_env = [run_repository_checks]
 
     available_functions_glob = [setup_venv]
 
